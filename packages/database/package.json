@@ -8,6 +8,8 @@
     ".": "./client.ts"
   },
   "scripts": {
+    "build": "prisma generate --schema=prisma/schema.prisma",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -5,8 +5,13 @@ import { PrismaService } from './prisma.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const prisma = app.get(PrismaService);
-
-  // Verify DB connection on startup
+  app.setGlobalPrefix('api');
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
   try {
     await prisma.$queryRaw`SELECT 1`;
     console.log('✓ Database connected');
