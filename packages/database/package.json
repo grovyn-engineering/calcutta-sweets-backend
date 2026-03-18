@@ -1,0 +1,26 @@
+{
+  "name": "@calcutta/database",
+  "version": "1.0.0",
+  "description": "",
+  "main": "client.ts",
+  "types": "client.ts",
+  "exports": {
+    ".": "./client.ts"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.32.1",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "prisma": "^7.5.0"
+  }
+}
