@@ -11,15 +11,30 @@ import styles from './AppLayout.module.css';
 const { Header, Sider, Content } = Layout;
 
 const sidebarItems = [
-  { key: '/', label: <Link href="/">Dashboard</Link> },
-  { key: '/shops', label: <Link href="/shops">Shops</Link> },
-  { key: '/products', label: <Link href="/products">Products</Link> },
+  { key: '/', label: <Link href="/" className={styles.menuLink} scroll={false}>Dashboard</Link> },
+  { key: '/billing-pos', label: <Link href="/billing-pos" className={styles.menuLink} scroll={false}>Billing POS</Link> },
+  { key: '/orders', label: <Link href="/orders" className={styles.menuLink} scroll={false}>Orders</Link> },
+  { key: '/products', label: <Link href="/products" className={styles.menuLink} scroll={false}>Products</Link> },
+  { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link> },
+  { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link> },
+  { key: '/reports', label: <Link href="/reports" className={styles.menuLink} scroll={false}>Reports</Link> },
+  { key: '/users', label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link> },
+  { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link> },
+  { key: '/logout', label: <Link href="/logout" className={styles.menuLink} scroll={false}>Logout</Link> },
 ];
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
-  '/shops': 'Shops',
+  '/billing-pos': 'Billing POS',
+  '/orders': 'Orders',
   '/products': 'Products',
+  '/inventory': 'Inventory',
+  '/categories': 'Categories',
+  '/reports': 'Reports',
+  '/users': 'Users',
+  '/settings': 'Settings',
+  '/logout': 'Logout',
+  '/shops': 'Shops',
 };
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -33,13 +48,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         theme="light"
         className={`min-h-screen fixed left-0 top-0 bottom-0 z-10 ${styles.sider}`}
       >
-        <Link href="/" className={`flex h-16 items-center gap-3 px-6 ${styles.logoLink}`}>
+        <Link href="/" className={`flex h-16 items-center gap-3 px-6 ${styles.logoLink}`} scroll={false}>
           <Image
             src={logo}
             alt="Calcutta Sweets"
             width={150}
             height={100}
             className="object-contain"
+            style={{ width: 'auto', height: 'auto' }}
           />
         </Link>
         <Menu

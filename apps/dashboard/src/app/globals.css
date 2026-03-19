@@ -131,3 +131,32 @@ body {
     color-scheme: light;
   }
 }
+
+/* Custom scrollbars - slim, cream/gold aesthetic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bistre-200) var(--linen-95);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--linen-95);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--bistre-200);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--bistre-300);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--ochre-400);
+}

@@ -7,7 +7,7 @@ export default function ProductsPage() {
   const { data, error, loading } = useFetch(`/products?shopCode=${process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE}`, { method: 'GET' });
 
   if (loading) return <LoadingDots />;
-  if (error) return <div>Error: {error as string}</div>;
+  if (error) return <div>Error: {String(error)}</div>;
   if (!data) return <div>No data</div>;
 
   return (

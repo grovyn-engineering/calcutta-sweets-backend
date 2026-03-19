@@ -11,6 +11,13 @@
   border-bottom: 1px solid var(--pearl-bush);
 }
 
+.menuLink {
+  display: block;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
 .menu {
   height: calc(100vh - 64px);
 }
