@@ -1,10 +1,22 @@
-export default function Home() {
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { useAuth } from "@/contexts/AuthContext";
+
+export default function HomePage() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading) return;
+    router.replace(isAuthenticated ? "/dashboard" : "/login");
+  }, [isAuthenticated, isLoading, router]);
+
   return (
-    <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Dashboard</h1>
-      <p className="mt-3 text-[var(--text-secondary)] leading-relaxed">
-        Welcome to Calcutta Sweets. Use the sidebar to navigate.
-      </p>
+    <div className="flex min-h-screen items-center justify-center bg-[var(--linen)]">
+      <LoadingDots />
     </div>
   );
 }

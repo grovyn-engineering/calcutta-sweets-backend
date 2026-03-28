@@ -1,6 +1,8 @@
 'use client';
 
-import { ConfigProvider } from 'antd';
+import { App, ConfigProvider } from 'antd';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ShopProvider } from '@/contexts/ShopContext';
 
 const theme = {
   token: {
@@ -14,6 +16,10 @@ const theme = {
     colorBorder: '#e8e2d9',
     colorBorderSecondary: '#e8e2d9',
     borderRadius: 8,
+    /* Default Ant link blue → brand ochre (Typography, Breadcrumb, etc.) */
+    colorLink: '#a67c23',
+    colorLinkHover: '#c9932d',
+    colorLinkActive: '#8a6518',
   },
   components: {
     Menu: {
@@ -26,5 +32,13 @@ const theme = {
 };
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <ConfigProvider theme={theme}>{children}</ConfigProvider>;
+  return (
+    <ConfigProvider theme={theme}>
+      <App>
+        <AuthProvider>
+          <ShopProvider>{children}</ShopProvider>
+        </AuthProvider>
+      </App>
+    </ConfigProvider>
+  );
 }

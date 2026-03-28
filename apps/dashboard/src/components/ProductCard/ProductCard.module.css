@@ -1,0 +1,148 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--pearl-bush);
+  background: linear-gradient(180deg, #fffef9 0%, #fff 48%);
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+  overflow: hidden;
+}
+
+.header {
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--pearl-bush);
+  background: var(--linen-95);
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.badgeActive,
+.badgeInactive {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badgeActive {
+  background: var(--ochre-100);
+  color: var(--ochre-600);
+  border: 1px solid var(--ochre-200);
+}
+
+.badgeInactive {
+  background: var(--bistre-100);
+  color: var(--bistre-500);
+  border: 1px solid var(--bistre-200);
+}
+
+.category {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ochre-600);
+}
+
+.description {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.meta {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.variants {
+  padding: 1rem 1.25rem 1.25rem;
+  flex: 1;
+}
+
+.variantsTitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.emptyVariants {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.variantList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.variantRow {
+  border-radius: 10px;
+  border: 1px solid var(--pearl-bush);
+  background: var(--linen-100);
+  padding: 0.65rem 0.75rem;
+}
+
+.variantMain {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.variantName {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.price {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--ochre-600);
+  white-space: nowrap;
+}
+
+.variantMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.hsn {
+  font-variant-numeric: tabular-nums;
+}

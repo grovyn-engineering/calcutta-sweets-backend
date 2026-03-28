@@ -65,6 +65,7 @@ enum UserRole {
   MANAGER
   CASHIER
   STAFF
+  SUPER_ADMIN
 }
 
 enum OrderStatus {
@@ -74,16 +75,19 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id         String   @id @default(uuid())
-
+  id         String   @id @default(uuid())   
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id])
 
   productId  String
   product    Product  @relation(fields: [productId], references: [id])
 
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
+
   quantity   Int
   price      Float   
+  
 }
 
 // ================== ORDER ==================
@@ -99,43 +103,92 @@ model Order {
 
   status       OrderStatus @default(PAID)
 
+  /** POS settlement: CASH | UPI_CARD */
+  paymentMethod String @default("CASH")
+
   createdById  String?
   createdBy    User?    @relation(fields: [createdById], references: [id])
 
-  createdAt    DateTime @default(now())
+  customerName   String?
+  customerPhone  String?
+  customerEmail  String?
 
+  createdAt    DateTime @default(now())
   items        OrderItem[]
 }
 
-// ================== PRODUCT ==================
+enum Unit {
+  KG
+  GM
+  LTR
+  ML
+  PC
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+
+  products  Product[]
+
+  createdAt DateTime @default(now())
+}
+
 model Product {
   id            String   @id @default(uuid())
 
   name          String
   description   String?
 
-  price         Float
-  costPrice     Float?
-
-  barcode       String   @unique  
-  sku           String?
-
-  quantity      Int      @default(0)
-  minStock      Int?
-
-  unit          String?  
-
-  category      String? 
-
-  imageUrl      String?
-
-  isActive      Boolean  @default(true)
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
 
   shopCode      String
   shop          Shop     @relation(fields: [shopCode], references: [shopCode])
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @default(now()) @updatedAt
+  isActive      Boolean  @default(true)
 
+  variants      ProductVariant[]
   orderItems    OrderItem[]
+  images        ProductImage[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ProductVariant {
+  id          String   @id @default(uuid())
+
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+
+  name        String   // e.g. "200g", "1kg", "Regular"
+
+  price       Float
+  costPrice   Float?
+
+  barcode     String   @unique
+  sku         String?
+
+  hsnCode     String?
+
+  quantity    Int      @default(0)
+  minStock    Int?
+
+  unit        Unit?
+
+  orderItems  OrderItem[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  url       String
+
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
 }

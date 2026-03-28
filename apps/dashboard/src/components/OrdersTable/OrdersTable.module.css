@@ -1,0 +1,195 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.toolbar {
+  flex-shrink: 0;
+  max-width: min(100%, 420px);
+}
+
+.searchInput :global(.ant-input-affix-wrapper) {
+  min-height: 42px;
+  border-radius: 10px;
+  border-color: var(--bistre-100);
+  background: var(--linen-95) !important;
+}
+
+.searchInput :global(.ant-input-affix-wrapper-focused),
+.searchInput :global(.ant-input-affix-wrapper:focus-within) {
+  border-color: var(--ochre-400);
+  box-shadow: 0 0 0 2px var(--ochre-10);
+}
+
+.searchInput :global(.ant-input) {
+  background: transparent !important;
+}
+
+.tableSlot {
+  width: 100%;
+  min-height: 320px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tableSlot :global(.tabulator) {
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 12px;
+  border: 1px solid var(--pearl-bush);
+  background: rgba(255, 254, 249, 0.45);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+  color: var(--text-primary);
+}
+
+.tableSlot :global(.tabulator .tabulator-header) {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 214, 0.92) 0%,
+    rgba(250, 235, 205, 0.75) 42%,
+    rgba(245, 228, 190, 0.55) 100%
+  );
+  border-bottom: 2px solid rgba(166, 124, 35, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bistre-800);
+}
+
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col) {
+  background: transparent !important;
+  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
+}
+
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+  box-shadow: none;
+}
+
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col .tabulator-col-content) {
+  padding: 14px 10px;
+}
+
+.tableSlot :global(.tabulator .tabulator-col .tabulator-col-content) {
+  padding: 11px 10px;
+}
+
+.tableSlot :global(.tabulator .tabulator-row) {
+  border-bottom: 1px solid rgba(232, 226, 217, 0.65);
+}
+
+.tableSlot :global(.tabulator .tabulator-row.tabulator-row-even) {
+  background: #fffef9;
+}
+
+.tableSlot :global(.tabulator .tabulator-row.tabulator-row-odd) {
+  background: var(--linen-100);
+}
+
+.tableSlot :global(.tabulator .tabulator-row .tabulator-cell) {
+  border-right: 1px solid rgba(232, 226, 217, 0.35);
+  padding: 11px 10px;
+  vertical-align: middle;
+}
+
+.tableSlot :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
+  border-right: none;
+}
+
+.tableSlot :global(.tabulator .tabulator-footer) {
+  background: linear-gradient(180deg, var(--parchment) 0%, var(--linen-95) 100%);
+  border-top: 1px solid var(--pearl-bush);
+  padding: 10px 12px;
+}
+
+.tableSlot :global(.tabulator .tabulator-footer .tabulator-page) {
+  border-radius: 10px;
+  border: 1px solid var(--pearl-bush);
+  background: #fffef9;
+  color: var(--bistre-600);
+  padding: 5px 10px;
+  margin: 0 2px;
+  font-weight: 600;
+  min-width: 2rem;
+}
+
+.tableSlot :global(.tabulator .tabulator-footer .tabulator-page.active) {
+  background: linear-gradient(180deg, var(--ochre-400) 0%, var(--ochre-500) 100%);
+  border-color: var(--ochre-500);
+  color: #fff;
+}
+
+.tableSlot :global(.tabulator .tabulator-footer select) {
+  border-radius: 10px;
+  border: 1px solid var(--pearl-bush);
+  padding: 5px 8px;
+}
+
+.tableSlot :global(.tabulator .tabulator-placeholder) {
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+}
+
+.tableSlot :global(.orders-pay-pill) {
+  display: inline-flex;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.tableSlot :global(.orders-pay-pill--cash) {
+  color: #3d5538;
+  background: rgba(80, 140, 90, 0.16);
+  border: 1px solid rgba(80, 140, 90, 0.35);
+}
+
+.tableSlot :global(.orders-pay-pill--upi) {
+  color: #4a3d8c;
+  background: rgba(100, 80, 180, 0.12);
+  border: 1px solid rgba(100, 80, 180, 0.28);
+}
+
+.tableSlot :global(.orders-status-pill) {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bistre-600);
+}
+
+.tableSlot :global(.orders-bill-ref) {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--bistre-600);
+}
+
+.tableSlot :global(.orders-cust-name) {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.tableSlot :global(.orders-cust-phone) {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}

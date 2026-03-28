@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "dotenv": "^16.4.7",
     "prisma": "^7.5.0"
   }
 }

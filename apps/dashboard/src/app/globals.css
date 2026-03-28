@@ -124,6 +124,28 @@ body {
   min-height: 100vh;
 }
 
+/*
+ * Next.js <Link> and plain anchors: Tailwind preflight / UA defaults use bluish
+ * link & hover — align with ochre/bistre theme.
+ */
+a:where(:any-link) {
+  color: var(--ochre-600);
+  text-decoration-color: var(--ochre-300);
+}
+
+a:where(:any-link):visited {
+  color: var(--ochre-600);
+}
+
+a:where(:any-link):hover {
+  color: var(--ochre-500);
+  text-decoration-color: var(--ochre-500);
+}
+
+a:where(:any-link):active {
+  color: var(--ochre-600);
+}
+
 /* Force light theme - prevent system dark mode from affecting layout */
 @media (prefers-color-scheme: dark) {
   html.light,

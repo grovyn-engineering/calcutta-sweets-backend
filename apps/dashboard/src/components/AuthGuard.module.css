@@ -1,0 +1,29 @@
+/**
+ * Wraps the full app chrome; overlay is fixed to the viewport so it covers
+ * sidebar + header + main (not only the content column).
+ */
+.authShell {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.loadingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(249, 248, 247);
+}
+
+.fullPageLoader {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--linen-100);
+}
