@@ -1,0 +1,134 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+
+@Injectable()
+export class UsersService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findPage(shopCode: string, page: number, size: number) {
+    if (!shopCode) {
+      throw new BadRequestException('shopCode is required');
+    }
+    const skip = (page - 1) * size;
+    const where = { shopCode };
+
+    const [total, rows] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: size,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          shopCode: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const last_page = Math.max(1, Math.ceil(total / size) || 1);
+    return { data: rows, last_page };
+  }
+
+  async create(dto: CreateUserDto) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+    const shop = await this.prisma.shop.findUnique({
+      where: { shopCode: dto.shopCode },
+    });
+    if (!shop) {
+      throw new BadRequestException(`Shop ${dto.shopCode} not found`);
+    }
+
+    return this.prisma.user.create({
+      data: {
+        email,
+        password: dto.password,
+        name: dto.name ?? null,
+        shopCode: dto.shopCode,
+        role: dto.role,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        shopCode: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async update(id: string, dto: UpdateUserDto, scopeShopCode: string) {
+    await this.findOneForShop(id, scopeShopCode);
+
+    if (dto.shopCode) {
+      const shop = await this.prisma.shop.findUnique({
+        where: { shopCode: dto.shopCode },
+      });
+      if (!shop) {
+        throw new BadRequestException(`Shop ${dto.shopCode} not found`);
+      }
+    }
+
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.password !== undefined) data.password = dto.password;
+    if (dto.shopCode !== undefined) data.shopCode = dto.shopCode;
+    if (dto.role !== undefined) data.role = dto.role;
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+
+    return this.prisma.user.update({
+      where: { id },
+      data: data as any,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        shopCode: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async findOneForShop(id: string, shopCode: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, shopCode },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        shopCode: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException(`User #${id} not found`);
+    }
+    return user;
+  }
+}

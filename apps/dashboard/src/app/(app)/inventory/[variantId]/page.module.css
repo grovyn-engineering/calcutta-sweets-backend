@@ -1,0 +1,133 @@
+.page {
+  max-width: 960px;
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+}
+
+.formLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 2rem;
+}
+
+.breadcrumb {
+  margin-bottom: 1.25rem;
+}
+
+.breadcrumb :global(.ant-breadcrumb-link) {
+  color: var(--text-secondary);
+}
+
+.crumbLink {
+  color: var(--ochre-600);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.crumbLink:hover {
+  color: var(--ochre-500);
+  text-decoration: underline;
+}
+
+.crumbCurrent {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.card {
+  background: var(--linen-100) !important;
+  border: 1px solid var(--pearl-bush) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.form {
+  margin-top: 0.5rem;
+}
+
+.collapse {
+  background: transparent !important;
+}
+
+.collapse :global(.ant-collapse-item) {
+  margin-bottom: 12px;
+  border: 1px solid var(--pearl-bush) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  background: #fff !important;
+}
+
+.collapse :global(.ant-collapse-header) {
+  font-weight: 600 !important;
+  color: var(--bistre-800) !important;
+  background: var(--linen-95) !important;
+}
+
+.collapse :global(.ant-collapse-content-box) {
+  padding: 16px 16px 8px !important;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.span2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .span2 {
+    grid-column: span 1;
+  }
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pearl-bush);
+}
+
+.actions :global(.ant-btn-primary) {
+  background: var(--ochre-500);
+  border-color: var(--ochre-500);
+}
+
+.actions :global(.ant-btn-primary:hover) {
+  background: var(--ochre-400) !important;
+  border-color: var(--ochre-400) !important;
+}

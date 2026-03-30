@@ -1,0 +1,185 @@
+.wrap {
+  min-width: 0;
+  height: min(52vh, 520px);
+  min-height: clamp(220px, 32vh, 360px);
+  max-height: min(52vh, 520px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tabulatorInner {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabulatorInner :global(.tabulator) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.tabulatorInner :global(.tabulator .tabulator-tableholder) {
+  flex: 1 1 auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bistre-200) var(--linen-95);
+}
+
+.tabulatorInner
+  :global(.tabulator .tabulator-tableholder)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tabulatorInner
+  :global(.tabulator .tabulator-tableholder)::-webkit-scrollbar-track {
+  background: var(--linen-95);
+  border-radius: 4px;
+}
+
+.tabulatorInner
+  :global(.tabulator .tabulator-tableholder)::-webkit-scrollbar-thumb {
+  background: var(--bistre-200);
+  border-radius: 4px;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-header) {
+  border-bottom: 1px solid rgba(232, 226, 217, 0.85);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
+  border-right: none;
+  background: transparent;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-col .tabulator-col-content) {
+  padding: 0.65rem 0.75rem;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bistre-600);
+}
+
+.tabulatorInner :global(.tabulator .tabulator-row) {
+  border-bottom: 1px solid rgba(232, 226, 217, 0.85);
+  background: transparent;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-row.tabulator-row-even),
+.tabulatorInner :global(.tabulator .tabulator-row.tabulator-row-odd) {
+  background: transparent;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-row:hover) {
+  background: rgba(201, 147, 45, 0.06);
+}
+
+.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
+  padding: 0.65rem 0.75rem;
+  border-right: none;
+  vertical-align: middle;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-placeholder) {
+  padding: 1.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.wrap :global(.category-products-tabulator-dots) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 2rem;
+}
+
+.wrap :global(.category-products-tabulator-dots span) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ochre-400);
+  animation: categoryProductsDot 1s ease-in-out infinite;
+}
+
+.wrap :global(.category-products-tabulator-dots span:nth-child(1)) {
+  animation-delay: 0ms;
+}
+
+.wrap :global(.category-products-tabulator-dots span:nth-child(2)) {
+  animation-delay: 0.15s;
+}
+
+.wrap :global(.category-products-tabulator-dots span:nth-child(3)) {
+  animation-delay: 0.3s;
+}
+
+@keyframes categoryProductsDot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tabulatorInner :global(.tabulator .tabulator-alert) {
+  border: none;
+  background: transparent;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-alert .tabulator-alert-msg),
+.tabulatorInner
+  :global(
+    .tabulator .tabulator-alert .tabulator-alert-msg.tabulator-alert-state-msg
+  ) {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.wrap :global(.category-products-num) {
+  font-variant-numeric: tabular-nums;
+}
+
+.wrap :global(.category-products-link) {
+  color: var(--ochre-600);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.wrap :global(.category-products-link:hover) {
+  text-decoration: underline;
+}
+
+.wrap :global(.category-products-link:focus-visible) {
+  outline: 2px solid var(--ochre-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.wrap :global(.category-products-dash) {
+  color: var(--text-muted);
+}

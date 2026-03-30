@@ -1,0 +1,77 @@
+.layout {
+  background: var(--linen);
+}
+
+.sider {
+  background: var(--linen-95) !important;
+  border-right: 1px solid var(--pearl-bush);
+}
+
+.logoLink {
+  border-bottom: 1px solid var(--pearl-bush);
+  color: inherit;
+  text-decoration: none;
+}
+
+.logoLink:hover,
+.logoLink:visited,
+.logoLink:active {
+  color: inherit;
+}
+
+.menuLink {
+  display: block;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.menuLink:hover,
+.menuLink:visited,
+.menuLink:active {
+  color: inherit;
+}
+
+.menu {
+  height: calc(100vh - 64px);
+  padding-top: 16px;
+}
+
+.menu :global(.ant-menu-item-selected) {
+  background: var(--bistre-100) !important;
+  color: var(--ochre-600) !important;
+  font-weight: 500;
+  border-right: 3px solid var(--ochre-600) !important;
+  border-radius: 0;
+}
+
+.menu :global(.ant-menu-item:hover) {
+  border-radius: 0;
+}
+.mainLayout {
+  background: var(--linen);
+}
+
+.header {
+  background: var(--linen-95) !important;
+  border-bottom: 1px solid var(--pearl-bush);
+  padding: 0 24px;
+}
+
+.content {
+  background: var(--linen-100) !important;
+  max-height: calc(100vh - 64px);
+  overflow-y: scroll;
+}
+
+.pageTitle {
+  color: var(--text-secondary);
+}
+
+.shopSelect {
+  min-width: 220px;
+}
+
+.headerActions {
+  align-items: center;
+}

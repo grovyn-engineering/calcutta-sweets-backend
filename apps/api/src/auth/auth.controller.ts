@@ -1,4 +1,42 @@
-import { Controller } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { VerifyOtpDto } from './dto/verify-dto.dto';
 
 @Controller('auth')
-export class AuthController {}
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post('login')
+  login(@Body() loginDto: { email: string; password: string }) {
+    return this.authService.signIn(loginDto.email, loginDto.password);
+  }
+
+  @Post('update')
+  update(@Body() updateDto: { email: string; password: string; shopCode: string; role: string, name: string }) {
+    return this.authService.updateUser(updateDto.email, updateDto.password, updateDto.shopCode, updateDto.role, updateDto.name);
+  }
+  @Post('register')
+  register(@Body() registerDto: { email: string; password: string; shopCode: string; role: string }) {
+    return this.authService.register(
+      registerDto.email,
+      registerDto.password,
+      registerDto.shopCode,
+      registerDto.role,
+    );
+  }
+
+  @Post('verify-otp')
+  verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto.email, dto.otp);
+  }
+
+  @Post('verify-reset-password')
+  verifyResetPassword(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyResetPasswordOTP(dto.email, dto.otp);
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() forgotPasswordDto: { email: string }) {
+    return this.authService.sendResetPasswordEmailOTP(forgotPasswordDto.email);
+  }
+}
