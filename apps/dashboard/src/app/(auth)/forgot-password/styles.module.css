@@ -1,0 +1,56 @@
+.card{
+    min-width: 400px;
+    min-height: 400px;
+    margin-top: 40px;
+    background-color: var(--color-white);
+    align-items: center;
+}
+
+.form_item{
+    margin-top: 6px;
+}
+
+.input{
+    height: 40px;
+    width: 100%;
+}
+
+.login_button{
+    height: 40px;
+    width: 100%;
+    background: linear-gradient(to right, #8a6b4a, #c2885c );
+    color: var(--color-white);
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.form_container{
+    margin-top: 20px;
+}
+
+.otp_input{
+    height: 40px;
+    width: 40px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--bistre-500);
+    border: 1px solid var(--bistre-200);
+    border-radius: 5px;
+    outline: none;
+    background-color: var(--color-white);
+}
+
+.otp_input::-webkit-outer-spin-button,
+.otp_input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+.otp_input {
+  -moz-appearance: textfield;
+}

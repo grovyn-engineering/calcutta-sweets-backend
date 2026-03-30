@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* Calcutta Sweets - Brand Color Palette */
+:root {
+  /* Bistre - Dark brown scale (text, dark backgrounds, UI) */
+  --bistre-950: #1a110c; /* Deepest brown / near-black - headings, primary text */
+  --bistre-900: #231810; /* Near-black warm */
+  --bistre-800: #2c1810; /* Espresso - primary dark */
+  --bistre-700: #3d2818; /* Dark brown */
+  --bistre-600: #4e3420; /* Medium dark */
+  --bistre-500: #6b4a30; /* Muted text */
+  --bistre-400: #8a6b4a; /* Secondary text */
+  --bistre-300: #a88b6a; /* Tertiary / placeholder */
+  --bistre-200: #c5ad94; /* Disabled / borders */
+  --bistre-100: #e2d5c8; /* Light borders */
+  --bistre: var(--bistre-800); /* Alias */
+  --bistre-80: rgba(44, 24, 16, 0.8);
+  --bistre-60: rgba(44, 24, 16, 0.6);
+  --bistre-50: rgba(44, 24, 16, 0.5);
+
+  /* Linen - Cream/off-white (light backgrounds) */
+  --linen: #faf0e6;
+  --linen-100: #f9f8f7;
+  --linen-95: #f5ebe0;
+  --linen-90: #f0e6db;
+  --linen-80: #ebe0d5;
+
+  /* Ochre / Terracotta - CTA, accents, highlights */
+  --ochre-600: #a67c23; /* Dark - active state, pressed */
+  --ochre-500: #c9932d; /* Primary CTA */
+  --ochre-400: #d4a84b; /* Hover state */
+  --ochre-300: #e0bc6d; /* Light accent */
+  --ochre-200: #ecd18f; /* Muted / outlined buttons */
+  --ochre-100: #f5e6c4; /* Subtle background */
+  --ochre-50: rgba(201, 147, 45, 0.5);
+  --ochre-20: rgba(201, 147, 45, 0.2);
+  --ochre-10: rgba(201, 147, 45, 0.1);
+  --ochre-2: rgba(201, 147, 45, 0.02);
+  --ochre: var(--ochre-500);
+  --ochre-light: var(--ochre-400);
+  --ochre-dark: var(--ochre-600);
+
+  /* Parchment / Pearl Bush - Subtle backgrounds */
+  --parchment: #f1e9d9;
+  --pearl-bush: #e8e2d9;
+
+  /* Semantic - Text */
+  --text-primary: var(--bistre-950);
+  --text-secondary: var(--bistre-500);
+  --text-muted: var(--bistre-400);
+  --text-disabled: var(--bistre-300);
+
+  /* Semantic - CTA */
+  --cta-primary: var(--ochre-500);
+  --cta-hover: var(--ochre-400);
+  --cta-active: var(--ochre-600);
+  --cta-muted: var(--ochre-200);
+
+  /* Semantic - Backgrounds */
+  --background: var(--linen);
+  --foreground: var(--bistre-950);
+}
+
+@theme inline {
+  /* Bistre scale */
+  --color-bistre-950: var(--bistre-950);
+  --color-bistre-900: var(--bistre-900);
+  --color-bistre-800: var(--bistre-800);
+  --color-bistre-700: var(--bistre-700);
+  --color-bistre-600: var(--bistre-600);
+  --color-bistre-500: var(--bistre-500);
+  --color-bistre-400: var(--bistre-400);
+  --color-bistre-300: var(--bistre-300);
+  --color-bistre-200: var(--bistre-200);
+  --color-bistre-100: var(--bistre-100);
+  --color-bistre: var(--bistre);
+  --color-bistre-80: var(--bistre-80);
+  --color-bistre-60: var(--bistre-60);
+  /* Linen */
+  --color-linen: var(--linen);
+  --color-linen-95: var(--linen-95);
+  --color-linen-90: var(--linen-90);
+  --color-linen-80: var(--linen-80);
+  /* Ochre scale */
+  --color-ochre-600: var(--ochre-600);
+  --color-ochre-500: var(--ochre-500);
+  --color-ochre-400: var(--ochre-400);
+  --color-ochre-300: var(--ochre-300);
+  --color-ochre-200: var(--ochre-200);
+  --color-ochre-100: var(--ochre-100);
+  --color-ochre-50: var(--ochre-50);
+  --color-ochre-20: var(--ochre-20);
+  --color-ochre-10: var(--ochre-10);
+  --color-ochre: var(--ochre);
+  --color-ochre-light: var(--ochre-light);
+  --color-ochre-dark: var(--ochre-dark);
+  /* Parchment / Pearl Bush */
+  --color-parchment: var(--parchment);
+  --color-pearl-bush: var(--pearl-bush);
+  /* Semantic */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-cta-primary: var(--cta-primary);
+  --color-cta-hover: var(--cta-hover);
+  --color-cta-active: var(--cta-active);
+  --color-cta-muted: var(--cta-muted);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  background: var(--linen);
+  min-height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/*
+ * Next.js <Link> and plain anchors: Tailwind preflight / UA defaults use bluish
+ * link & hover — align with ochre/bistre theme.
+ */
+a:where(:any-link) {
+  color: var(--ochre-600);
+  text-decoration-color: var(--ochre-300);
+}
+
+a:where(:any-link):visited {
+  color: var(--ochre-600);
+}
+
+a:where(:any-link):hover {
+  color: var(--ochre-500);
+  text-decoration-color: var(--ochre-500);
+}
+
+a:where(:any-link):active {
+  color: var(--ochre-600);
+}
+
+/* Force light theme - prevent system dark mode from affecting layout */
+@media (prefers-color-scheme: dark) {
+  html.light,
+  html.light body {
+    color-scheme: light;
+  }
+}
+
+/* Custom scrollbars - slim, cream/gold aesthetic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bistre-200) var(--linen-95);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--linen-95);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--bistre-200);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--bistre-300);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--ochre-400);
+}

@@ -1,0 +1,171 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 226, 217, 0.9);
+  background: rgba(255, 254, 249, 0.65);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.row:hover {
+  background: rgba(255, 254, 249, 0.95);
+  border-color: var(--ochre-200);
+}
+
+.main {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.nameLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+
+.statusOn,
+.statusOff {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.statusOn {
+  color: var(--ochre-600);
+  background: var(--ochre-100);
+  border: 1px solid var(--ochre-200);
+}
+
+.statusOff {
+  color: var(--bistre-500);
+  background: var(--bistre-100);
+  border: 1px solid var(--bistre-200);
+}
+
+.variantChips {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.6875rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--pearl-bush);
+  color: var(--bistre-700);
+}
+
+.chipName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chipPrice {
+  font-weight: 700;
+  color: var(--ochre-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.chipStock {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.chipMore {
+  align-self: center;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.25rem 0.35rem;
+}
+
+.noVariants {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.statBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 4.5rem;
+}
+
+.statLabel {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--bistre-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.manageLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ochre-600);
+  text-decoration: none;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--ochre-300);
+  background: linear-gradient(180deg, #fffef9 0%, var(--ochre-10) 100%);
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.manageLink:hover {
+  border-color: var(--ochre-500);
+  background: var(--ochre-100);
+}
+
+.manageDisabled {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  padding: 0.35rem 0.5rem;
+}

@@ -1,0 +1,516 @@
+.root {
+  width: 100%;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.toolbarMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.toolbarLabel {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shopLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 0.75rem;
+}
+
+.shopIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--ochre-600);
+}
+
+.shopName {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.shopCode {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--bistre-700);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--pearl-bush);
+  border-radius: 8px;
+}
+
+.addBtn {
+  height: auto !important;
+  padding: 0.55rem 1.15rem !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px rgba(166, 124, 35, 0.25);
+}
+
+.addBtn :global(.ant-btn-icon) {
+  margin-inline-end: 6px !important;
+}
+
+/* Grid area only — toolbar stays above this slot */
+.tableSlot {
+  width: 100%;
+  min-width: 0;
+}
+
+.wrap {
+  width: 100%;
+  min-height: 360px;
+  padding: 2px;
+}
+
+/* Matches .wrap .tabulator frame so loading reads as “table only”, not the whole panel */
+.tableLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 360px;
+  padding: 2rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--pearl-bush);
+  background: linear-gradient(180deg, #fffef9 0%, #fff 45%);
+  box-shadow:
+    0 1px 2px rgba(44, 24, 16, 0.04),
+    0 10px 32px rgba(44, 24, 16, 0.07);
+}
+
+.wrap :global(.tabulator) {
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 12px;
+  border: 1px solid var(--pearl-bush);
+  background: linear-gradient(180deg, #fffef9 0%, #fff 45%);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(44, 24, 16, 0.04),
+    0 10px 32px rgba(44, 24, 16, 0.07);
+  color: var(--text-primary);
+}
+
+.wrap :global(.tabulator .tabulator-alert) {
+  top: 48px;
+  bottom: 48px;
+  height: auto;
+  background: rgba(249, 248, 247, 0.94) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.wrap :global(.tabulator .tabulator-alert .tabulator-alert-msg),
+.wrap :global(.tabulator .tabulator-alert .tabulator-alert-msg.tabulator-alert-state-msg) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  border-radius: 0 !important;
+  max-width: none !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+}
+
+.wrap :global(.users-tabulator-dots) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.wrap :global(.users-tabulator-dots span) {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ochre-500);
+  animation: users-dot-jump 0.6s ease-in-out infinite;
+}
+
+.wrap :global(.users-tabulator-dots span:nth-child(1)) {
+  animation-delay: 0s;
+}
+
+.wrap :global(.users-tabulator-dots span:nth-child(2)) {
+  animation-delay: 0.15s;
+}
+
+.wrap :global(.users-tabulator-dots span:nth-child(3)) {
+  animation-delay: 0.3s;
+}
+
+@keyframes users-dot-jump {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+}
+
+.wrap :global(.tabulator .tabulator-header) {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 214, 0.92) 0%,
+    rgba(250, 235, 205, 0.75) 42%,
+    rgba(245, 228, 190, 0.55) 100%
+  );
+  border-bottom: 2px solid rgba(166, 124, 35, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 6px 16px -8px rgba(44, 24, 16, 0.12);
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--bistre-800);
+}
+
+.wrap :global(.tabulator .tabulator-header .tabulator-col) {
+  background: transparent !important;
+  border-right: 1px solid rgba(166, 124, 35, 0.18);
+}
+
+.wrap :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+  border-right: none;
+}
+
+.wrap :global(.tabulator .tabulator-header .tabulator-col .tabulator-col-content) {
+  padding: 14px 16px;
+}
+
+.wrap :global(.tabulator .tabulator-col .tabulator-col-content) {
+  padding: 12px 14px;
+}
+
+/* Sortable column hover — replace Tabulator default gray */
+@media (hover: hover) and (pointer: fine) {
+  .wrap
+    :global(
+      .tabulator
+        .tabulator-header
+        .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover
+    ) {
+    background-color: rgba(201, 147, 45, 0.14) !important;
+  }
+}
+
+/* Sort chevrons — higher contrast */
+.wrap
+  :global(
+    .tabulator
+      .tabulator-header
+      .tabulator-col.tabulator-sortable[aria-sort="none"]
+      .tabulator-col-content
+      .tabulator-col-sorter
+  ) {
+  color: var(--bistre-500);
+}
+
+.wrap
+  :global(
+    .tabulator
+      .tabulator-header
+      .tabulator-col.tabulator-sortable[aria-sort="none"]
+      .tabulator-col-content
+      .tabulator-col-sorter
+      .tabulator-arrow
+  ) {
+  border-bottom-color: var(--bistre-400) !important;
+  opacity: 0.85;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wrap
+    :global(
+      .tabulator
+        .tabulator-header
+        .tabulator-col.tabulator-sortable[aria-sort="none"]
+        .tabulator-col-content
+        .tabulator-col-sorter.tabulator-col-sorter-element
+        .tabulator-arrow:hover
+    ) {
+    border-bottom-color: var(--ochre-600) !important;
+    opacity: 1;
+  }
+}
+
+.wrap
+  :global(
+    .tabulator
+      .tabulator-header
+      .tabulator-col.tabulator-sortable[aria-sort="ascending"]
+      .tabulator-col-content
+      .tabulator-col-sorter
+  ),
+.wrap
+  :global(
+    .tabulator
+      .tabulator-header
+      .tabulator-col.tabulator-sortable[aria-sort="descending"]
+      .tabulator-col-content
+      .tabulator-col-sorter
+  ) {
+  color: var(--ochre-700);
+}
+
+.wrap
+  :global(
+    .tabulator
+      .tabulator-header
+      .tabulator-col.tabulator-sortable[aria-sort="ascending"]
+      .tabulator-col-content
+      .tabulator-col-sorter
+      .tabulator-arrow
+  ) {
+  border-bottom-color: var(--ochre-600) !important;
+}
+
+.wrap
+  :global(
+    .tabulator
+      .tabulator-header
+      .tabulator-col.tabulator-sortable[aria-sort="descending"]
+      .tabulator-col-content
+      .tabulator-col-sorter
+      .tabulator-arrow
+  ) {
+  border-top-color: var(--ochre-600) !important;
+}
+
+.wrap :global(.tabulator .tabulator-row) {
+  border-bottom: 1px solid rgba(232, 226, 217, 0.55);
+  transition: background 0.14s ease;
+}
+
+.wrap :global(.tabulator .tabulator-row.tabulator-row-even) {
+  background: #fffef9;
+}
+
+.wrap :global(.tabulator .tabulator-row.tabulator-row-odd) {
+  background: var(--linen-100);
+}
+
+.wrap :global(.tabulator .tabulator-row:hover) {
+  background: var(--ochre-10) !important;
+}
+
+.wrap :global(.tabulator .tabulator-row .tabulator-cell) {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-right: 1px solid rgba(232, 226, 217, 0.35);
+}
+
+.wrap :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
+  border-right: none;
+}
+
+.wrap :global(.tabulator .tabulator-footer) {
+  background: white;
+  border-top: 1px solid var(--pearl-bush);
+  padding: 12px 14px;
+}
+
+.wrap :global(.tabulator .tabulator-footer .tabulator-page) {
+  border-radius: 10px;
+  border: 1px solid var(--pearl-bush);
+  background: #fffef9;
+  color: var(--bistre-600);
+  padding: 6px 12px;
+  margin: 0 3px;
+  font-weight: 600;
+  min-width: 2.25rem;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.wrap :global(.tabulator .tabulator-footer .tabulator-page:hover:not([disabled])) {
+  background: var(--ochre-100);
+  border-color: var(--ochre-300);
+  color: var(--ochre-600);
+}
+
+.wrap :global(.tabulator .tabulator-footer .tabulator-page.active) {
+  background: linear-gradient(180deg, var(--ochre-400) 0%, var(--ochre-500) 100%);
+  border-color: var(--ochre-500);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(166, 124, 35, 0.35);
+}
+
+.wrap :global(.tabulator .tabulator-footer select) {
+  border-radius: 10px;
+  border: 1px solid var(--pearl-bush);
+  background: #fff;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-weight: 500;
+}
+
+.wrap :global(.tabulator .tabulator-placeholder) {
+  padding: 2.75rem 1.5rem;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.wrap :global(.tabulator .users-email) {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bistre-800);
+  word-break: break-word;
+}
+
+.wrap :global(.tabulator .users-name-muted) {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Pills — appended as global classes from Tabulator DOM */
+.wrap :global(.users-pill) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  line-height: 1.3;
+}
+
+.wrap :global(.users-pill--super_admin) {
+  color: #7a5a0a;
+  background: linear-gradient(180deg, #fff6d9 0%, var(--ochre-100) 100%);
+  border-color: var(--ochre-300);
+}
+
+.wrap :global(.users-pill--admin) {
+  color: var(--bistre-800);
+  background: var(--linen-95);
+  border-color: var(--bistre-200);
+}
+
+.wrap :global(.users-pill--manager) {
+  color: #4a3420;
+  background: rgba(201, 147, 45, 0.12);
+  border-color: rgba(201, 147, 45, 0.35);
+}
+
+.wrap :global(.users-pill--cashier) {
+  color: #3d5538;
+  background: rgba(90, 120, 80, 0.12);
+  border-color: rgba(90, 120, 80, 0.28);
+}
+
+.wrap :global(.users-pill--staff) {
+  color: var(--bistre-600);
+  background: rgba(255, 255, 255, 0.8);
+  border-color: var(--pearl-bush);
+}
+
+.wrap :global(.users-pill--role-default) {
+  color: var(--bistre-600);
+  background: var(--linen-100);
+  border-color: var(--pearl-bush);
+}
+
+.wrap :global(.users-pill--shop) {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--bistre-700);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--pearl-bush);
+}
+
+.wrap :global(.users-pill--active) {
+  color: #2d5a3a;
+  background: rgba(80, 140, 90, 0.14);
+  border-color: rgba(80, 140, 90, 0.35);
+}
+
+.wrap :global(.users-pill--inactive) {
+  color: var(--bistre-500);
+  background: var(--linen-90);
+  border-color: var(--bistre-100);
+  font-weight: 600;
+}
+
+.wrap :global(.tabulator .users-edit-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--ochre-600);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ochre-300);
+  background: linear-gradient(180deg, #fffef9 0%, var(--ochre-10) 100%);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.wrap :global(.tabulator .users-edit-btn:hover) {
+  border-color: var(--ochre-500);
+  background: var(--ochre-100);
+  box-shadow: 0 2px 8px rgba(166, 124, 35, 0.18);
+}
+
+.wrap :global(.tabulator .users-edit-btn:focus-visible) {
+  outline: 2px solid var(--ochre-400);
+  outline-offset: 2px;
+}
+
+.modalTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
