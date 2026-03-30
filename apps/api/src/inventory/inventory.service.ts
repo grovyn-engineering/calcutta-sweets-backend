@@ -80,10 +80,7 @@ export class InventoryService {
     });
   }
 
-  /**
-   * Paginated variant rows for inventory / POS (one row per SKU / variant).
-   * Supports optional `q` / `category` / `activeOnly` for billing filters.
-   */
+  /** Paginated SKUs for inventory and POS; optional search, category, active-only. */
   async findVariantsPage(
     shopCode: string,
     page: number,

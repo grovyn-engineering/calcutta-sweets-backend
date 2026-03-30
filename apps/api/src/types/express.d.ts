@@ -4,7 +4,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: User;
-      /** Set by ShopScopeGuard after JwtAuthGuard (shop context from X-Shop + role rules). */
+      /** Shop code resolved by ShopScopeGuard (header + role). */
       effectiveShopCode?: string;
     }
   }

@@ -13,6 +13,8 @@ export type PrintInvoiceInput = {
   shopName: string;
   shopCode: string;
   invoiceNo: string;
+  /** Bill header date/time. Omit for the current time; use the stored sale time when reprinting. */
+  issuedAt?: string;
   customer: CustomerFormValues | null;
   lines: InvoiceLineInput[];
   subtotal: number;
@@ -39,10 +41,11 @@ function formatMoney(n: number): string {
 }
 
 /**
- * Opens a minimal document with a print-friendly tax invoice and triggers the browser print dialog.
- * Returns false if the popup was blocked.
+ * Opens the invoice HTML in a new window and runs the browser print dialog.
+ * @returns `false` if the window was blocked.
  */
 export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
+  const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
   const rows = data.lines.map((line) => {
     const lineTotal = line.quantity * line.unitPrice;
     const variant =
@@ -131,8 +134,8 @@ export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
   <div class="tagline">Calcutta Sweets · Est. 2000 · Shop ${esc(data.shopCode)}</div>
   <div class="meta">
     <div><strong>Invoice no.</strong> ${esc(data.invoiceNo)}</div>
-    <div><strong>Date</strong> ${esc(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}</div>
-    <div><strong>Time</strong> ${esc(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))}</div>
+    <div><strong>Date</strong> ${esc(when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}</div>
+    <div><strong>Time</strong> ${esc(when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))}</div>
   </div>
   ${customerBlock}
   <table>
@@ -170,12 +173,7 @@ export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
 </body>
 </html>`;
 
-  /**
-   * Do not pass `noopener` in the features string: in Chrome (and others)
-   * `window.open` then returns `null` while still opening an empty tab, so we
-   * never get a reference to call `document.write` — users see a blank tab and
-   * our code reports “popup blocked”.
-   */
+  // Avoid `noopener` in the feature string — some browsers still open a tab but return `null` from `window.open`.
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');
@@ -203,7 +201,7 @@ export function makeInvoiceNo(prefix = 'INV'): string {
   return `${prefix}-${t.toString(36).toUpperCase()}-${r}`;
 }
 
-/** Stable short ref from persisted order id (matches saved bill). */
+/** Compact bill reference derived from the order id (what we show on printed invoices). */
 export function orderIdToInvoiceRef(id: string): string {
   return id.replace(/-/g, '').slice(0, 12).toUpperCase();
 }

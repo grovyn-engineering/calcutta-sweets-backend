@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
@@ -143,6 +144,51 @@ export class OrdersService {
       page: safePage,
       size,
       total,
+    };
+  }
+
+  async findOne(shopCode: string, id: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id, shopCode },
+      include: {
+        items: {
+          orderBy: { id: 'asc' },
+          include: {
+            product: { select: { name: true } },
+            productVariant: {
+              select: { name: true, unit: true, barcode: true },
+            },
+          },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    const subtotal = order.items.reduce(
+      (s, i) => s + i.quantity * i.price,
+      0,
+    );
+    return {
+      id: order.id,
+      createdAt: order.createdAt.toISOString(),
+      paymentMethod: order.paymentMethod,
+      totalAmount: order.totalAmount,
+      tax: order.tax ?? 0,
+      discount: order.discount ?? 0,
+      status: order.status,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail,
+      subtotal,
+      items: order.items.map((i) => ({
+        quantity: i.quantity,
+        unitPrice: i.price,
+        productName: i.product.name,
+        variantLabel: i.productVariant?.name ?? '—',
+        unit: i.productVariant?.unit ?? null,
+        barcode: i.productVariant?.barcode ?? '',
+      })),
     };
   }
 }

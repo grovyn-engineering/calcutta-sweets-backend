@@ -20,7 +20,7 @@ import { UpdateVariantDto } from './dto/update-variant.dto';
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  /** List route before `:id` so static `variants` is not captured as a param. */
+  /** Declared before `/:id` so paths like `variants/lookup` are not treated as ids. */
   @Get('variants/lookup')
   lookupByBarcode(@Req() req: Request, @Query('barcode') barcode?: string) {
     const b = barcode?.trim();

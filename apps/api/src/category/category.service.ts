@@ -24,7 +24,7 @@ export type CategoryShopSummary = {
 export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Categories with products (current shop) and per-product + total stock from variants. */
+  /** Categories for this shop: products and stock rolled up from variants. */
   async findAllWithShopSummary(shopCode: string): Promise<CategoryShopSummary[]> {
     const categories = await this.prisma.category.findMany({
       orderBy: { name: 'asc' },

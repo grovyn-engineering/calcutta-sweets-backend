@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -41,5 +43,10 @@ export class OrdersController {
       Math.max(1, parseInt(sizeStr ?? '15', 10) || 15),
     );
     return this.ordersService.findPage(req.effectiveShopCode!, page, size, q);
+  }
+
+  @Get(':id')
+  findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findOne(req.effectiveShopCode!, id);
   }
 }

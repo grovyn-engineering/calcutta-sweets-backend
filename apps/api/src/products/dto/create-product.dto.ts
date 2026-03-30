@@ -20,7 +20,7 @@ export class CreateProductDto {
   @IsString()
   barcode?: string;
 
-  /** When set, product is filed under this category for the shop. */
+  /** Optional category to attach on create. */
   @IsOptional()
   @IsUUID()
   categoryId?: string;

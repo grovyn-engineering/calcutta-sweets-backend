@@ -62,10 +62,7 @@ export class ProductsService {
     });
   }
 
-  /**
-   * Paginated products for a shop (optional `page` on GET /products).
-   * Supports `q` (name contains, case-insensitive) and `categoryId`.
-   */
+  /** Paginated products; optional name search and category filter. */
   async findPage(
     shopCode: string,
     page: number,

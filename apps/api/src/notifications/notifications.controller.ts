@@ -9,7 +9,7 @@ import { NotificationsService } from './notifications.service';
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  /** Rolling 24h product/variant additions + current low-stock alerts for the active shop. */
+  /** Last 24 hours of new SKUs and current low-stock lines for the scoped shop. */
   @Get('activity')
   activity(@Req() req: Request) {
     return this.notificationsService.getShopActivity(req.effectiveShopCode!);

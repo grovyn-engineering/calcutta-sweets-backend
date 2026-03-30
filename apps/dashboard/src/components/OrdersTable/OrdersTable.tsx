@@ -3,6 +3,7 @@
 import { Input } from "antd";
 import dynamic from "next/dynamic";
 import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 
@@ -53,6 +54,7 @@ const PAGE_SIZE = 12;
 const PAGE_SIZE_OPTIONS = [10, 12, 20];
 
 export default function OrdersTable() {
+  const router = useRouter();
   const { effectiveShopCode } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
@@ -217,6 +219,17 @@ export default function OrdersTable() {
     };
   }, []);
 
+  /** Row clicks: use `events` — this wrapper doesn’t pick up `rowClick` from `options`. */
+  const events = useMemo(
+    () => ({
+      rowClick: (_e: unknown, row: { getData: () => OrderRow }) => {
+        const data = row.getData();
+        if (data?.id) router.push(`/orders/${encodeURIComponent(data.id)}`);
+      },
+    }),
+    [router],
+  );
+
   if (!shopKey) return null;
 
   return (
@@ -238,6 +251,7 @@ export default function OrdersTable() {
         <ReactTabulator
           columns={columns}
           options={options}
+          events={events}
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}

@@ -11,8 +11,7 @@ import type { User } from '@prisma/client';
 import type { Request } from 'express';
 
 /**
- * Runs after JwtAuthGuard. Sets `req.effectiveShopCode` from `X-Shop` (super admin)
- * or from the authenticated user's `shopCode` (everyone else).
+ * After JWT: fills `req.effectiveShopCode` from X-Shop for super admins, otherwise the user's shop.
  */
 @Injectable()
 export class ShopScopeGuard implements CanActivate {

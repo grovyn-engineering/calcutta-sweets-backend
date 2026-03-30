@@ -1,11 +1,9 @@
-import React from 'react'
+import DashboardHome from "@/components/DashboardHome/DashboardHome";
 
-function DashboardPage() {
+export default function DashboardPage() {
   return (
-    <div>
-        <h1>Dashboard</h1>
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <DashboardHome />
     </div>
-  )
+  );
 }
-
-export default DashboardPage

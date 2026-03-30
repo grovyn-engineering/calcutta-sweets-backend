@@ -17,7 +17,6 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    // Tabulator’s default fetch sets X-Requested-With (browser preflight must allow it)
     allowedHeaders: [
       'Content-Type',
       'Authorization',

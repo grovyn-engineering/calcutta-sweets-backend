@@ -66,7 +66,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       ? 'Inventory'
       : pathname.startsWith('/categories/')
         ? 'Categories'
-        : 'Dashboard');
+        : pathname.startsWith('/orders/')
+          ? 'Bill detail'
+          : 'Dashboard');
 
   const showShopSwitcher = user?.role === 'SUPER_ADMIN' && shops.length > 0;
 
@@ -89,7 +91,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </Link>
         <Menu
           mode="inline"
-          selectedKeys={[pathname]}
+          selectedKeys={[
+            pathname.startsWith('/orders/') ? '/orders' : pathname,
+          ]}
           items={sidebarItems}
           className={`${styles.menu}`}
         />
