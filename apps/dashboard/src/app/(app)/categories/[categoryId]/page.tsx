@@ -255,7 +255,6 @@ export default function CategoryDetailPage() {
           onFinish={onAddProduct}
           className={styles.addForm}
         >
-          {/* Required fields */}
           <div className={styles.addFormGrid}>
             <Form.Item
               name="name"
@@ -280,7 +279,6 @@ export default function CategoryDetailPage() {
             </Form.Item>
           </div>
 
-          {/* Optional fields */}
           <Collapse
             ghost
             size="small"

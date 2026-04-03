@@ -41,22 +41,33 @@ export class AuthService {
     return { user: result, access_token, refresh_token };
   }
 
-  async sendResetPasswordEmailOTP(email: string): Promise<{ message: string }> {
+  async sendResetPasswordEmailOTP(email: string): Promise<{ message: string; seconds_remaining?: number }> {
+    const emailKey = email.toLowerCase().trim();
+
+    // Enforce 60-second resend cooldown
+    const cooldownKey = `otp:reset:cooldown:${emailKey}`;
+    const cooldownTtl = await this.redis.ttl(cooldownKey);
+    if (cooldownTtl > 0) {
+      throw new HttpException(
+        { message: 'Please wait before requesting another OTP.', seconds_remaining: cooldownTtl },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const user = await this.prisma.user.findFirst({
-      where: { email: email.toLowerCase().trim() as string },
+      where: { email: emailKey },
     });
     if (!user) {
-      // Don't reveal whether email exists
       return { message: 'If an account exists, an OTP has been sent to your email.' };
     }
 
     const otp = Math.floor(Math.random() * Math.pow(10, OTP_LENGTH))
       .toString()
       .padStart(OTP_LENGTH, '0');
-    const emailKey = email.toLowerCase().trim() as string;
 
     await this.redis.set(`otp:reset:${emailKey}`, otp, 'EX', OTP_TTL_SECONDS);
     await this.emailService.sendOtpEmail(email, otp);
+    await this.redis.set(cooldownKey, '1', 'EX', 60);
 
     return { message: 'If an account exists, an OTP has been sent to your email.' };
   }
@@ -73,8 +84,27 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired OTP');
     }
 
+    // Consume the OTP and store a short-lived verified token (10 min)
     await this.redis.del(`otp:reset:${emailKey}`);
+    await this.redis.set(`otp:reset:verified:${emailKey}`, '1', 'EX', 600);
     return { verified: true };
+  }
+
+  async resetPasswordVerified(email: string, newPassword: string): Promise<{ message: string }> {
+    const emailKey = email.toLowerCase().trim();
+    const isVerified = await this.redis.get(`otp:reset:verified:${emailKey}`);
+    if (!isVerified) {
+      throw new UnauthorizedException('OTP not verified or session expired. Please restart.');
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long');
+    }
+    await this.redis.del(`otp:reset:verified:${emailKey}`);
+    await this.prisma.user.update({
+      where: { email: emailKey },
+      data: { password: newPassword },
+    });
+    return { message: 'Password reset successfully.' };
   }
 
   async resetPassword(email: string, otp: string, newPassword: string): Promise<any> {
@@ -100,9 +130,16 @@ export class AuthService {
     return { user: result, access_token, refresh_token };
   }
 
-  async sendChangePasswordEmailOTP(userId: string): Promise<{ message: string }> {
+  async sendChangePasswordEmailOTP(userId: string, oldPassword: string): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.password !== oldPassword) {
+      throw new HttpException(
+        { message: 'Incorrect current password. Please try again.', code: 'WRONG_OLD_PASSWORD' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     const otp = Math.floor(Math.random() * Math.pow(10, OTP_LENGTH)).toString().padStart(OTP_LENGTH, '0');
     await this.redis.set(`otp:change:${user.id}`, otp, 'EX', OTP_TTL_SECONDS);

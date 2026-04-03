@@ -37,6 +37,11 @@ export class AuthController {
     return this.authService.verifyResetPasswordOTP(dto.email, dto.otp);
   }
 
+  @Post('reset-password-verified')
+  resetPasswordVerified(@Body() dto: { email: string; newPassword: string }) {
+    return this.authService.resetPasswordVerified(dto.email, dto.newPassword);
+  }
+
   @Post('forgot-password')
   forgotPassword(@Body() forgotPasswordDto: { email: string }) {
     return this.authService.sendResetPasswordEmailOTP(forgotPasswordDto.email);
@@ -50,14 +55,18 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('send-change-password-otp')
-  sendChangePasswordOtp(@Req() req: Request) {
-    return this.authService.sendChangePasswordEmailOTP((req.user as any).sub || (req.user as any).id);
+  sendChangePasswordOtp(@Req() req: Request, @Body() dto: { oldPassword: string }) {
+    return this.authService.sendChangePasswordEmailOTP(
+      (req.user as any).sub || (req.user as any).id,
+      dto.oldPassword,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
   changePassword(@Req() req: Request, @Body() dto: { oldPassword: string; newPassword: string; otp: string }) {
-    if (dto.newPassword.length < 8) throw new Error('Password must be at least 8 characters long');
+    if (!dto.newPassword || dto.newPassword.length < 8) throw new Error('Password must be at least 8 characters long');
+    if (!dto.oldPassword) throw new Error('Old password is required');
     return this.authService.changePassword((req.user as any).sub || (req.user as any).id, dto.oldPassword, dto.newPassword, dto.otp);
   }
 }
