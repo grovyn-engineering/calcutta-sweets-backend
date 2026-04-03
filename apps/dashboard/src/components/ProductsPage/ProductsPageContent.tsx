@@ -4,6 +4,8 @@ import { Button, Collapse, Input, Segmented } from "antd";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+
 import type { ProductWithRelations } from "@/components/ProductCard/ProductCard";
 import { ProductCatalogRow } from "./ProductCatalogRow";
 import styles from "./ProductsPageContent.module.css";
@@ -71,11 +73,12 @@ function groupByCategory(
 
 export function ProductsPageContent({ products }: Props) {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 500);
   const [status, setStatus] = useState<StatusFilter>("all");
 
   const filtered = useMemo(
-    () => filterProducts(products, search, status),
-    [products, search, status],
+    () => filterProducts(products, debouncedSearch, status),
+    [products, debouncedSearch, status],
   );
 
   const groups = useMemo(() => groupByCategory(filtered), [filtered]);
@@ -86,7 +89,7 @@ export function ProductsPageContent({ products }: Props) {
 
   useEffect(() => {
     setOpenKeys(allKeys);
-  }, [search, status, allKeys.join("|")]);
+  }, [debouncedSearch, status, allKeys.join("|")]);
 
   const expandAll = () => setOpenKeys(allKeys);
   const collapseAll = () => setOpenKeys([]);

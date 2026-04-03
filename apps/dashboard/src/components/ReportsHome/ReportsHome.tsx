@@ -192,8 +192,8 @@ export default function ReportsHome() {
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={14}>
+          <Row gutter={[16, 16]} className="items-stretch">
+            <Col xs={24} xl={14} className="flex flex-col">
               <Card
                 title={
                   <span className="flex items-center gap-2">
@@ -202,9 +202,10 @@ export default function ReportsHome() {
                   </span>
                 }
                 variant="borderless"
-                className="rounded-xl border border-[var(--pearl-bush)] shadow-sm"
+                className="flex flex-col h-full rounded-xl border border-[var(--pearl-bush)] shadow-sm"
+                styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
               >
-                <div className="h-[320px] w-full min-w-0">
+                <div className="flex-1 w-full min-w-0 min-h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={barData}
@@ -258,7 +259,7 @@ export default function ReportsHome() {
                 </div>
               </Card>
             </Col>
-            <Col xs={24} xl={10}>
+            <Col xs={24} xl={10} className="flex flex-col">
               <Card
                 title={
                   <span className="flex items-center gap-2">
@@ -267,16 +268,17 @@ export default function ReportsHome() {
                   </span>
                 }
                 variant="borderless"
-                className="rounded-xl border border-[var(--pearl-bush)] shadow-sm"
+                className="flex flex-col h-full rounded-xl border border-[var(--pearl-bush)] shadow-sm"
+                styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
               >
-                {pieData.length === 0 ? (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="No sales in this range"
-                    className="py-8"
-                  />
-                ) : (
-                  <div className="h-[320px] w-full min-w-0">
+                <div className="flex-1 w-full min-w-0 min-h-[320px] flex items-center justify-center">
+                  {pieData.length === 0 ? (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="No sales in this range"
+                      className="py-8"
+                    />
+                  ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -315,8 +317,8 @@ export default function ReportsHome() {
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
-                  </div>
-                )}
+                  )}
+                </div>
               </Card>
             </Col>
           </Row>
@@ -382,7 +384,7 @@ export default function ReportsHome() {
             <Text type="secondary" className="mb-3 block text-sm">
               Click a row to open bill details. Same data as the Orders list.
             </Text>
-            <div className="min-h-[360px]">
+            <div className="max-h-[550px]">
               <ReportsOrdersTabulator />
             </div>
           </Card>

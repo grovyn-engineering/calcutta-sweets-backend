@@ -83,7 +83,11 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         .finally(() => setShopsLoading(false));
     } else {
       setShops([]);
-      setEffectiveShopCodeState(user.shopCode || defaultEnv);
+      const code = user.shopCode || defaultEnv;
+      setEffectiveShopCodeState(code);
+      if (typeof window !== "undefined" && code) {
+        localStorage.setItem(STORAGE_KEY, code);
+      }
     }
   }, [isAuthenticated, user, defaultEnv]);
 

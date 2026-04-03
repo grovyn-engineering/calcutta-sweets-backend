@@ -12,6 +12,8 @@ import { CategoryModule } from './category/category.module';
 import { OrdersModule } from './orders/orders.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { RoleRequestsModule } from './role-requests/role-requests.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -29,8 +31,10 @@ import { AnalyticsModule } from './analytics/analytics.module';
     OrdersModule,
     NotificationsModule,
     AnalyticsModule,
+    RoleRequestsModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

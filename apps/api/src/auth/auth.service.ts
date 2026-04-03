@@ -22,7 +22,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly emailService: EmailService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   async signIn(email: string, pass: string): Promise<any> {
     const user = await this.prisma.user.findFirst({
@@ -77,6 +77,60 @@ export class AuthService {
     return { verified: true };
   }
 
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<any> {
+    const emailKey = email.toLowerCase().trim();
+    const storedOtp = await this.redis.get(`otp:reset:${emailKey}`);
+    const normalizedOtp = String(otp ?? '').trim();
+
+    if (!storedOtp || storedOtp.trim() !== normalizedOtp) {
+      throw new UnauthorizedException('Invalid or expired OTP');
+    }
+
+    await this.redis.del(`otp:reset:${emailKey}`);
+
+    const user = await this.prisma.user.update({
+      where: { email: emailKey },
+      data: { password: newPassword }
+    });
+
+    const { password, ...result } = user;
+    const payload = { sub: user.id as string };
+    const access_token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    const refresh_token = await this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    return { user: result, access_token, refresh_token };
+  }
+
+  async sendChangePasswordEmailOTP(userId: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const otp = Math.floor(Math.random() * Math.pow(10, OTP_LENGTH)).toString().padStart(OTP_LENGTH, '0');
+    await this.redis.set(`otp:change:${user.id}`, otp, 'EX', OTP_TTL_SECONDS);
+    await this.emailService.sendOtpEmail(user.email, otp);
+    return { message: 'OTP sent to your email.' };
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string, otp: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.password !== oldPassword) throw new UnauthorizedException('Incorrect old password');
+
+    const storedOtp = await this.redis.get(`otp:change:${user.id}`);
+    const normalizedOtp = String(otp ?? '').trim();
+    if (!storedOtp || storedOtp.trim() !== normalizedOtp) {
+      throw new UnauthorizedException('Invalid or expired OTP');
+    }
+
+    await this.redis.del(`otp:change:${user.id}`);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: newPassword }
+    });
+    return { message: 'Password changed successfully' };
+  }
+
   private normalizeRole(role: string): 'ADMIN' | 'SUPER_ADMIN' | 'MANAGER' | 'CASHIER' | 'STAFF' {
     const r = role.toLowerCase().replace(/-/g, '_');
     const mapped = ROLE_MAP[r] || role.toUpperCase().replace(/-/g, '_');
@@ -108,24 +162,24 @@ export class AuthService {
     return result;
   }
   async register(email: string, password: string, shopCode: string, role: string) {
-    try{
+    try {
       const normalizedRole = this.normalizeRole(role);
-    const shop = await this.prisma.shop.findUnique({
-      where: { shopCode },
-    });
-    if (!shop) {
-      throw new BadRequestException(`Shop with code ${shopCode} not found`);
-    }
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        password,
-        shopCode,
-        role: normalizedRole,
-      },
-    });
-    const payload = { sub: user.id };
-    return { user};
+      const shop = await this.prisma.shop.findUnique({
+        where: { shopCode },
+      });
+      if (!shop) {
+        throw new BadRequestException(`Shop with code ${shopCode} not found`);
+      }
+      const user = await this.prisma.user.create({
+        data: {
+          email,
+          password,
+          shopCode,
+          role: normalizedRole,
+        },
+      });
+      const payload = { sub: user.id };
+      return { user };
     } catch (error) {
       throw new HttpException({
         status: HttpStatus.FORBIDDEN,

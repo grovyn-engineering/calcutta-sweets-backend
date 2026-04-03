@@ -26,4 +26,24 @@ export class EmailService {
 
     return data;
   }
+
+  async sendRoleRequestEmail(email: string, requestedRole: string, status: string) {
+    const { data, error } = await this.resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Calcutta Sweets <no-reply@calcutta-sweets.com>',
+      to: [email],
+      subject: `Role Request ${status}`,
+      html: `
+        <div style="font-family: Arial;">
+          <h2>Calcutta Sweets</h2>
+          <p>Your role request for <b>${requestedRole}</b> has been <b>${status}</b>.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  }
 }

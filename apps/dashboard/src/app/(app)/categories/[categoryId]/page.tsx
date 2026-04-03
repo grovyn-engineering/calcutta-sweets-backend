@@ -3,11 +3,13 @@
 import {
   App,
   Button,
+  Collapse,
   Form,
   Input,
   InputNumber,
   Modal,
   Popconfirm,
+  Select,
 } from "antd";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -127,17 +129,36 @@ export default function CategoryDetailPage() {
     }
   };
 
-  const onAddProduct = async (values: { name: string; price: number }) => {
+  const onAddProduct = async (values: {
+    name: string;
+    price: number;
+    quantity?: number;
+    costPrice?: number;
+    sku?: string;
+    unit?: string;
+    hsnCode?: string;
+    minStock?: number;
+    barcode?: string;
+  }) => {
     if (!categoryId) return;
     setAddSubmitting(true);
     try {
+      const body: Record<string, unknown> = {
+        name: values.name.trim(),
+        price: values.price,
+        categoryId,
+      };
+      if (values.quantity !== undefined && values.quantity !== null) body.quantity = values.quantity;
+      if (values.costPrice !== undefined && values.costPrice !== null) body.costPrice = values.costPrice;
+      if (values.sku?.trim()) body.sku = values.sku.trim();
+      if (values.unit) body.unit = values.unit;
+      if (values.hsnCode?.trim()) body.hsnCode = values.hsnCode.trim();
+      if (values.minStock !== undefined && values.minStock !== null) body.minStock = values.minStock;
+      if (values.barcode?.trim()) body.barcode = values.barcode.trim();
+
       const res = await apiFetch("/products", {
         method: "POST",
-        body: JSON.stringify({
-          name: values.name.trim(),
-          price: values.price,
-          categoryId,
-        }),
+        body: JSON.stringify(body),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -230,25 +251,74 @@ export default function CategoryDetailPage() {
         <p className={styles.sectionLabel}>Add product to this category</p>
         <Form
           form={addForm}
-          layout="inline"
+          layout="vertical"
           onFinish={onAddProduct}
           className={styles.addForm}
         >
-          <Form.Item
-            name="name"
-            label="Product name"
-            rules={[{ required: true, message: "Required" }]}
-          >
-            <Input placeholder="Name" autoComplete="off" style={{ minWidth: 200 }} />
-          </Form.Item>
-          <Form.Item
-            name="price"
-            label="Price (INR)"
-            rules={[{ required: true, message: "Required" }]}
-          >
-            <InputNumber min={0} placeholder="0" style={{ width: 140 }} />
-          </Form.Item>
-          <Form.Item>
+          {/* Required fields */}
+          <div className={styles.addFormGrid}>
+            <Form.Item
+              name="name"
+              label="Product name"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <Input placeholder="e.g. Kaju Katli" autoComplete="off" />
+            </Form.Item>
+            <Form.Item
+              name="price"
+              label="Price (INR)"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <InputNumber min={0} placeholder="0" style={{ width: "100%" }} />
+            </Form.Item>
+            <Form.Item
+              name="quantity"
+              label="Initial stock qty"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <InputNumber min={0} placeholder="0" style={{ width: "100%" }} />
+            </Form.Item>
+          </div>
+
+          {/* Optional fields */}
+          <Collapse
+            ghost
+            size="small"
+            items={[{
+              key: "more",
+              label: <span className={styles.moreLabel}>More details (optional)</span>,
+              children: (
+                <div className={styles.addFormGrid}>
+                  <Form.Item name="costPrice" label="Cost price (INR)">
+                    <InputNumber min={0} placeholder="0" style={{ width: "100%" }} />
+                  </Form.Item>
+                  <Form.Item name="minStock" label="Min stock alert">
+                    <InputNumber min={0} placeholder="e.g. 10" style={{ width: "100%" }} />
+                  </Form.Item>
+                  <Form.Item name="unit" label="Unit">
+                    <Select placeholder="PC" options={[
+                      { value: "PC", label: "PC — Piece" },
+                      { value: "KG", label: "KG — Kilogram" },
+                      { value: "GM", label: "GM — Gram" },
+                      { value: "LTR", label: "LTR — Litre" },
+                      { value: "ML", label: "ML — Millilitre" },
+                    ]} allowClear />
+                  </Form.Item>
+                  <Form.Item name="sku" label="SKU">
+                    <Input placeholder="Custom SKU" autoComplete="off" />
+                  </Form.Item>
+                  <Form.Item name="hsnCode" label="HSN Code">
+                    <Input placeholder="e.g. 1704" autoComplete="off" />
+                  </Form.Item>
+                  <Form.Item name="barcode" label="Custom barcode">
+                    <Input placeholder="Auto-generated if blank" autoComplete="off" />
+                  </Form.Item>
+                </div>
+              ),
+            }]}
+          />
+
+          <Form.Item className="!mb-0">
             <Button type="primary" htmlType="submit" loading={addSubmitting}>
               Add product
             </Button>

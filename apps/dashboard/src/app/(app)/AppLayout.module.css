@@ -64,6 +64,12 @@
   overflow-y: scroll;
 }
 
+/* Single route: list fills the pane; Tabulator owns vertical scroll */
+.contentInventoryList {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .pageTitle {
   color: var(--text-secondary);
 }

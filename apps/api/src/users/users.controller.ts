@@ -21,11 +21,11 @@ import { UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
   findPage(
     @Req() req: Request,
     @Query('page') pageStr?: string,
@@ -37,11 +37,13 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Req() req: Request, @Param('id') id: string) {
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  findOneForManager(@Req() req: Request, @Param('id') id: string) {
     return this.usersService.findOneForShop(id, req.effectiveShopCode!);
   }
 
   @Post()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
   create(@Req() req: Request, @Body() dto: CreateUserDto) {
     return this.usersService.create({
       ...dto,
@@ -50,11 +52,24 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
   update(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
     return this.usersService.update(id, dto, req.effectiveShopCode!);
+  }
+
+  @Get('profile/me')
+  getMe(@Req() req: Request) {
+    const userId = (req.user as any).sub || (req.user as any).id;
+    return this.usersService.findOne(userId);
+  }
+
+  @Patch('profile/me')
+  updateMe(@Req() req: Request, @Body() dto: { name?: string; avatarUrl?: string; phone?: string }) {
+    const userId = (req.user as any).sub || (req.user as any).id;
+    return this.usersService.updateProfile(userId, dto);
   }
 }

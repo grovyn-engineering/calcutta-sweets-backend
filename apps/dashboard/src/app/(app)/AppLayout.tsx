@@ -17,19 +17,20 @@ const { Header, Sider, Content } = Layout;
 type SidebarItem = {
   key: string;
   label: React.ReactNode;
+  permissionKey?: keyof import('@/contexts/AuthContext').RolePermissions;
   superAdminOnly?: boolean;
 };
 
 const sidebarItemsDef: SidebarItem[] = [
-  { key: '/dashboard', label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link> },
-  { key: '/billing-pos', label: <Link href="/billing-pos" className={styles.menuLink} scroll={false}>Billing POS</Link> },
-  { key: '/orders', label: <Link href="/orders" className={styles.menuLink} scroll={false}>Orders</Link> },
-  { key: '/products', label: <Link href="/products" className={styles.menuLink} scroll={false}>Products</Link> },
-  { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link> },
-  { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link> },
-  { key: '/reports', label: <Link href="/reports" className={styles.menuLink} scroll={false}>Reports</Link> },
+  { key: '/dashboard', label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link>, permissionKey: 'canAccessDashboard' },
+  { key: '/billing-pos', label: <Link href="/billing-pos" className={styles.menuLink} scroll={false}>Billing POS</Link>, permissionKey: 'canAccessBilling' },
+  { key: '/orders', label: <Link href="/orders" className={styles.menuLink} scroll={false}>Orders</Link>, permissionKey: 'canAccessOrders' },
+  { key: '/products', label: <Link href="/products" className={styles.menuLink} scroll={false}>Products</Link>, permissionKey: 'canAccessProducts' },
+  { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link>, permissionKey: 'canAccessInventory' },
+  { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link>, permissionKey: 'canAccessCategories' },
+  { key: '/reports', label: <Link href="/reports" className={styles.menuLink} scroll={false}>Reports</Link>, permissionKey: 'canAccessReports' },
   { key: '/users', label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>, superAdminOnly: true },
-  { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link> },
+  { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link>, permissionKey: 'canAccessSettings' },
   { key: '/logout', label: <Link href="/logout" className={styles.menuLink} scroll={false}>Logout</Link> },
 ];
 
@@ -49,16 +50,20 @@ const pageTitles: Record<string, string> = {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, permissions } = useAuth();
   const { effectiveShopCode, setEffectiveShopCode, shops, shopsLoading } =
     useShop();
 
   const sidebarItems = useMemo(() => {
     const isSuper = user?.role === 'SUPER_ADMIN';
     return sidebarItemsDef
-      .filter((item) => !item.superAdminOnly || isSuper)
+      .filter((item) => {
+        if (item.superAdminOnly && !isSuper) return false;
+        if (item.permissionKey && permissions && !permissions[item.permissionKey]) return false;
+        return true;
+      })
       .map(({ key, label }) => ({ key, label }));
-  }, [user?.role]);
+  }, [user?.role, permissions]);
 
   const pageTitle =
     pageTitles[pathname] ??
@@ -71,6 +76,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           : 'Dashboard');
 
   const showShopSwitcher = user?.role === 'SUPER_ADMIN' && shops.length > 0;
+
+  const isInventoryListPage = pathname === "/inventory";
 
   return (
     <Layout className={`min-h-screen flex ${styles.layout}`}>
@@ -92,7 +99,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Menu
           mode="inline"
           selectedKeys={[
-            pathname.startsWith('/orders/') ? '/orders' : pathname,
+            ['/orders', '/products', '/inventory', '/categories', '/users', '/settings']
+              .find((base) => pathname.startsWith(base + '/') || pathname === base) ?? pathname,
           ]}
           items={sidebarItems}
           className={`${styles.menu}`}
@@ -130,7 +138,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </Space>
         </Header>
         <Content
-          className={`flex min-h-0 flex-1 flex-col p-6 ${styles.content}`}
+          className={`flex min-h-0 flex-1 flex-col p-6 ${styles.content} ${isInventoryListPage ? styles.contentInventoryList : ""}`}
         >
           {children}
         </Content>

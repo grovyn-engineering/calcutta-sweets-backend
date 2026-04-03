@@ -1,13 +1,16 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
-@UseGuards(JwtAuthGuard, ShopScopeGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ShopScopeGuard)
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private readonly analyticsService: AnalyticsService) { }
 
   @Get('dashboard')
   dashboard(@Req() req: Request) {
@@ -15,6 +18,7 @@ export class AnalyticsController {
   }
 
   @Get('reports/summary')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   reportsSummary(
     @Req() req: Request,
     @Query('days') daysStr?: string,

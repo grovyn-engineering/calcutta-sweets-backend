@@ -59,7 +59,7 @@ export default function OrdersTable() {
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebouncedValue(searchQuery, 350);
+  const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
 
@@ -70,14 +70,12 @@ export default function OrdersTable() {
   const filterKey = `${shopKey}|${debouncedSearch}`;
 
   useEffect(() => {
+    const prev = prevFilterKeyRef.current;
+    prevFilterKeyRef.current = filterKey;
+
     const t = tableRef.current;
     if (!t || !shopKey) return;
-    if (prevFilterKeyRef.current === null) {
-      prevFilterKeyRef.current = filterKey;
-      return;
-    }
-    if (prevFilterKeyRef.current === filterKey) return;
-    prevFilterKeyRef.current = filterKey;
+    if (prev === null || prev === filterKey) return;
     t.setPage(1);
   }, [filterKey, shopKey]);
 
