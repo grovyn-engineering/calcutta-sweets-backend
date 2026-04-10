@@ -1,10 +1,12 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { VerifyOtpDto } from './dto/verify-dto.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   login(@Body() loginDto: { email: string; password: string }) {
@@ -35,8 +37,36 @@ export class AuthController {
     return this.authService.verifyResetPasswordOTP(dto.email, dto.otp);
   }
 
+  @Post('reset-password-verified')
+  resetPasswordVerified(@Body() dto: { email: string; newPassword: string }) {
+    return this.authService.resetPasswordVerified(dto.email, dto.newPassword);
+  }
+
   @Post('forgot-password')
   forgotPassword(@Body() forgotPasswordDto: { email: string }) {
     return this.authService.sendResetPasswordEmailOTP(forgotPasswordDto.email);
+  }
+  @Post('reset-password')
+  resetPassword(@Body() dto: { email: string; otp: string; newPassword: string }) {
+    if (dto.newPassword.length < 8) throw new Error('Password must be at least 8 characters long');
+    // High security validation could be expanded here.
+    return this.authService.resetPassword(dto.email, dto.otp, dto.newPassword);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('send-change-password-otp')
+  sendChangePasswordOtp(@Req() req: Request, @Body() dto: { oldPassword: string }) {
+    return this.authService.sendChangePasswordEmailOTP(
+      (req.user as any).sub || (req.user as any).id,
+      dto.oldPassword,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  changePassword(@Req() req: Request, @Body() dto: { oldPassword: string; newPassword: string; otp: string }) {
+    if (!dto.newPassword || dto.newPassword.length < 8) throw new Error('Password must be at least 8 characters long');
+    if (!dto.oldPassword) throw new Error('Old password is required');
+    return this.authService.changePassword((req.user as any).sub || (req.user as any).id, dto.oldPassword, dto.newPassword, dto.otp);
   }
 }

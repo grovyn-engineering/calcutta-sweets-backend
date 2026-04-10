@@ -101,17 +101,24 @@
 
 .addForm {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .addForm :global(.ant-form-item) {
   margin-bottom: 0;
 }
 
-.addForm :global(.ant-form-item:last-child) {
-  flex: 0 0 auto;
+.addFormGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.moreLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ochre-600);
 }
 
 .modalTitle {

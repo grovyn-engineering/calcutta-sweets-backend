@@ -13,21 +13,37 @@
   max-width: min(100%, 420px);
 }
 
-.searchInput :global(.ant-input-affix-wrapper) {
-  min-height: 42px;
-  border-radius: 10px;
-  border-color: var(--bistre-100);
-  background: var(--linen-95) !important;
+:global(.ant-input-affix-wrapper).searchInput {
+  min-height: 48px;
+  border-radius: 12px;
+  border-color: rgba(44, 24, 16, 0.08);
+  background: #ffffff !important;
+  box-shadow: 
+    0 2px 4px rgba(44, 24, 16, 0.02),
+    0 1px 2px rgba(44, 24, 16, 0.04);
+  padding-left: 16px;
+  padding-right: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.searchInput :global(.ant-input-affix-wrapper-focused),
-.searchInput :global(.ant-input-affix-wrapper:focus-within) {
-  border-color: var(--ochre-400);
-  box-shadow: 0 0 0 2px var(--ochre-10);
+:global(.ant-input-affix-wrapper-focused).searchInput,
+:global(.ant-input-affix-wrapper:focus-within).searchInput {
+  border-color: var(--ochre-400) !important;
+  background: #ffffff !important;
+  box-shadow: 
+    0 4px 12px rgba(201, 147, 45, 0.05),
+    0 0 0 4px rgba(201, 147, 45, 0.15) !important;
 }
 
 .searchInput :global(.ant-input) {
   background: transparent !important;
+  font-size: 14.5px;
+  color: var(--bistre-950);
+}
+
+.searchInput :global(.ant-input-prefix) {
+  margin-right: 10px;
+  color: var(--bistre-300);
 }
 
 .tableSlot {

@@ -1,12 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
+import { DataTable } from "@/components/DataTable/DataTable";
 
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
-
-import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./CategoryProductsTabulator.module.css";
 
 type TabulatorPageable = { setPage: (page: number) => void };
@@ -38,14 +36,6 @@ type TabRow = {
   fromPrice: number;
   firstVariantId: string | null;
 };
-
-const ReactTabulator = dynamic(
-  () => import("react-tabulator/lib/ReactTabulator"),
-  { ssr: false, loading: () => null },
-);
-
-const TABULATOR_LOADING_HTML =
-  '<div class="category-products-tabulator-dots" aria-hidden="true"><span></span><span></span><span></span></div>';
 
 const PAGE_SIZE = 25;
 
@@ -219,7 +209,6 @@ function CategoryProductsTabulatorInner({
         });
       },
       dataLoader: true,
-      dataLoaderLoading: TABULATOR_LOADING_HTML,
     };
   }, [baseUrl]);
 
@@ -233,7 +222,7 @@ function CategoryProductsTabulatorInner({
   return (
     <div className={styles.wrap}>
       <div className={styles.tabulatorInner}>
-        <ReactTabulator
+        <DataTable
           columns={columns}
           options={options}
           onRef={onTableRef}

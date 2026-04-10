@@ -15,7 +15,7 @@ export type VariantListFilters = {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async findVariantByBarcode(barcode: string, shopCode: string) {
     const row = await this.prisma.productVariant.findFirst({
@@ -49,7 +49,7 @@ export class InventoryService {
     const row = await this.prisma.productVariant.findUnique({
       where: { id },
       include: {
-        product: { include: { category: true, shop: true } },
+        product: { include: { category: true, shop: true, images: true } },
       },
     });
     if (!row) {
@@ -62,7 +62,7 @@ export class InventoryService {
   }
 
   async updateVariant(id: string, dto: UpdateVariantDto, shopCode: string) {
-    await this.findVariantById(id, shopCode);
+    const variant = await this.findVariantById(id, shopCode);
     return this.prisma.productVariant.update({
       where: { id },
       data: {
@@ -73,9 +73,21 @@ export class InventoryService {
         ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
         ...(dto.unit !== undefined ? { unit: dto.unit } : {}),
         ...(dto.hsnCode !== undefined ? { hsnCode: dto.hsnCode } : {}),
+        product: {
+          update: {
+            ...(dto.description !== undefined ? { description: dto.description } : {}),
+            ...(dto.isListedOnWebsite !== undefined ? { isListedOnWebsite: dto.isListedOnWebsite } : {}),
+            ...(dto.images !== undefined ? {
+              images: {
+                deleteMany: {},
+                create: dto.images.map(url => ({ url })),
+              }
+            } : {}),
+          },
+        },
       },
       include: {
-        product: { include: { category: true, shop: true } },
+        product: { include: { category: true, shop: true, images: true } },
       },
     });
   }
@@ -95,10 +107,10 @@ export class InventoryService {
       ...(filters.activeOnly ? { isActive: true } : {}),
       ...(category
         ? {
-            category: {
-              name: category,
-            },
-          }
+          category: {
+            name: category,
+          },
+        }
         : {}),
     };
 
@@ -106,29 +118,29 @@ export class InventoryService {
       product: productWhere,
       ...(search
         ? {
-            OR: [
-              {
-                product: {
-                  name: {
-                    contains: search,
-                    mode: Prisma.QueryMode.insensitive,
-                  },
-                },
-              },
-              {
+          OR: [
+            {
+              product: {
                 name: {
                   contains: search,
                   mode: Prisma.QueryMode.insensitive,
                 },
               },
-              {
-                barcode: {
-                  contains: search,
-                  mode: Prisma.QueryMode.insensitive,
-                },
+            },
+            {
+              name: {
+                contains: search,
+                mode: Prisma.QueryMode.insensitive,
               },
-            ],
-          }
+            },
+            {
+              barcode: {
+                contains: search,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+          ],
+        }
         : {}),
     };
 

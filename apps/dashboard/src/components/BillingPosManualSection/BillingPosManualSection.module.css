@@ -44,13 +44,31 @@
   color: var(--bistre-600);
 }
 
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-header-contents) {
+  padding: 0.5rem 0;
+}
+
 .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
   border-right: none;
   background: transparent;
 }
 
 .tabulatorInner :global(.tabulator .tabulator-col .tabulator-col-content) {
-  padding: 0.65rem 0.75rem;
+  padding: 0.95rem 1rem;
+}
+
+.tabulatorInner
+  :global(
+    .tabulator .tabulator-header .tabulator-col:first-child .tabulator-col-content
+  ) {
+  padding-left: 1.15rem;
+}
+
+.tabulatorInner
+  :global(
+    .tabulator .tabulator-header .tabulator-col:last-child .tabulator-col-content
+  ) {
+  padding-right: 1.15rem;
 }
 
 .tabulatorInner :global(.tabulator .tabulator-col) {
@@ -69,6 +87,7 @@
   background: var(--linen-95);
   font-size: 0.75rem;
   color: var(--text-muted);
+  padding: 0.5rem 0;
 }
 
 .tabulatorInner :global(.tabulator .tabulator-footer .tabulator-page) {
@@ -90,6 +109,10 @@
   min-height: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--bistre-200) var(--linen-95);
+}
+
+.tabulatorInner :global(.tabulator .tabulator-tableholder .tabulator-table) {
+  font-size: 0.875rem;
 }
 
 .tabulatorInner :global(.tabulator .tabulator-tableholder)::-webkit-scrollbar {
@@ -124,9 +147,16 @@
 }
 
 .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
-  padding: 0.6rem 0.75rem;
+  padding: 0.85rem 0.9rem;
   border-right: none;
   vertical-align: middle;
+}
+
+/* Barcode column: flex row + copy control — override Tabulator ellipsis on the cell */
+.tabulatorInner
+  :global(.tabulator .tabulator-row .tabulator-cell.billing-pos-col-barcode) {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
@@ -206,10 +236,60 @@
   color: var(--text-muted);
 }
 
+.wrap :global(.billing-pos-barcode-wrap) {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.wrap :global(.billing-pos-barcode-wrap .billing-pos-mono) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wrap :global(.billing-pos-mono) {
   font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--bistre-600);
+}
+
+.wrap :global(.billing-pos-copy-btn) {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border-radius: 8px;
+  background: #fffef9;
   color: var(--bistre-500);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.wrap :global(.billing-pos-copy-btn:hover:not(:disabled)) {
+  border-color: var(--ochre-300);
+  color: var(--ochre-600);
+  background: var(--ochre-10);
+}
+
+.wrap :global(.billing-pos-copy-btn:disabled) {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.wrap :global(.billing-pos-copy-btn:focus-visible) {
+  outline: 2px solid var(--ochre-400);
+  outline-offset: 2px;
 }
 
 .wrap :global(.billing-pos-add-btn) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import useFetch from "@/hooks/useFetch";
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import { ProductsPageContent } from "@/components/ProductsPage/ProductsPageContent";
@@ -25,10 +26,13 @@ export default function ProductsPage() {
     effectiveShopCode ||
     process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ||
     "";
+    
+  const [listVersion, setListVersion] = useState(0);
+
   const { data, error, loading } = useFetch(
     shopCode ? `/products` : "",
     { method: "GET" },
-    [effectiveShopCode],
+    [effectiveShopCode, listVersion],
   );
 
   if (!shopCode || loading) return <LoadingDots />;
@@ -43,5 +47,5 @@ export default function ProductsPage() {
     );
   }
 
-  return <ProductsPageContent products={data} />;
+  return <ProductsPageContent products={data} onRefresh={() => setListVersion(v => v + 1)} />;
 }

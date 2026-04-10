@@ -145,8 +145,7 @@ export default function CategoriesPage() {
         ) : (
           <div className={styles.grid}>
             {categories.map((cat) => {
-              const preview = cat.products.slice(0, 5);
-              const rest = cat.products.length - preview.length;
+              const productCount = cat.products.length;
               return (
                 <Link
                   key={cat.id}
@@ -156,29 +155,17 @@ export default function CategoriesPage() {
                 >
                   <h2 className={styles.cardTitle}>{cat.name}</h2>
                   <p className={styles.stockLine}>
+                    Total products:{" "}
+                    <span className={styles.stockStrong}>
+                      {productCount} {productCount === 1 ? "product" : "products"}
+                    </span>
+                  </p>
+                  <p className={styles.stockLine}>
                     Total stock:{" "}
                     <span className={styles.stockStrong}>
                       {cat.totalStock.toLocaleString("en-IN")} units
                     </span>
                   </p>
-                  {preview.length === 0 ? (
-                    <p className={styles.emptyHint}>No products in this shop.</p>
-                  ) : (
-                    <ul className={styles.itemList}>
-                      {preview.map((p) => (
-                        <li key={p.id}>
-                          {p.name}{" "}
-                          <span className={styles.stockStrong}>
-                            ({p.totalStock.toLocaleString("en-IN")}{" "}
-                            {p.totalStock === 1 ? "unit" : "units"})
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {rest > 0 ? (
-                    <p className={styles.more}>+{rest} more product(s)</p>
-                  ) : null}
                 </Link>
               );
             })}

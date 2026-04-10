@@ -12,52 +12,58 @@ datasource db {
 }
 
 model Shop {
-  id          String   @id @default(uuid())
-  name        String
-  address     String?
+  id      String  @id @default(uuid())
+  name    String
+  address String?
 
-  shopCode    String   @unique 
+  shopCode String @unique
 
-  email       String?
-  phone       String?
+  email String?
+  phone String?
 
-  city        String?
-  state       String?
-  country     String?
-  pincode     String?
+  city    String?
+  state   String?
+  country String?
+  pincode String?
 
-  gstNumber   String?
-  currency    String   @default("INR")
+  gstNumber String?
+  currency  String  @default("INR")
 
-  logoUrl     String?
+  upiId String? // UPI ID for payments (e.g. shop@upi)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  allowNextDayBooking       Boolean @default(false)
+  allowBookingWhenOutOfStock Boolean @default(false)
 
-  users       User[]
-  products    Product[]
-  orders      Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  users        User[]
+  products     Product[]
+  orders       Order[]
+  roleRequests RoleRequest[]
 }
 
 model User {
-  id          String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  name        String?
-  email       String   @unique
-  password    String
+  name     String?
+  email    String  @unique
+  password String
 
-  avatarUrl   String?  
+  avatarUrl String?
+  phone     String?
 
-  role        UserRole  @default(STAFF)
-  isActive    Boolean   @default(true)
+  role     UserRole @default(STAFF)
+  isActive Boolean  @default(true)
 
-  shopCode    String
-  shop        Shop      @relation(fields: [shopCode], references: [shopCode])
+  shopCode String
+  shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
   ordersCreated Order[]
+  roleRequests  RoleRequest[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum UserRole {
@@ -72,49 +78,59 @@ enum OrderStatus {
   PAID
   PENDING
   CANCELLED
+  DRAFT
 }
 
 model OrderItem {
-  id         String   @id @default(uuid())   
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id])
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
 
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
 
   productVariantId String?
   productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
 
-  quantity   Int
-  price      Float   
-  
+  quantity Int
+  price    Float
 }
 
 // ================== ORDER ==================
 model Order {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  shopCode     String
-  shop         Shop     @relation(fields: [shopCode], references: [shopCode])
+  shopCode String
+  shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
-  totalAmount  Float
-  discount     Float?   @default(0)
-  tax          Float?   @default(0)
+  totalAmount Float
+  discount    Float? @default(0)
+  tax         Float? @default(0)
 
-  status       OrderStatus @default(PAID)
+  status OrderStatus @default(PAID)
 
-  /** POS settlement: CASH | UPI_CARD */
+  /**
+   * POS settlement: CASH | UPI_CARD
+   */
   paymentMethod String @default("CASH")
 
-  createdById  String?
-  createdBy    User?    @relation(fields: [createdById], references: [id])
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
 
-  customerName   String?
-  customerPhone  String?
-  customerEmail  String?
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
 
-  createdAt    DateTime @default(now())
-  items        OrderItem[]
+  orderSource OrderSource @default(POS)
+  pickupTime  DateTime?
+
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+}
+
+enum OrderSource {
+  POS
+  WEBSITE
 }
 
 enum Unit {
@@ -126,69 +142,88 @@ enum Unit {
 }
 
 model Category {
-  id        String   @id @default(uuid())
-  name      String   @unique
+  id   String @id @default(uuid())
+  name String @unique
 
-  products  Product[]
+  products Product[]
 
   createdAt DateTime @default(now())
 }
 
 model Product {
-  id            String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  name          String
-  description   String?
+  name        String
+  description String?
 
-  categoryId    String?
-  category      Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
 
-  shopCode      String
-  shop          Shop     @relation(fields: [shopCode], references: [shopCode])
+  shopCode String
+  shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
-  isActive      Boolean  @default(true)
+  isActive          Boolean @default(true)
+  isListedOnWebsite Boolean @default(false)
 
-  variants      ProductVariant[]
-  orderItems    OrderItem[]
-  images        ProductImage[]
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+  images     ProductImage[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ProductVariant {
-  id          String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
 
-  name        String   // e.g. "200g", "1kg", "Regular"
+  name String // e.g. "200g", "1kg", "Regular"
 
-  price       Float
-  costPrice   Float?
+  price     Float
+  costPrice Float?
 
-  barcode     String   @unique
-  sku         String?
+  barcode String  @unique
+  sku     String?
 
-  hsnCode     String?
+  hsnCode String?
 
-  quantity    Int      @default(0)
-  minStock    Int?
+  quantity Int  @default(0)
+  minStock Int?
 
-  unit        Unit?
+  unit Unit?
 
-  orderItems  OrderItem[]
+  orderItems OrderItem[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ProductImage {
-  id        String   @id @default(uuid())
-  url       String
+  id  String @id @default(uuid())
+  url String
 
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+model RoleRequest {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  shopCode      String
+  shop          Shop          @relation(fields: [shopCode], references: [shopCode])
+  requestedRole UserRole
+  status        RequestStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

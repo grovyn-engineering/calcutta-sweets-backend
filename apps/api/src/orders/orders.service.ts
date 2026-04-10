@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
+import { OrderStatus, Prisma } from '@calcutta/database';
 
 const POS_GST_RATE = 0.05;
 
@@ -102,8 +103,9 @@ export class OrdersService {
     q?: string,
   ) {
     const qt = q?.trim();
-    const where = {
+    const where: Prisma.OrderWhereInput = {
       shopCode,
+      status: { not: OrderStatus.DRAFT },
       ...(qt
         ? {
             OR: [

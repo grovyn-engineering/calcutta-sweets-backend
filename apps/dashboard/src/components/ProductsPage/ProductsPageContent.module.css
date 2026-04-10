@@ -10,50 +10,11 @@
 .intro {
   position: relative;
   flex-shrink: 0;
-  overflow: hidden;
-  border-radius: 16px;
-  border: 1px solid var(--pearl-bush);
-  background-color: var(--linen-100);
-  background-image:
-    radial-gradient(
-      ellipse 100% 90% at 100% 0%,
-      var(--ochre-10) 0%,
-      transparent 52%
-    ),
-    radial-gradient(
-      ellipse 70% 50% at 0% 100%,
-      rgba(245, 230, 196, 0.35) 0%,
-      transparent 45%
-    ),
-    linear-gradient(
-      165deg,
-      #fffef9 0%,
-      var(--linen-95) 42%,
-      var(--parchment) 100%
-    );
-  padding: 1.5rem 1.5rem 1.35rem 1.65rem;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 1px 2px rgba(44, 24, 16, 0.04),
-    0 10px 36px rgba(166, 124, 35, 0.08),
-    0 16px 48px rgba(44, 24, 16, 0.05);
+  padding-bottom: 0;
 }
 
 .intro::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 12px;
-  bottom: 12px;
-  width: 5px;
-  border-radius: 0 6px 6px 0;
-  background: linear-gradient(
-    180deg,
-    var(--ochre-300) 0%,
-    var(--ochre-500) 42%,
-    var(--ochre-600) 100%
-  );
-  box-shadow: 2px 0 10px rgba(201, 147, 45, 0.25);
+  display: none;
 }
 
 .introTop {
@@ -81,7 +42,7 @@
 
 .title {
   margin: 0;
-  font-size: 1.625rem;
+  font-size: 1.875rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--bistre-950);
@@ -102,20 +63,11 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0.15rem;
-  padding: 0.65rem 1rem 0.7rem;
-  border-radius: 14px;
-  border: 1px solid var(--ochre-200);
-  background: linear-gradient(
-    145deg,
-    var(--ochre-100) 0%,
-    #fffef9 45%,
-    var(--linen-95) 100%
-  );
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.95) inset,
-    0 2px 8px rgba(201, 147, 45, 0.12),
-    0 4px 16px rgba(44, 24, 16, 0.04);
-  min-width: 7.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(201, 147, 45, 0.04);
+  border: 1px solid rgba(201, 147, 45, 0.12);
+  min-width: 6.5rem;
 }
 
 .countNum {
@@ -164,61 +116,50 @@
   z-index: 1;
 }
 
-/* Ochre-tinted ring; intensifies on focus */
+/* Premium search frame: crisp white, clean border, soft shadow */
 .searchFrame {
-  border-radius: 14px;
-  padding: 2px;
-  background: linear-gradient(
-    135deg,
-    var(--ochre-200) 0%,
-    var(--pearl-bush) 48%,
-    var(--ochre-300) 100%
-  );
-  box-shadow: 0 2px 8px rgba(44, 24, 16, 0.05);
-  transition:
-    box-shadow 0.2s ease,
-    background 0.2s ease;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(44, 24, 16, 0.08);
+  box-shadow: 
+    0 2px 4px rgba(44, 24, 16, 0.02),
+    0 1px 2px rgba(44, 24, 16, 0.04);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
 .searchFrame:focus-within {
-  background: linear-gradient(
-    135deg,
-    var(--ochre-400) 0%,
-    var(--ochre-300) 50%,
-    var(--ochre-500) 100%
-  );
-  box-shadow:
-    0 0 0 3px var(--ochre-10),
-    0 4px 16px rgba(201, 147, 45, 0.2);
-}
-
-.search {
-  max-width: 100%;
-  border-radius: 12px !important;
+  border-color: var(--ochre-400);
+  box-shadow: 
+    0 4px 12px rgba(201, 147, 45, 0.05),
+    0 0 0 4px rgba(201, 147, 45, 0.15);
 }
 
 .search :global(.ant-input-affix-wrapper) {
   border: none !important;
   box-shadow: none !important;
-  background: linear-gradient(180deg, #fffef9 0%, var(--linen-100) 100%) !important;
-  border-radius: 12px !important;
-  padding-top: 0.55rem !important;
-  padding-bottom: 0.55rem !important;
+  background: transparent !important;
+  padding: 10px 16px !important;
+  transition: none !important;
 }
 
 .search :global(.ant-input) {
-  font-size: 0.9375rem;
-  color: var(--bistre-900);
+  font-size: 14.5px;
+  color: var(--bistre-950);
   background: transparent !important;
 }
 
 .search :global(.ant-input::placeholder) {
-  color: var(--bistre-400);
+  color: var(--bistre-300);
 }
 
 .searchIcon {
+  color: var(--bistre-200);
+  transition: color 0.2s ease;
+}
+
+.searchFrame:focus-within .searchIcon {
   color: var(--ochre-500);
-  flex-shrink: 0;
 }
 
 .toolbarRow {
@@ -231,11 +172,10 @@
 
 /* Segmented: linen track, ochre selection */
 .segmentedWrap :global(.ant-segmented) {
-  background: var(--linen-90) !important;
+  background: rgba(44, 24, 16, 0.03) !important;
   padding: 4px !important;
-  border-radius: 12px !important;
-  border: 1px solid var(--pearl-bush);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  border-radius: 10px !important;
+  border: 1px solid rgba(44, 24, 16, 0.05);
 }
 
 .segmentedWrap :global(.ant-segmented-item) {
@@ -245,15 +185,9 @@
 }
 
 .segmentedWrap :global(.ant-segmented-item-selected) {
-  background: linear-gradient(
-    180deg,
-    #fffef9 0%,
-    var(--ochre-100) 100%
-  ) !important;
-  color: var(--ochre-600) !important;
-  box-shadow:
-    0 1px 3px rgba(166, 124, 35, 0.15),
-    0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
+  background: #ffffff !important;
+  color: var(--bistre-900) !important;
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.1) !important;
 }
 
 .segmentedWrap

@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { Search } from 'lucide-react';
-import { Input, Select } from 'antd';
+import { App, Input, Select } from 'antd';
 import {
   memo,
   useCallback,
@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { DataTable } from '@/components/DataTable/DataTable';
 import type { ColumnDefinition, ReactTabulatorOptions } from 'react-tabulator';
 
 import {
@@ -42,15 +43,10 @@ type ApiVariantRow = {
   price: number;
 };
 
-const ReactTabulator = dynamic(
-  () => import('react-tabulator/lib/ReactTabulator'),
-  { ssr: false, loading: () => null },
-);
-
-const TABULATOR_LOADING_HTML =
-  '<div class="billing-pos-tabulator-dots" aria-hidden="true"><span></span><span></span><span></span></div>';
-
 const PAGE_SIZE = 40;
+
+/** Inline clipboard icon for Tabulator cell (no React in formatter) */
+const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>`;
 
 const inr = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -89,8 +85,12 @@ function BillingPosManualSectionInner({
   onAddProduct,
   dataRefreshKey = 0,
 }: BillingPosManualSectionProps) {
+  const { message: messageApi } = App.useApp();
+  const messageApiRef = useRef(messageApi);
+  messageApiRef.current = messageApi;
+
   const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearch = useDebouncedValue(searchQuery, 350);
+  const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [categories, setCategories] = useState<CategorySummary[]>([]);
 
@@ -146,14 +146,12 @@ function BillingPosManualSectionInner({
    * Skip the first run — Tabulator performs the initial remote load on mount.
    */
   useEffect(() => {
+    const prev = prevFilterKeyRef.current;
+    prevFilterKeyRef.current = filterKey;
+
     const t = tableRef.current;
     if (!t || !shopCode) return;
-    if (prevFilterKeyRef.current === null) {
-      prevFilterKeyRef.current = filterKey;
-      return;
-    }
-    if (prevFilterKeyRef.current === filterKey) return;
-    prevFilterKeyRef.current = filterKey;
+    if (prev === null || prev === filterKey) return;
     t.setPage(1);
   }, [filterKey, shopCode]);
 
@@ -186,13 +184,37 @@ function BillingPosManualSectionInner({
       {
         title: 'Barcode',
         field: 'barcode',
-        minWidth: 120,
+        minWidth: 140,
+        cssClass: 'billing-pos-col-barcode',
         headerSort: false,
         formatter: (cell) => {
+          const raw = String(cell.getValue() ?? '');
+          const wrap = document.createElement('div');
+          wrap.className = 'billing-pos-barcode-wrap';
           const span = document.createElement('span');
           span.className = 'billing-pos-mono';
-          span.textContent = String(cell.getValue() ?? '');
-          return span;
+          span.textContent = raw;
+          if (raw) span.title = raw;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'billing-pos-copy-btn';
+          btn.innerHTML = COPY_ICON_SVG;
+          btn.setAttribute('aria-label', 'Copy barcode');
+          btn.disabled = !raw;
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!raw) return;
+            try {
+              await navigator.clipboard.writeText(raw);
+              messageApiRef.current.success('Barcode copied');
+            } catch {
+              messageApiRef.current.error('Could not copy');
+            }
+          });
+          wrap.appendChild(btn);
+          wrap.appendChild(span);
+          return wrap;
         },
       },
       {
@@ -295,7 +317,6 @@ function BillingPosManualSectionInner({
         });
       },
       dataLoader: true,
-      dataLoaderLoading: TABULATOR_LOADING_HTML,
     };
   }, [baseUrl, shopCode]);
 
@@ -341,7 +362,7 @@ function BillingPosManualSectionInner({
 
       <div className={styles.wrap}>
         <div className={styles.tabulatorInner}>
-          <ReactTabulator
+          <DataTable
             key={`${shopCode}-${dataRefreshKey}`}
             columns={columns}
             options={options}

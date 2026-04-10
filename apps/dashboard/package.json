@@ -9,10 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@types/jsbarcode": "^3.11.4",
     "antd": "^6.3.3",
+    "jsbarcode": "^3.12.3",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "react": "19.2.3",
+    "react-barcode": "^1.6.1",
     "react-dom": "19.2.3",
     "react-tabulator": "^0.21.0",
     "recharts": "^3.8.1",

@@ -19,7 +19,7 @@ import { UpdateShopDto } from './dto/update-shop.dto';
 
 @Controller('shops')
 export class ShopsController {
-  constructor(private readonly shopsService: ShopsService) {}
+  constructor(private readonly shopsService: ShopsService) { }
 
   @Post()
   create(@Body() createShopDto: CreateShopDto) {
@@ -27,7 +27,7 @@ export class ShopsController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, ShopScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   findAll() {
     return this.shopsService.findAll();
