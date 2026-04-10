@@ -36,3 +36,5 @@ coverage
 .pnpm-store
 
 packages/database/recode-barcodes.ts
+
+PUBLIC_API.md

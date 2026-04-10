@@ -15,6 +15,7 @@ model Shop {
   id      String  @id @default(uuid())
   name    String
   address String?
+  logoUrl String?
 
   shopCode String @unique
 
