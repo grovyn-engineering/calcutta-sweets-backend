@@ -34,3 +34,5 @@ coverage
 *.tsbuildinfo
 
 .pnpm-store
+
+packages/database/recode-barcodes.ts

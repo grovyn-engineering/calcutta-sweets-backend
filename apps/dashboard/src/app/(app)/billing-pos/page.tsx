@@ -1,16 +1,13 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
 import {
   useCallback,
-  useEffect,
-  useRef,
   useState,
 } from 'react';
-import { App, Input, type InputRef } from 'antd';
+import { App } from 'antd';
 import { ScanBarcode } from 'lucide-react';
-import { apiFetch } from '@/lib/api';
 import { LoadingDots } from '@/components/LoadingDots/LoadingDots';
+import { BarcodeScannerInput } from '@/components/BarcodeScannerInput/BarcodeScannerInput';
 import {
   BillingBillPanel,
   type BillItem,
@@ -20,16 +17,6 @@ import type { BillingVariantRow } from '@/hooks/useBillingPosVariants';
 import { useShop } from '@/contexts/ShopContext';
 import styles from './page.module.css';
 
-type BarcodeLookupResult = {
-  id: string;
-  productId: string;
-  productName: string;
-  variantName: string;
-  barcode: string;
-  price: number;
-  unit: string;
-  stock: number;
-};
 
 function variantRowToBillItem(row: BillingVariantRow): BillItem {
   return {
@@ -45,19 +32,6 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
   };
 }
 
-function lookupToBillItem(r: BarcodeLookupResult): BillItem {
-  return {
-    variantId: r.id,
-    productId: r.productId,
-    name: r.productName,
-    variantLabel: r.variantName,
-    barcode: r.barcode,
-    unitPrice: r.price,
-    quantity: 1,
-    unit: r.unit,
-    imageUrl: null,
-  };
-}
 
 export default function BillingPOSPage() {
   const { message } = App.useApp();
@@ -69,14 +43,6 @@ export default function BillingPOSPage() {
 
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [billingStockRefreshKey, setBillingStockRefreshKey] = useState(0);
-  const [barcodeInput, setBarcodeInput] = useState('');
-  const [lookupBusy, setLookupBusy] = useState(false);
-  const barcodeRef = useRef<InputRef>(null);
-  const barcodeAutofocusShopRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    barcodeAutofocusShopRef.current = null;
-  }, [shopCode]);
 
   const mergeLine = useCallback((line: BillItem) => {
     setBillItems((prev) => {
@@ -99,53 +65,6 @@ export default function BillingPOSPage() {
     [mergeLine],
   );
 
-  const resolveBarcode = useCallback(
-    async (raw: string) => {
-      const code = raw.trim();
-      if (!code || lookupBusy) return;
-      setLookupBusy(true);
-      try {
-        const res = await apiFetch(
-          `/inventory/variants/lookup?barcode=${encodeURIComponent(code)}`,
-          { method: 'GET' },
-        );
-        if (res.status === 404) {
-          message.error(`No product found for barcode “${code}”.`);
-          return;
-        }
-        if (!res.ok) {
-          message.error('Barcode lookup failed. Try again.');
-          return;
-        }
-        const data = (await res.json()) as BarcodeLookupResult;
-        mergeLine(lookupToBillItem(data));
-        setBarcodeInput('');
-      } catch {
-        message.error('Network error during barcode lookup.');
-      } finally {
-        setLookupBusy(false);
-        requestAnimationFrame(() => barcodeRef.current?.focus?.());
-      }
-    },
-    [lookupBusy, mergeLine, message],
-  );
-
-  const onBarcodeKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void resolveBarcode(barcodeInput);
-    }
-  };
-
-  useEffect(() => {
-    if (!shopCode) return;
-    if (barcodeAutofocusShopRef.current === shopCode) return;
-    const t = window.setTimeout(() => {
-      barcodeRef.current?.focus?.();
-      barcodeAutofocusShopRef.current = shopCode;
-    }, 100);
-    return () => clearTimeout(t);
-  }, [shopCode]);
 
   const updateQuantity = useCallback((variantId: string, delta: number) => {
     setBillItems((prev) =>
@@ -188,19 +107,7 @@ export default function BillingPOSPage() {
               </p>
             </div>
           </div>
-          <Input
-            ref={barcodeRef}
-            className={styles.scanInput}
-            size="large"
-            placeholder="Scan or type barcode…"
-            value={barcodeInput}
-            onChange={(e) => setBarcodeInput(e.target.value)}
-            onKeyDown={onBarcodeKeyDown}
-            disabled={lookupBusy}
-            autoComplete="off"
-            spellCheck={false}
-            aria-label="Barcode scan field"
-          />
+          <BarcodeScannerInput onAddProduct={addRowManual} />
         </section>
 
         <BillingPosManualSection

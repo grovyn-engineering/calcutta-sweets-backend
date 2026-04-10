@@ -4,6 +4,7 @@ import { App, Button, Form, Input, Modal, Select, Switch } from "antd";
 import dynamic from "next/dynamic";
 import { Building2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DataTable } from "@/components/DataTable/DataTable";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 
 /** Minimal Tabulator surface used here (avoids importing untyped tabulator-tables). */
@@ -16,20 +17,7 @@ import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./UsersManagement.module.css";
 
-const TABULATOR_LOADING_HTML =
-  '<div class="users-tabulator-dots" aria-hidden="true"><span></span><span></span><span></span></div>';
 
-const ReactTabulator = dynamic(
-  () => import("react-tabulator/lib/ReactTabulator"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className={styles.tableLoading} aria-busy="true">
-        <LoadingDots />
-      </div>
-    ),
-  },
-);
 
 const ROLE_OPTIONS = [
   { value: "ADMIN", label: "Admin" },
@@ -114,6 +102,26 @@ export default function UsersManagement() {
     });
     setEditOpen(true);
   }, [editForm]);
+
+  const generateStrongPassword = useCallback(() => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    const len = 12;
+    let pwd = "";
+    for (let i = 0; i < len; i++) {
+        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pwd;
+  }, []);
+
+  const handleSuggestPassword = useCallback((formType: 'create' | 'edit') => {
+    const pwd = generateStrongPassword();
+    if (formType === 'create') {
+      createForm.setFieldsValue({ password: pwd });
+    } else {
+      editForm.setFieldsValue({ password: pwd });
+    }
+    message.success("Strong password suggested and auto-filled");
+  }, [createForm, editForm, generateStrongPassword, message]);
 
   useEffect(() => {
     editHandlerRef.current = openEdit;
@@ -254,11 +262,9 @@ export default function UsersManagement() {
           return r.json();
         });
       },
-      /** Built-in loader only over the grid; message + overlay styled in CSS. */
       dataLoader: true,
-      dataLoaderLoading: TABULATOR_LOADING_HTML,
     };
-  }, [baseUrl]);
+  }, [baseUrl, effectiveShopCode]);
 
   /** Reload remote data when shop changes — do not remount the grid (Tabulator + ResizeObserver crash). */
   useEffect(() => {
@@ -420,7 +426,7 @@ export default function UsersManagement() {
           </div>
         ) : (
           <div className={styles.wrap}>
-            <ReactTabulator
+            <DataTable
               columns={columns}
               options={options}
               onRef={(instanceRef: { current?: TabulatorPageable }) => {
@@ -452,7 +458,19 @@ export default function UsersManagement() {
           </Form.Item>
           <Form.Item
             name="password"
-            label="Password"
+            label={
+              <div className="flex items-center justify-between w-full">
+                <span>Password</span>
+                <Button
+                  type="link"
+                  size="small"
+                  className="h-auto p-0 text-[11px] font-semibold text-[var(--ochre-600)]"
+                  onClick={() => handleSuggestPassword("create")}
+                >
+                  Suggest strong password
+                </Button>
+              </div>
+            }
             rules={[{ required: true, min: 6 }]}
           >
             <Input.Password autoComplete="new-password" />
@@ -501,7 +519,22 @@ export default function UsersManagement() {
             <Form.Item name="name" label="Name">
               <Input />
             </Form.Item>
-            <Form.Item name="password" label="New password (optional)">
+            <Form.Item
+               name="password"
+               label={
+                 <div className="flex items-center justify-between w-full">
+                   <span>New password (optional)</span>
+                   <Button
+                     type="link"
+                     size="small"
+                     className="h-auto p-0 text-[11px] font-semibold text-[var(--ochre-600)]"
+                     onClick={() => handleSuggestPassword("edit")}
+                   >
+                     Suggest strong password
+                   </Button>
+                 </div>
+               }
+            >
               <Input.Password
                 autoComplete="new-password"
                 placeholder="Leave blank to keep current"

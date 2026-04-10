@@ -10,7 +10,7 @@ function resolveApiUpstream(): string {
     return origin;
   }
 
-  return "http://127.0.0.1:3001";
+  return "http://127.0.0.1:3000";
 }
 
 const API_UPSTREAM_URL = resolveApiUpstream();
@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
+      { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
     ],
   },
   async rewrites() {

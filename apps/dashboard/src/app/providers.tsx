@@ -22,6 +22,12 @@ const theme = {
     colorLinkActive: '#8a6518',
   },
   components: {
+    Input: {
+      colorBgContainer: '#ffffff',
+    },
+    Select: {
+      colorBgContainer: '#ffffff',
+    },
     Menu: {
       itemColor: '#1a110c',
       itemSelectedBg: 'rgba(201, 147, 45, 0.2)',

@@ -1,26 +1,19 @@
 "use client";
 
 import { Input } from "antd";
-import dynamic from "next/dynamic";
-import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
+import { DataTable } from "@/components/DataTable/DataTable";
 
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
-
-import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./OrdersTable.module.css";
+import { Search } from "lucide-react";
 
 type TabulatorPageable = { setPage: (page: number) => void };
-
-const ReactTabulator = dynamic(
-  () => import("react-tabulator/lib/ReactTabulator"),
-  { ssr: false, loading: () => null },
-);
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -45,6 +38,8 @@ type OrderRow = {
   paymentMethod: string;
   totalAmount: number;
   status: string;
+  orderSource: string;
+  pickupTime: string | null;
   customerName: string | null;
   customerPhone: string | null;
   itemCount: number;
@@ -59,7 +54,7 @@ export default function OrdersTable() {
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebouncedValue(searchQuery, 350);
+  const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
 
@@ -70,14 +65,12 @@ export default function OrdersTable() {
   const filterKey = `${shopKey}|${debouncedSearch}`;
 
   useEffect(() => {
+    const prev = prevFilterKeyRef.current;
+    prevFilterKeyRef.current = filterKey;
+
     const t = tableRef.current;
     if (!t || !shopKey) return;
-    if (prevFilterKeyRef.current === null) {
-      prevFilterKeyRef.current = filterKey;
-      return;
-    }
-    if (prevFilterKeyRef.current === filterKey) return;
-    prevFilterKeyRef.current = filterKey;
+    if (prev === null || prev === filterKey) return;
     t.setPage(1);
   }, [filterKey, shopKey]);
 
@@ -86,9 +79,33 @@ export default function OrdersTable() {
       {
         title: "When",
         field: "createdAt",
-        minWidth: 148,
+        minWidth: 100,
         headerSort: false,
         formatter: (cell) => formatWhen(String(cell.getValue() ?? "")),
+      },
+      {
+        title: "Source",
+        field: "orderSource",
+        width: 100,
+        headerSort: false,
+        formatter: (cell) => {
+          const raw = String(cell.getValue() ?? "POS");
+          const span = document.createElement("span");
+          span.className = `orders-source-pill orders-source-pill--${raw.toLowerCase()}`;
+          span.textContent = raw === "WEBSITE" ? "💻 Website" : "🏪 POS";
+          return span;
+        },
+      },
+      {
+        title: "Pickup",
+        field: "pickupTime",
+        minWidth: 140,
+        headerSort: false,
+        formatter: (cell) => {
+          const val = cell.getValue();
+          if (!val) return "—";
+          return formatWhen(String(val));
+        },
       },
       {
         title: "Bill ref",
@@ -248,10 +265,12 @@ export default function OrdersTable() {
         />
       </div>
       <div className={styles.tableSlot}>
-        <ReactTabulator
+        <DataTable
           columns={columns}
-          options={options}
-          events={events}
+          options={{
+            ...options,
+            rowClick: events.rowClick
+          }}
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}

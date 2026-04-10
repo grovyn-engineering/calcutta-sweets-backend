@@ -1,21 +1,15 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
+import { DataTable } from "@/components/DataTable/DataTable";
 
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { formatInrFull } from "@/lib/chartFormat";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 
-import "tabulator-tables/dist/css/tabulator.min.css";
-import tableStyles from "../OrdersTable/OrdersTable.module.css";
 
-const ReactTabulator = dynamic(
-  () => import("react-tabulator/lib/ReactTabulator"),
-  { ssr: false, loading: () => null },
-);
 
 type OrderRow = {
   id: string;
@@ -181,8 +175,14 @@ export default function ReportsOrdersTabulator() {
   );
 
   return (
-    <div className={tableStyles.tableSlot}>
-      <ReactTabulator columns={columns} options={options} events={events} />
+    <div>
+      <DataTable
+        columns={columns}
+        options={{
+          ...options,
+          rowClick: events.rowClick
+        }}
+      />
     </div>
   );
 }

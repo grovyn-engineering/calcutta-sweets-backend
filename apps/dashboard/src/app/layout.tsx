@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Calcutta Sweets",
   description: "Shop and product management",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

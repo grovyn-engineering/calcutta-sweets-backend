@@ -1,0 +1,128 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 0;
+  flex: 1;
+  padding: 1.5rem;
+}
+
+/* Layered parchment + warm ochre wash + left accent stripe */
+.intro {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--pearl-bush);
+  background-color: var(--linen-100);
+  background-image:
+    radial-gradient(ellipse 100% 90% at 100% 0%,
+      var(--ochre-10) 0%,
+      transparent 52%),
+    radial-gradient(ellipse 70% 50% at 0% 100%,
+      rgba(245, 230, 196, 0.35) 0%,
+      transparent 45%),
+    linear-gradient(165deg,
+      #fffef9 0%,
+      var(--linen-95) 42%,
+      var(--parchment) 100%);
+  padding: 1.5rem 1.5rem 1.35rem 1.65rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(44, 24, 16, 0.04),
+    0 10px 36px rgba(166, 124, 35, 0.08),
+    0 16px 48px rgba(44, 24, 16, 0.05);
+}
+
+.intro::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 5px;
+  border-radius: 0 6px 6px 0;
+  background: linear-gradient(180deg,
+      var(--ochre-300) 0%,
+      var(--ochre-500) 42%,
+      var(--ochre-600) 100%);
+  box-shadow: 2px 0 10px rgba(201, 147, 45, 0.25);
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ochre-600);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--bistre-950);
+  line-height: 1.15;
+}
+
+.lede {
+  margin: 0.55rem 0 0;
+  max-width: 44rem;
+  line-height: 1.65;
+  font-size: 0.9375rem;
+  color: var(--bistre-600);
+}
+
+.scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.collapse {
+  background: transparent !important;
+}
+
+.collapse :global(.ant-collapse-item) {
+  margin-bottom: 10px;
+  border: 1px solid var(--pearl-bush) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  background: linear-gradient(180deg,
+      rgba(255, 254, 249, 0.85) 0%,
+      var(--linen-100) 100%) !important;
+  box-shadow:
+    0 1px 3px rgba(44, 24, 16, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+.collapse :global(.ant-collapse-header) {
+  font-weight: 600 !important;
+  color: var(--bistre-800) !important;
+  background: linear-gradient(180deg,
+      var(--linen-95) 0%,
+      rgba(245, 230, 196, 0.35) 100%) !important;
+  align-items: center !important;
+}
+
+.collapse :global(.ant-collapse-content-box) {
+  padding: 16px 24px !important;
+  background: rgba(255, 254, 249, 0.4);
+}
+
+.panelLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.panelTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--bistre-950);
+}
