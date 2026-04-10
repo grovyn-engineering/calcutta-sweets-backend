@@ -58,4 +58,11 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   minStock?: number;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  isListedOnWebsite?: boolean;
 }

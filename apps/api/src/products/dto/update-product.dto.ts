@@ -32,4 +32,11 @@ export class UpdateProductDto {
   @ValidateIf((_, v) => v != null)
   @IsUUID()
   categoryId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  isListedOnWebsite?: boolean;
 }

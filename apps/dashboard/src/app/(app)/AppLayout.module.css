@@ -81,3 +81,31 @@
 .headerActions {
   align-items: center;
 }
+
+.profileSection {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 4px 12px;
+  margin-right: -12px;
+  border-radius: 12px;
+  user-select: none;
+}
+
+.profileSection:hover {
+  background: rgba(44, 24, 16, 0.04);
+}
+
+.avatarWrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatarWrapper :global(img) {
+  transition: transform 0.2s ease;
+}
+
+.avatarWrapper:hover :global(img) {
+  transform: scale(1.05);
+}

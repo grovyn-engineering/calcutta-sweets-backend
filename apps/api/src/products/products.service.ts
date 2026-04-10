@@ -33,6 +33,8 @@ export class ProductsService {
     return this.prisma.product.create({
       data: {
         name: createProductDto.name,
+        description: createProductDto.description,
+        isListedOnWebsite: createProductDto.isListedOnWebsite ?? false,
         shopCode,
         ...(createProductDto.categoryId
           ? { categoryId: createProductDto.categoryId }
@@ -144,7 +146,11 @@ export class ProductsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: { id: existing.id },
-        data: productFields,
+        data: {
+          ...productFields,
+          // Ensure booleans are picked up correctly if sent
+          ...(updateProductDto.isListedOnWebsite !== undefined ? { isListedOnWebsite: updateProductDto.isListedOnWebsite } : {}),
+        },
       });
 
       if (price !== undefined || barcode !== undefined) {

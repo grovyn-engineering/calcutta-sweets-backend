@@ -31,7 +31,7 @@ A monorepo for a sweets shop management system—dashboard (Next.js) + REST API 
 ```
 calcutta-sweets/
 ├── apps/
-│   ├── api/          # NestJS REST API (port 3001)
+│   ├── api/          # NestJS REST API (port 3000)
 │   └── dashboard/    # Next.js frontend (port 3000)
 ├── packages/
 │   └── database/     # Prisma schema, client, migrations
@@ -65,7 +65,7 @@ cp apps/dashboard/.env.example apps/dashboard/.env.local
 **Required:** Edit `apps/api/.env` and set:
 
 ```env
-PORT=3001
+PORT=3000
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/calcutta_sweets"
 JWT_SECRET=your-secret-here
 ```
@@ -100,8 +100,8 @@ This runs both the API and dashboard in parallel via Turborepo.
 | App | URL |
 |-----|-----|
 | Dashboard | http://localhost:3000 |
-| API | http://localhost:3001 |
-| API health check | http://localhost:3001/health/db |
+| API | http://localhost:3000 |
+| API health check | http://localhost:3000/health/db |
 
 ---
 
@@ -154,7 +154,7 @@ pnpm lint
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | No | API base URL (default: http://localhost:3001) |
+| `NEXT_PUBLIC_API_URL` | No | API base URL (default: http://localhost:3000) |
 
 ### `packages/database/.env`
 

@@ -10,6 +10,7 @@ import {
   Modal,
   Popconfirm,
   Select,
+  Switch,
 } from "antd";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -139,6 +140,8 @@ export default function CategoryDetailPage() {
     hsnCode?: string;
     minStock?: number;
     barcode?: string;
+    description?: string;
+    isListedOnWebsite?: boolean;
   }) => {
     if (!categoryId) return;
     setAddSubmitting(true);
@@ -147,6 +150,7 @@ export default function CategoryDetailPage() {
         name: values.name.trim(),
         price: values.price,
         categoryId,
+        isListedOnWebsite: !!values.isListedOnWebsite,
       };
       if (values.quantity !== undefined && values.quantity !== null) body.quantity = values.quantity;
       if (values.costPrice !== undefined && values.costPrice !== null) body.costPrice = values.costPrice;
@@ -155,6 +159,7 @@ export default function CategoryDetailPage() {
       if (values.hsnCode?.trim()) body.hsnCode = values.hsnCode.trim();
       if (values.minStock !== undefined && values.minStock !== null) body.minStock = values.minStock;
       if (values.barcode?.trim()) body.barcode = values.barcode.trim();
+      if (values.description?.trim()) body.description = values.description.trim();
 
       const res = await apiFetch("/products", {
         method: "POST",
@@ -270,6 +275,11 @@ export default function CategoryDetailPage() {
             >
               <InputNumber min={0} placeholder="0" style={{ width: "100%" }} />
             </Form.Item>
+            <div className="flex items-end pb-6">
+              <Form.Item name="isListedOnWebsite" valuePropName="checked" label="Public on website" className="!mb-0">
+                <Switch size="small" />
+              </Form.Item>
+            </div>
             <Form.Item
               name="quantity"
               label="Initial stock qty"
@@ -287,6 +297,9 @@ export default function CategoryDetailPage() {
               label: <span className={styles.moreLabel}>More details (optional)</span>,
               children: (
                 <div className={styles.addFormGrid}>
+                  <Form.Item name="description" label="Website description" className={styles.span2}>
+                    <Input.TextArea rows={2} placeholder="Add a tempting description for the website..." />
+                  </Form.Item>
                   <Form.Item name="costPrice" label="Cost price (INR)">
                     <InputNumber min={0} placeholder="0" style={{ width: "100%" }} />
                   </Form.Item>

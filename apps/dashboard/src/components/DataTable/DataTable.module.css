@@ -1,0 +1,250 @@
+.tableWrapper {
+  width: 100%;
+  min-height: 200px;
+  flex: 1;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: #ffffff;
+  border: 1px solid rgba(44, 24, 16, 0.06);
+  box-shadow: 
+    0 1px 2px rgba(44, 24, 16, 0.02),
+    0 8px 32px rgba(44, 24, 16, 0.04);
+}
+
+.tableWrapper :global(.tabulator) {
+  font-family: var(--font-outfit), 'Inter', sans-serif;
+  font-size: 14px;
+  background: transparent;
+  border: none !important;
+  color: var(--bistre-900);
+  width: 100%;
+}
+
+/* Header Styling - Modern & Clean */
+.tableWrapper :global(.tabulator .tabulator-header) {
+  background: rgba(250, 249, 248, 0.8) !important;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(44, 24, 16, 0.08) !important;
+  color: var(--bistre-500) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-size: 10.5px !important;
+  user-select: none;
+}
+
+.tableWrapper :global(.tabulator .tabulator-header .tabulator-col) {
+  background: transparent !important;
+  border-right: none !important;
+  padding: 16px 20px !important;
+  transition: background 0.2s ease;
+}
+
+.tableWrapper :global(.tabulator .tabulator-header .tabulator-col:hover) {
+  background: rgba(44, 24, 16, 0.02) !important;
+}
+
+.tableWrapper :global(.tabulator .tabulator-header .tabulator-col-content) {
+  padding: 0 !important;
+}
+
+/* Row Styling - Elegant & Airy */
+.tableWrapper :global(.tabulator .tabulator-row) {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(44, 24, 16, 0.04) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 60px !important;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.tableWrapper :global(.tabulator .tabulator-row.tabulator-selectable:hover) {
+  background: rgba(201, 147, 45, 0.02) !important;
+}
+
+.tableWrapper :global(.tabulator .tabulator-row.tabulator-selectable:hover::after) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--ochre-400);
+  border-radius: 0 4px 4px 0;
+}
+
+.tableWrapper :global(.tabulator .tabulator-row .tabulator-cell) {
+  padding: 14px 20px !important;
+  border-right: none !important;
+  display: flex;
+  align-items: center;
+  height: 100% !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer & Pagination */
+.tableWrapper :global(.tabulator .tabulator-footer) {
+  background: #ffffff !important;
+  border-top: 1px solid rgba(44, 24, 16, 0.06) !important;
+  padding: 16px 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 16px;
+}
+
+.tableWrapper :global(.tabulator .tabulator-footer .tabulator-paginator) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Page Size Selector Styling */
+.tableWrapper :global(.tabulator .tabulator-footer label) {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--bistre-500) !important;
+  margin: 0 !important;
+}
+
+.tableWrapper :global(.tabulator .tabulator-footer select) {
+  min-width: 68px;
+  height: 36px;
+  padding: 0 8px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(44, 24, 16, 0.12) !important;
+  background: #ffffff !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--bistre-800) !important;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a6b4a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 32px !important;
+}
+
+.tableWrapper :global(.tabulator .tabulator-footer select:hover) {
+  border-color: var(--ochre-300) !important;
+  box-shadow: 0 2px 6px rgba(44, 24, 16, 0.03);
+}
+
+.tableWrapper :global(.tabulator .tabulator-footer select:focus) {
+  border-color: var(--ochre-400) !important;
+  box-shadow: 0 0 0 3px var(--ochre-50);
+}
+
+.tableWrapper :global(.tabulator .tabulator-paginator button) {
+  background: #ffffff !important;
+  border: 1px solid rgba(44, 24, 16, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 6px 14px !important;
+  margin: 0 4px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--bistre-700) !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.tableWrapper :global(.tabulator .tabulator-paginator button:hover:not(:disabled)) {
+  background: var(--ochre-50) !important;
+  border-color: var(--ochre-200) !important;
+  color: var(--ochre-700) !important;
+  transform: translateY(-1px);
+}
+
+.tableWrapper :global(.tabulator .tabulator-paginator button.active) {
+  background: var(--ochre-500) !important;
+  border-color: var(--ochre-600) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(201, 147, 45, 0.25);
+}
+
+/* Tabulator AJAX Loader Refinement */
+.tableWrapper :global(.tabulator .tabulator-loader) {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(4px);
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.tableWrapper :global(.tabulator .tabulator-loader .tabulator-loader-msg) {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.tableWrapper :global(.tabulator-loading-dots) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tableWrapper :global(.tabulator-loading-dot) {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ochre-500);
+  animation: tabulator-jump 0.6s ease-in-out infinite;
+}
+
+.tableWrapper :global(.tabulator-loading-dot:nth-child(1)) { animation-delay: 0s; }
+.tableWrapper :global(.tabulator-loading-dot:nth-child(2)) { animation-delay: 0.15s; }
+.tableWrapper :global(.tabulator-loading-dot:nth-child(3)) { animation-delay: 0.3s; }
+
+@keyframes tabulator-jump {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-10px); }
+}
+
+/* Skeleton Loading State */
+.skeleton {
+  width: 100%;
+  height: 480px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(44, 24, 16, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonHeader {
+  height: 52px;
+  background: rgba(250, 249, 248, 0.8);
+  border-bottom: 1px solid rgba(44, 24, 16, 0.08);
+}
+
+.skeletonRowsWrapper {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skeletonRow {
+  height: 32px;
+  background: linear-gradient(90deg, #f8f7f6 25%, #fdfdfc 50%, #f8f7f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

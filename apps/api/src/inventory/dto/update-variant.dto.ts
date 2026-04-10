@@ -29,4 +29,15 @@ export class UpdateVariantDto {
   @IsOptional()
   @IsString()
   hsnCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  isListedOnWebsite?: boolean;
+
+  @IsOptional()
+  @IsString({ each: true })
+  images?: string[];
 }

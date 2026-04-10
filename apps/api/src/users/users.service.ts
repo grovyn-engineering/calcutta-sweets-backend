@@ -8,9 +8,14 @@ import { PrismaService } from '../prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+import { EmailService } from '../email/email.service';
+
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async findPage(shopCode: string, page: number, size: number) {
     if (!shopCode) {
@@ -56,7 +61,7 @@ export class UsersService {
       throw new BadRequestException(`Shop ${dto.shopCode} not found`);
     }
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         password: dto.password,
@@ -75,6 +80,15 @@ export class UsersService {
         updatedAt: true,
       },
     });
+
+    // Send welcome email asynchronously
+    this.emailService
+      .sendWelcomeEmail(user.email, user.name || '', user.role, shop.name)
+      .catch((err) => {
+        console.error(`Failed to send welcome email to ${user.email}:`, err);
+      });
+
+    return user;
   }
 
   async update(id: string, dto: UpdateUserDto, scopeShopCode: string) {

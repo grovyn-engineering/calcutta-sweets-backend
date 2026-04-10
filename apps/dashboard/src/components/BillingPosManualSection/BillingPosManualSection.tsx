@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { DataTable } from '@/components/DataTable/DataTable';
 import type { ColumnDefinition, ReactTabulatorOptions } from 'react-tabulator';
 
 import {
@@ -41,14 +42,6 @@ type ApiVariantRow = {
   unit: string;
   price: number;
 };
-
-const ReactTabulator = dynamic(
-  () => import('react-tabulator/lib/ReactTabulator'),
-  { ssr: false, loading: () => null },
-);
-
-const TABULATOR_LOADING_HTML =
-  '<div class="billing-pos-tabulator-dots" aria-hidden="true"><span></span><span></span><span></span></div>';
 
 const PAGE_SIZE = 40;
 
@@ -324,7 +317,6 @@ function BillingPosManualSectionInner({
         });
       },
       dataLoader: true,
-      dataLoaderLoading: TABULATOR_LOADING_HTML,
     };
   }, [baseUrl, shopCode]);
 
@@ -370,7 +362,7 @@ function BillingPosManualSectionInner({
 
       <div className={styles.wrap}>
         <div className={styles.tabulatorInner}>
-          <ReactTabulator
+          <DataTable
             key={`${shopCode}-${dataRefreshKey}`}
             columns={columns}
             options={options}

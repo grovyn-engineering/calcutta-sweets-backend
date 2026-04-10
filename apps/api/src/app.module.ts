@@ -14,6 +14,9 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RoleRequestsModule } from './role-requests/role-requests.module';
 import { SettingsModule } from './settings/settings.module';
+import { PublicModule } from './public/public.module';
+import { PaymentModule } from './payment/payment.module';
+
 
 @Module({
   imports: [
@@ -33,6 +36,8 @@ import { SettingsModule } from './settings/settings.module';
     AnalyticsModule,
     RoleRequestsModule,
     SettingsModule,
+    PublicModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

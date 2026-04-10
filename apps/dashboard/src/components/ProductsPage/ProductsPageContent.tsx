@@ -1,8 +1,9 @@
 "use client";
 
-import { Button, Collapse, Input, Segmented } from "antd";
-import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { App, Button, Drawer, Form, Input, InputNumber, Segmented, Select } from "antd";
+import { Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -12,6 +13,7 @@ import styles from "./ProductsPageContent.module.css";
 
 type Props = {
   products: ProductWithRelations[];
+  onRefresh?: () => void;
 };
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -43,77 +45,61 @@ function filterProducts(
   });
 }
 
-function groupByCategory(
-  products: ProductWithRelations[],
-): { key: string; label: string; items: ProductWithRelations[] }[] {
-  const map = new Map<
-    string,
-    { label: string; items: ProductWithRelations[] }
-  >();
-  for (const p of products) {
-    const key = p.category?.id ?? "__uncategorized";
-    const label = p.category?.name ?? "Uncategorized";
-    if (!map.has(key)) {
-      map.set(key, { label, items: [] });
-    }
-    map.get(key)!.items.push(p);
-  }
-  const entries = [...map.entries()].map(([key, v]) => ({
-    key,
-    label: v.label,
-    items: v.items.sort((a, b) => a.name.localeCompare(b.name)),
-  }));
-  entries.sort((a, b) => {
-    if (a.key === "__uncategorized") return 1;
-    if (b.key === "__uncategorized") return -1;
-    return a.label.localeCompare(b.label);
-  });
-  return entries;
-}
 
-export function ProductsPageContent({ products }: Props) {
+
+export function ProductsPageContent({ products, onRefresh }: Props) {
+  const { message } = App.useApp();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 500);
   const [status, setStatus] = useState<StatusFilter>("all");
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm();
+  const [categoryOptions, setCategoryOptions] = useState<{label: string, value: string}[]>([]);
+
+  useEffect(() => {
+    if (createOpen && categoryOptions.length === 0) {
+      apiFetch('/category')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setCategoryOptions(data.map(c => ({ label: c.name, value: c.id })));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [createOpen]);
+
+  const onFinish = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const res = await apiFetch("/products", {
+        method: "POST",
+        body: JSON.stringify(values),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        message.error(typeof payload?.message === "string" ? payload.message : "Could not create product");
+        return;
+      }
+      message.success("Product created!");
+      setCreateOpen(false);
+      form.resetFields();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      message.error("Failed to create product");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const filtered = useMemo(
     () => filterProducts(products, debouncedSearch, status),
     [products, debouncedSearch, status],
   );
 
-  const groups = useMemo(() => groupByCategory(filtered), [filtered]);
 
-  const allKeys = useMemo(() => groups.map((g) => g.key), [groups]);
-
-  const [openKeys, setOpenKeys] = useState<string[]>([]);
-
-  useEffect(() => {
-    setOpenKeys(allKeys);
-  }, [debouncedSearch, status, allKeys.join("|")]);
-
-  const expandAll = () => setOpenKeys(allKeys);
-  const collapseAll = () => setOpenKeys([]);
-
-  const collapseItems = useMemo(
-    () =>
-      groups.map((g) => ({
-        key: g.key,
-        label: (
-          <span className={styles.panelLabel}>
-            <span className={styles.panelTitle}>{g.label}</span>
-            <span className={styles.panelBadge}>{g.items.length}</span>
-          </span>
-        ),
-        children: (
-          <div className={styles.rowStack}>
-            {g.items.map((p) => (
-              <ProductCatalogRow key={p.id} product={p} />
-            ))}
-          </div>
-        ),
-      })),
-    [groups],
-  );
 
   return (
     <div className={styles.root}>
@@ -122,10 +108,6 @@ export function ProductsPageContent({ products }: Props) {
           <div className={styles.introCopy}>
             <p className={styles.eyebrow}>Product catalog</p>
             <h1 className={styles.title}>Products</h1>
-            <p className={styles.lede}>
-              Browse by category, search by name, variant, barcode, or SKU. Open
-              inventory from any row to edit stock and pricing.
-            </p>
           </div>
           <div className={styles.countPill} aria-live="polite">
             <span className={styles.countNum}>{filtered.length}</span>
@@ -138,8 +120,9 @@ export function ProductsPageContent({ products }: Props) {
             ) : null}
           </div>
         </div>
+      </header>
 
-        <div className={styles.toolbar}>
+      <div className={styles.toolbar}>
           <div className={styles.searchFrame}>
             <Input
               allowClear
@@ -170,27 +153,11 @@ export function ProductsPageContent({ products }: Props) {
                 onChange={setStatus}
               />
             </div>
-            <div className={styles.expandBtns}>
-              <Button
-                type="default"
-                size="small"
-                icon={<ChevronDown size={16} aria-hidden />}
-                onClick={expandAll}
-              >
-                Expand all
-              </Button>
-              <Button
-                type="default"
-                size="small"
-                icon={<ChevronUp size={16} aria-hidden />}
-                onClick={collapseAll}
-              >
-                Collapse all
-              </Button>
-            </div>
+            <Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateOpen(true)}>
+              New product
+            </Button>
           </div>
         </div>
-      </header>
 
       <div className={styles.scroll}>
         {products.length === 0 ? (
@@ -200,17 +167,45 @@ export function ProductsPageContent({ products }: Props) {
             No products match your filters. Try another search or status.
           </p>
         ) : (
-          <Collapse
-            bordered={false}
-            className={styles.collapse}
-            activeKey={openKeys}
-            onChange={(keys) =>
-              setOpenKeys(Array.isArray(keys) ? keys : [keys])
-            }
-            items={collapseItems}
-          />
+          <div className={styles.rowStack}>
+            {filtered.map((p) => (
+              <ProductCatalogRow key={p.id} product={p} />
+            ))}
+          </div>
         )}
       </div>
+
+      <Drawer
+        title="New Product"
+        placement="right"
+        size="default"
+        onClose={() => setCreateOpen(false)}
+        open={createOpen}
+        destroyOnClose
+        extra={
+          <Button type="primary" onClick={() => form.submit()} loading={submitting}>
+            Save
+          </Button>
+        }
+      >
+        <Form form={form} layout="vertical" onFinish={onFinish}>
+          <Form.Item name="name" label="Product Name" rules={[{ required: true }]}>
+            <Input placeholder="e.g., Kaju Katli" />
+          </Form.Item>
+          
+          <Form.Item name="price" label="Price (₹)" rules={[{ required: true }]}>
+             <InputNumber className="w-full" style={{ width: '100%' }} min={0} placeholder="e.g., 200" />
+          </Form.Item>
+          
+          <Form.Item name="categoryId" label="Category">
+             <Select placeholder="Select a category" options={categoryOptions} allowClear />
+          </Form.Item>
+          
+          <Form.Item name="quantity" label="Initial Stock">
+             <InputNumber className="w-full" style={{ width: '100%' }} min={0} placeholder="e.g., 100" />
+          </Form.Item>
+        </Form>
+      </Drawer>
     </div>
   );
 }

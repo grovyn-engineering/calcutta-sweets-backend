@@ -29,7 +29,10 @@ model Shop {
   gstNumber String?
   currency  String  @default("INR")
 
-  logoUrl String?
+  upiId String? // UPI ID for payments (e.g. shop@upi)
+
+  allowNextDayBooking       Boolean @default(false)
+  allowBookingWhenOutOfStock Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -75,6 +78,7 @@ enum OrderStatus {
   PAID
   PENDING
   CANCELLED
+  DRAFT
 }
 
 model OrderItem {
@@ -117,8 +121,16 @@ model Order {
   customerPhone String?
   customerEmail String?
 
+  orderSource OrderSource @default(POS)
+  pickupTime  DateTime?
+
   createdAt DateTime    @default(now())
   items     OrderItem[]
+}
+
+enum OrderSource {
+  POS
+  WEBSITE
 }
 
 enum Unit {
@@ -150,7 +162,8 @@ model Product {
   shopCode String
   shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
-  isActive Boolean @default(true)
+  isActive          Boolean @default(true)
+  isListedOnWebsite Boolean @default(false)
 
   variants   ProductVariant[]
   orderItems OrderItem[]
