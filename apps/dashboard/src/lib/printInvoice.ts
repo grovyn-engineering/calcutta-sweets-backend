@@ -173,7 +173,7 @@ export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
 </body>
 </html>`;
 
-  // Avoid `noopener` in the feature string — some browsers still open a tab but return `null` from `window.open`.
+  // Avoid `noopener` in the feature string - some browsers still open a tab but return `null` from `window.open`.
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');

@@ -9,6 +9,8 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 import type { ProductWithRelations } from "@/components/ProductCard/ProductCard";
 import { ProductCatalogRow } from "./ProductCatalogRow";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { PackageSearch, Inbox } from "lucide-react";
 import styles from "./ProductsPageContent.module.css";
 
 type Props = {
@@ -56,7 +58,7 @@ export function ProductsPageContent({ products, onRefresh }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
-  const [categoryOptions, setCategoryOptions] = useState<{label: string, value: string}[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string, value: string }[]>([]);
 
   useEffect(() => {
     if (createOpen && categoryOptions.length === 0) {
@@ -123,49 +125,55 @@ export function ProductsPageContent({ products, onRefresh }: Props) {
       </header>
 
       <div className={styles.toolbar}>
-          <div className={styles.searchFrame}>
-            <Input
-              allowClear
-              size="large"
-              placeholder="Search products, categories, variants, barcodes…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={styles.search}
-              prefix={
-                <Search
-                  className={styles.searchIcon}
-                  size={18}
-                  strokeWidth={2}
-                  aria-hidden
-                />
-              }
+        <div className={styles.searchFrame}>
+          <Input
+            allowClear
+            size="large"
+            placeholder="Search products, categories, variants, barcodes…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={styles.search}
+            prefix={
+              <Search
+                className={styles.searchIcon}
+                size={18}
+                strokeWidth={2}
+                aria-hidden
+              />
+            }
+          />
+        </div>
+        <div className={styles.toolbarRow}>
+          <div className={styles.segmentedWrap}>
+            <Segmented<StatusFilter>
+              options={[
+                { label: "All", value: "all" },
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+              ]}
+              value={status}
+              onChange={setStatus}
             />
           </div>
-          <div className={styles.toolbarRow}>
-            <div className={styles.segmentedWrap}>
-              <Segmented<StatusFilter>
-                options={[
-                  { label: "All", value: "all" },
-                  { label: "Active", value: "active" },
-                  { label: "Inactive", value: "inactive" },
-                ]}
-                value={status}
-                onChange={setStatus}
-              />
-            </div>
-            <Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateOpen(true)}>
-              New product
-            </Button>
-          </div>
+          <Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateOpen(true)}>
+            New product
+          </Button>
         </div>
+      </div>
 
       <div className={styles.scroll}>
         {products.length === 0 ? (
-          <p className={styles.empty}>No products for this shop.</p>
+          <EmptyState
+            message="No products for this shop."
+            description="Start by adding your first product to the catalog."
+            icon={<Inbox size={40} />}
+          />
         ) : filtered.length === 0 ? (
-          <p className={styles.empty}>
-            No products match your filters. Try another search or status.
-          </p>
+          <EmptyState
+            message="No products match your filters."
+            description="Try another search term or change the status filter."
+            icon={<PackageSearch size={40} />}
+          />
         ) : (
           <div className={styles.rowStack}>
             {filtered.map((p) => (
@@ -181,7 +189,7 @@ export function ProductsPageContent({ products, onRefresh }: Props) {
         size="default"
         onClose={() => setCreateOpen(false)}
         open={createOpen}
-        destroyOnClose
+        destroyOnHidden
         extra={
           <Button type="primary" onClick={() => form.submit()} loading={submitting}>
             Save
@@ -192,17 +200,17 @@ export function ProductsPageContent({ products, onRefresh }: Props) {
           <Form.Item name="name" label="Product Name" rules={[{ required: true }]}>
             <Input placeholder="e.g., Kaju Katli" />
           </Form.Item>
-          
+
           <Form.Item name="price" label="Price (₹)" rules={[{ required: true }]}>
-             <InputNumber className="w-full" style={{ width: '100%' }} min={0} placeholder="e.g., 200" />
+            <InputNumber className="w-full" style={{ width: '100%' }} min={0} placeholder="e.g., 200" />
           </Form.Item>
-          
+
           <Form.Item name="categoryId" label="Category">
-             <Select placeholder="Select a category" options={categoryOptions} allowClear />
+            <Select placeholder="Select a category" options={categoryOptions} allowClear />
           </Form.Item>
-          
+
           <Form.Item name="quantity" label="Initial Stock">
-             <InputNumber className="w-full" style={{ width: '100%' }} min={0} placeholder="e.g., 100" />
+            <InputNumber className="w-full" style={{ width: '100%' }} min={0} placeholder="e.g., 100" />
           </Form.Item>
         </Form>
       </Drawer>

@@ -197,7 +197,7 @@ export default function ForgotPasswordPage() {
             // At this point the OTP has been consumed; we need a verified token approach.
             // Since verifyResetPasswordOTP deletes the OTP, we re-use the fact that if we 
             // get here the OTP was valid. The backend resetPassword endpoint also checks OTP
-            // so we pass a special "already-verified" flow — instead we'll call a lightweight
+            // so we pass a special "already-verified" flow - instead we'll call a lightweight
             // PATCH on the user endpoint. For now, use the direct reset with the already-
             // verified token stored server-side via a short-lived "verified" key.
             const res = await fetch(`${API}/auth/reset-password-verified`, {

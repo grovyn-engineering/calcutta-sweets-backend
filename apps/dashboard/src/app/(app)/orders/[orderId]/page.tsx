@@ -75,7 +75,7 @@ function formatWhen(iso: string) {
 function paymentLabel(raw: string) {
   if (raw === "CASH") return "Cash";
   if (raw === "UPI_CARD") return "UPI / Card";
-  return raw || "—";
+  return raw || "-";
 }
 
 function paymentTagColor(raw: string): string {
@@ -159,7 +159,7 @@ export default function OrderBillDetailPage() {
             <Text strong className="text-[var(--text-primary)]">
               {line.productName}
             </Text>
-            {line.variantLabel && line.variantLabel !== "—" ? (
+            {line.variantLabel && line.variantLabel !== "-" ? (
               <div>
                 <Text type="secondary" className="text-xs leading-snug">
                   {line.variantLabel}
@@ -222,16 +222,16 @@ export default function OrderBillDetailPage() {
     const customer =
       order.customerName?.trim() || order.customerPhone?.trim()
         ? {
-            name: order.customerName?.trim() || "Walk-in",
-            phone: order.customerPhone?.trim() ?? "",
-            ...(order.customerEmail?.trim()
-              ? { email: order.customerEmail.trim() }
-              : {}),
-          }
+          name: order.customerName?.trim() || "Walk-in",
+          phone: order.customerPhone?.trim() ?? "",
+          ...(order.customerEmail?.trim()
+            ? { email: order.customerEmail.trim() }
+            : {}),
+        }
         : null;
     const ok = openPrintableInvoice({
       shopName,
-      shopCode: effectiveShopCode ?? "—",
+      shopCode: effectiveShopCode ?? "-",
       invoiceNo: orderIdToInvoiceRef(order.id),
       issuedAt: order.createdAt,
       customer,
@@ -377,7 +377,7 @@ export default function OrderBillDetailPage() {
                       Customer
                     </div>
                     {order.customerName?.trim() ||
-                    order.customerPhone?.trim() ? (
+                      order.customerPhone?.trim() ? (
                       <div>
                         <Text className="text-base font-semibold text-[var(--text-primary)]">
                           {order.customerName?.trim() || "Walk-in"}

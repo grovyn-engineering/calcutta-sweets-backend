@@ -9,6 +9,8 @@ import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch } from "@/lib/api";
 import { useShop } from "@/contexts/ShopContext";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { FolderSearch } from "lucide-react";
 
 import styles from "./page.module.css";
 
@@ -139,9 +141,11 @@ export default function CategoriesPage() {
         </div>
 
         {categories.length === 0 ? (
-          <p className={styles.emptyState}>
-            No categories yet. Create one to start grouping products.
-          </p>
+          <EmptyState 
+            message="No categories yet" 
+            description="Create your first category to start organizing your products into groups."
+            icon={<FolderSearch size={48} />}
+          />
         ) : (
           <div className={styles.grid}>
             {categories.map((cat) => {

@@ -4,7 +4,8 @@
   flex: 1;
   padding: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -43,6 +44,12 @@
   border-right: none !important;
   padding: 16px 20px !important;
   transition: background 0.2s ease;
+}
+
+@media (max-width: 500px) {
+  .tableWrapper :global(.tabulator .tabulator-header .tabulator-col) {
+    padding: 10px 8px !important;
+  }
 }
 
 .tableWrapper :global(.tabulator .tabulator-header .tabulator-col:hover) {
@@ -88,6 +95,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+@media (max-width: 500px) {
+  .tableWrapper :global(.tabulator .tabulator-row .tabulator-cell) {
+    padding: 8px 10px !important;
+  }
+}
+
 /* Footer & Pagination */
 .tableWrapper :global(.tabulator .tabulator-footer) {
   background: #ffffff !important;
@@ -97,6 +110,15 @@
   align-items: center !important;
   justify-content: flex-end !important;
   gap: 16px;
+}
+
+@media (max-width: 500px) {
+  .tableWrapper :global(.tabulator .tabulator-footer) {
+    padding: 12px 10px !important;
+    justify-content: center !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 
 .tableWrapper :global(.tabulator .tabulator-footer .tabulator-paginator) {
@@ -156,6 +178,13 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
+@media (max-width: 500px) {
+  .tableWrapper :global(.tabulator .tabulator-paginator button) {
+    padding: 6px 10px !important;
+    margin: 0 2px !important;
+  }
+}
+
 .tableWrapper :global(.tabulator .tabulator-paginator button:hover:not(:disabled)) {
   background: var(--ochre-50) !important;
   border-color: var(--ochre-200) !important;
@@ -170,46 +199,18 @@
   box-shadow: 0 4px 12px rgba(201, 147, 45, 0.25);
 }
 
-/* Tabulator AJAX Loader Refinement */
-.tableWrapper :global(.tabulator .tabulator-loader) {
-  background: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(4px);
-  border: none !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+/* Completely remove Tabulator's native loader and alerts - we use our own React overlay in DataTable.tsx */
+.tableWrapper :global(.tabulator .tabulator-loader),
+.tableWrapper :global(.tabulator .tabulator-alert),
+.tableWrapper :global(.tabulator-loader),
+.tableWrapper :global(.tabulator-alert) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
-.tableWrapper :global(.tabulator .tabulator-loader .tabulator-loader-msg) {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-.tableWrapper :global(.tabulator-loading-dots) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.tableWrapper :global(.tabulator-loading-dot) {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ochre-500);
-  animation: tabulator-jump 0.6s ease-in-out infinite;
-}
-
-.tableWrapper :global(.tabulator-loading-dot:nth-child(1)) { animation-delay: 0s; }
-.tableWrapper :global(.tabulator-loading-dot:nth-child(2)) { animation-delay: 0.15s; }
-.tableWrapper :global(.tabulator-loading-dot:nth-child(3)) { animation-delay: 0.3s; }
-
-@keyframes tabulator-jump {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-10px); }
-}
+/* Unused - using standard LoadingDots component */
 
 /* Skeleton Loading State */
 .skeleton {

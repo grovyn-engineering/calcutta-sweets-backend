@@ -16,6 +16,7 @@ import { RoleRequestsModule } from './role-requests/role-requests.module';
 import { SettingsModule } from './settings/settings.module';
 import { PublicModule } from './public/public.module';
 import { PaymentModule } from './payment/payment.module';
+import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
 
 
 @Module({
@@ -38,6 +39,7 @@ import { PaymentModule } from './payment/payment.module';
     SettingsModule,
     PublicModule,
     PaymentModule,
+    StockTransfersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

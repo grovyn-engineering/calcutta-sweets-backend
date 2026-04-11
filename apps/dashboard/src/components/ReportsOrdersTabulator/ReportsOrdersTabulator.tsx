@@ -34,7 +34,7 @@ function paymentPill(raw: string) {
     span.textContent = "UPI / Card";
   } else {
     span.className = "orders-pay-pill";
-    span.textContent = raw || "—";
+    span.textContent = raw || "-";
   }
   return span;
 }
@@ -72,7 +72,7 @@ export default function ReportsOrdersTabulator() {
           const id = String(cell.getValue() ?? "");
           const span = document.createElement("span");
           span.className = "orders-bill-ref";
-          span.textContent = id ? orderIdToInvoiceRef(id) : "—";
+          span.textContent = id ? orderIdToInvoiceRef(id) : "-";
           return span;
         },
       },
@@ -178,10 +178,10 @@ export default function ReportsOrdersTabulator() {
     <div>
       <DataTable
         columns={columns}
-        options={{
+        options={useMemo(() => ({
           ...options,
           rowClick: events.rowClick
-        }}
+        }), [options, events.rowClick])}
       />
     </div>
   );

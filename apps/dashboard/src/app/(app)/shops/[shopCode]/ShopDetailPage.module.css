@@ -1,0 +1,55 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.backButton {
+  width: fit-content;
+  padding-left: 0;
+  color: var(--bistre-500);
+  font-weight: 500;
+}
+
+.backButton:hover {
+  color: var(--ochre-600) !important;
+}
+
+.titleWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--bistre-950);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--bistre-500);
+  margin: 0;
+}
+
+.content {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid rgba(44, 24, 16, 0.08);
+  overflow: hidden;
+}

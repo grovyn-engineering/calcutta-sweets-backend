@@ -21,6 +21,7 @@ export type ShopOption = {
   id: string;
   shopCode: string;
   name: string;
+  isFactory: boolean;
 };
 
 type ShopContextValue = {
@@ -46,18 +47,19 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
 
     if (user.role === "SUPER_ADMIN") {
       setShopsLoading(true);
-      dedupeInFlight("GET:/shops", async () => {
-        const res = await apiFetch("/shops");
-        if (!res.ok) throw new Error(res.statusText);
-        return res.json() as Promise<
-          { id: string; shopCode: string; name: string }[]
-        >;
-      })
+      apiFetch("/shops")
+        .then(async (res) => {
+          if (!res.ok) throw new Error(res.statusText);
+          return res.json() as Promise<
+            { id: string; shopCode: string; name: string; isFactory: boolean }[]
+          >;
+        })
         .then((list) => {
           const mapped = list.map((s) => ({
             id: s.id,
             shopCode: s.shopCode,
             name: s.name,
+            isFactory: !!s.isFactory,
           }));
           setShops(mapped);
           const codes = new Set(mapped.map((s) => s.shopCode));
@@ -95,6 +97,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     setEffectiveShopCodeState(code);
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, code);
+      // Reload the page so all shop-scoped data re-fetches cleanly
+      window.location.reload();
     }
   }, []);
 

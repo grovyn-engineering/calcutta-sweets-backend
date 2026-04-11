@@ -1,6 +1,6 @@
 # Calcutta Sweets
 
-A monorepo for a sweets shop management system—dashboard (Next.js) + REST API (NestJS) + shared database (Prisma + PostgreSQL).
+A monorepo for a sweets shop management system-dashboard (Next.js) + REST API (NestJS) + shared database (Prisma + PostgreSQL).
 
 ---
 

@@ -3,6 +3,9 @@ import { PrismaService } from '../prisma.service';
 import { RedisService } from '../redis.provider';
 import { EmailService } from '../email/email.service';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+
+const SALT_ROUNDS = 10;
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
 const OTP_LENGTH = 6;
@@ -31,7 +34,7 @@ export class AuthService {
 
     console.log(user);
     console.log(pass);
-    if (user?.password !== pass) {
+    if (!user || !(await bcrypt.compare(pass, user.password))) {
       throw new UnauthorizedException();
     }
     const { password, ...result } = user;
@@ -100,9 +103,10 @@ export class AuthService {
       throw new BadRequestException('Password must be at least 8 characters long');
     }
     await this.redis.del(`otp:reset:verified:${emailKey}`);
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await this.prisma.user.update({
       where: { email: emailKey },
-      data: { password: newPassword },
+      data: { password: hashedPassword },
     });
     return { message: 'Password reset successfully.' };
   }
@@ -118,9 +122,10 @@ export class AuthService {
 
     await this.redis.del(`otp:reset:${emailKey}`);
 
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
     const user = await this.prisma.user.update({
       where: { email: emailKey },
-      data: { password: newPassword }
+      data: { password: hashedPassword }
     });
 
     const { password, ...result } = user;
@@ -134,7 +139,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
 
-    if (user.password !== oldPassword) {
+    if (!(await bcrypt.compare(oldPassword, user.password))) {
       throw new HttpException(
         { message: 'Incorrect current password. Please try again.', code: 'WRONG_OLD_PASSWORD' },
         HttpStatus.UNAUTHORIZED,
@@ -151,7 +156,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
 
-    if (user.password !== oldPassword) throw new UnauthorizedException('Incorrect old password');
+    if (!(await bcrypt.compare(oldPassword, user.password))) throw new UnauthorizedException('Incorrect old password');
 
     const storedOtp = await this.redis.get(`otp:change:${user.id}`);
     const normalizedOtp = String(otp ?? '').trim();
@@ -161,9 +166,10 @@ export class AuthService {
 
     await this.redis.del(`otp:change:${user.id}`);
 
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: newPassword }
+      data: { password: hashedPassword }
     });
     return { message: 'Password changed successfully' };
   }
@@ -207,10 +213,11 @@ export class AuthService {
       if (!shop) {
         throw new BadRequestException(`Shop with code ${shopCode} not found`);
       }
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
       const user = await this.prisma.user.create({
         data: {
           email,
-          password,
+          password: hashedPassword,
           shopCode,
           role: normalizedRole,
         },
@@ -229,9 +236,10 @@ export class AuthService {
 
   async updateUser(email: string, password: string, shopCode: string, role: string, name: string) {
     const normalizedRole = this.normalizeRole(role);
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
     const user = await this.prisma.user.update({
       where: { email: email.toLowerCase().trim() },
-      data: { password, shopCode, role: normalizedRole, name },
+      data: { password: hashedPassword, shopCode, role: normalizedRole, name },
     });
     if (!user) {
       throw new BadRequestException(`User with email ${email} not found`);

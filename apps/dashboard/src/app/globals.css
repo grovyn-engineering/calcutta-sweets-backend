@@ -3,17 +3,28 @@
 /* Calcutta Sweets - Brand Color Palette */
 :root {
   /* Bistre - Dark brown scale (text, dark backgrounds, UI) */
-  --bistre-950: #1a110c; /* Deepest brown / near-black - headings, primary text */
-  --bistre-900: #231810; /* Near-black warm */
-  --bistre-800: #2c1810; /* Espresso - primary dark */
-  --bistre-700: #3d2818; /* Dark brown */
-  --bistre-600: #4e3420; /* Medium dark */
-  --bistre-500: #6b4a30; /* Muted text */
-  --bistre-400: #8a6b4a; /* Secondary text */
-  --bistre-300: #a88b6a; /* Tertiary / placeholder */
-  --bistre-200: #c5ad94; /* Disabled / borders */
-  --bistre-100: #e2d5c8; /* Light borders */
-  --bistre: var(--bistre-800); /* Alias */
+  --bistre-950: #1a110c;
+  /* Deepest brown / near-black - headings, primary text */
+  --bistre-900: #231810;
+  /* Near-black warm */
+  --bistre-800: #2c1810;
+  /* Espresso - primary dark */
+  --bistre-700: #3d2818;
+  /* Dark brown */
+  --bistre-600: #4e3420;
+  /* Medium dark */
+  --bistre-500: #6b4a30;
+  /* Muted text */
+  --bistre-400: #8a6b4a;
+  /* Secondary text */
+  --bistre-300: #a88b6a;
+  /* Tertiary / placeholder */
+  --bistre-200: #c5ad94;
+  /* Disabled / borders */
+  --bistre-100: #e2d5c8;
+  /* Light borders */
+  --bistre: var(--bistre-800);
+  /* Alias */
   --bistre-80: rgba(44, 24, 16, 0.8);
   --bistre-60: rgba(44, 24, 16, 0.6);
   --bistre-50: rgba(44, 24, 16, 0.5);
@@ -26,12 +37,18 @@
   --linen-80: #ebe0d5;
 
   /* Ochre / Terracotta - CTA, accents, highlights */
-  --ochre-600: #a67c23; /* Dark - active state, pressed */
-  --ochre-500: #c9932d; /* Primary CTA */
-  --ochre-400: #d4a84b; /* Hover state */
-  --ochre-300: #e0bc6d; /* Light accent */
-  --ochre-200: #ecd18f; /* Muted / outlined buttons */
-  --ochre-100: #f5e6c4; /* Subtle background */
+  --ochre-600: #a67c23;
+  /* Dark - active state, pressed */
+  --ochre-500: #c9932d;
+  /* Primary CTA */
+  --ochre-400: #d4a84b;
+  /* Hover state */
+  --ochre-300: #e0bc6d;
+  /* Light accent */
+  --ochre-200: #ecd18f;
+  /* Muted / outlined buttons */
+  --ochre-100: #f5e6c4;
+  /* Subtle background */
   --ochre-50: rgba(201, 147, 45, 0.5);
   --ochre-20: rgba(201, 147, 45, 0.2);
   --ochre-10: rgba(201, 147, 45, 0.1);
@@ -115,6 +132,8 @@
 html {
   background: var(--linen);
   min-height: 100%;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -122,11 +141,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /*
  * Next.js <Link> and plain anchors: Tailwind preflight / UA defaults use bluish
- * link & hover — align with ochre/bistre theme.
+ * link & hover - align with ochre/bistre theme.
  */
 a:where(:any-link) {
   color: var(--ochre-600);
@@ -148,6 +169,7 @@ a:where(:any-link):active {
 
 /* Force light theme - prevent system dark mode from affecting layout */
 @media (prefers-color-scheme: dark) {
+
   html.light,
   html.light body {
     color-scheme: light;

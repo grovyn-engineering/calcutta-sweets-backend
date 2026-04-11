@@ -17,12 +17,13 @@ import {
   BarcodePrintModal,
   type BarcodePrintItem,
 } from "@/components/BarcodePrintModal/BarcodePrintModal";
-import { Printer } from "lucide-react";
-
+import { RefillRequestModal } from "@/components/RefillRequestModal/RefillRequestModal";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShop } from "@/contexts/ShopContext";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { Printer, PackagePlus, PackageSearch } from "lucide-react";
 import styles from "./InventoryTable.module.css";
 
 type TabulatorPageable = {
@@ -53,6 +54,7 @@ const columns = (
       titleFormatter: "rowSelection",
       hozAlign: "center",
       headerHozAlign: "center",
+      responsive: 0,
       width: 44,
       headerSort: false,
       resizable: false,
@@ -62,18 +64,19 @@ const columns = (
       },
     },
     // ── Data columns ─────────────────────────────────────────────────────────
-    { title: "Product", field: "productName", minWidth: 176, widthGrow: 3 },
-    { title: "Variant", field: "variantName", width: 112, minWidth: 104 },
+    { title: "Product", field: "productName", minWidth: 176, widthGrow: 3, responsive: 0 },
+    { title: "Variant", field: "variantName", width: 112, minWidth: 104, responsive: 2 },
     {
       title: "Category",
       field: "category",
       width: 128,
       minWidth: 112,
+      responsive: 4,
       formatter: (cell) => {
         const raw = String(cell.getValue() ?? "").trim();
         const span = document.createElement("span");
         span.className = "inventory-category-pill";
-        span.textContent = raw || "—";
+        span.textContent = raw || "-";
         return span;
       },
     },
@@ -82,11 +85,12 @@ const columns = (
       field: "sku",
       width: 96,
       minWidth: 88,
+      responsive: 3,
       formatter: (cell) => {
         const raw = String(cell.getValue() ?? "").trim();
         const span = document.createElement("span");
         span.className = "inventory-sku-cell";
-        span.textContent = raw || "—";
+        span.textContent = raw || "-";
         if (!raw) span.classList.add("inventory-sku-empty");
         return span;
       },
@@ -96,11 +100,12 @@ const columns = (
       field: "barcode",
       minWidth: 200,
       widthGrow: 2,
+      responsive: 5,
       formatter: (cell) => {
         const v = String(cell.getValue() ?? "").trim();
         const span = document.createElement("span");
         span.className = "inventory-barcode";
-        span.textContent = v || "—";
+        span.textContent = v || "-";
         if (v) span.title = v;
         if (!v) span.classList.add("inventory-barcode-empty");
         return span;
@@ -111,6 +116,7 @@ const columns = (
       field: "quantity",
       width: 76,
       minWidth: 72,
+      responsive: 0,
       hozAlign: "right",
       sorter: "number",
       formatter: (cell) => {
@@ -135,6 +141,7 @@ const columns = (
       field: "minStock",
       width: 96,
       minWidth: 88,
+      responsive: 6,
       hozAlign: "right",
       sorter: "number",
       formatter: (cell) => {
@@ -142,7 +149,7 @@ const columns = (
         const span = document.createElement("span");
         span.className = "inventory-min-stock";
         if (v === null || v === undefined) {
-          span.textContent = "—";
+          span.textContent = "-";
           span.classList.add("inventory-min-stock-empty");
         } else {
           span.textContent = String(v);
@@ -155,12 +162,14 @@ const columns = (
       field: "unit",
       width: 78,
       minWidth: 72,
+      responsive: 7,
     },
     {
       title: "Price",
       field: "price",
       width: 92,
       minWidth: 84,
+      responsive: 0,
       hozAlign: "right",
       sorter: "number",
       formatter: (cell) => inr.format(Number(cell.getValue()) || 0),
@@ -171,6 +180,7 @@ const columns = (
       headerTooltip: "Actions",
       width: 68,
       minWidth: 64,
+      responsive: 0,
       hozAlign: "center",
       headerSort: false,
       resizable: false,
@@ -235,13 +245,19 @@ const columns = (
     },
   ];
 
-export default function InventoryTable() {
+export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?: string }) {
   const { message } = App.useApp();
   const router = useRouter();
   const routerRef = useRef<ReturnType<typeof useRouter> | null>(null);
   routerRef.current = router;
-  const { effectiveShopCode } = useShop();
+  const { effectiveShopCode, shops, shopsLoading } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
+
+  const isFactory = useMemo(() => {
+    if (shopsLoading && shops.length === 0) return false;
+    const s = shops.find(x => x.shopCode === effectiveShopCode);
+    return !!s?.isFactory;
+  }, [shops, effectiveShopCode, shopsLoading]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 500);
@@ -251,33 +267,18 @@ export default function InventoryTable() {
   const tableRef = useRef<TabulatorPageable | null>(null);
   const tableSlotRef = useRef<HTMLDivElement | null>(null);
   const [tableHeightPx, setTableHeightPx] = useState<number | null>(null);
-  const tableHeightPxRef = useRef<number | null>(null);
-  tableHeightPxRef.current = tableHeightPx;
   const prevFilterKeyRef = useRef<string | null>(null);
 
   const [printItems, setPrintItems] = useState<BarcodePrintItem[]>([]);
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [selectedCount, setSelectedCount] = useState(0);
   const [isPrintingAll, setIsPrintingAll] = useState(false);
+  const [refillModalOpen, setRefillModalOpen] = useState(false);
 
   // Single ref for the raw Tabulator instance
   const tabulatorRef = useRef<any>(null);
 
-  const syncTabulatorHeight = useCallback(() => {
-    const apply = () => {
-      const t = tableRef.current;
-      const height = tableHeightPxRef.current;
-      if (!t || height == null || height < 120) return;
-      try {
-        t.setHeight(height);
-      } catch {
-        // ignore
-      }
-    };
-    requestAnimationFrame(() => requestAnimationFrame(apply));
-  }, []);
-
-  const shopKey = effectiveShopCode || defaultShop;
+  const shopKey = shopCodeOverride || effectiveShopCode || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
 
   // Reset to page 1 when search or shop changes
@@ -290,21 +291,6 @@ export default function InventoryTable() {
     if (prev === null || prev === filterKey) return;
     t.setPage(1);
   }, [filterKey, shopKey]);
-
-  useLayoutEffect(() => {
-    const el = tableSlotRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      const h = Math.floor(entries[0]?.contentRect.height ?? 0);
-      if (h > 0) setTableHeightPx(h);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    syncTabulatorHeight();
-  }, [tableHeightPx, syncTabulatorHeight]);
 
   const handlePrintSingle = useCallback((item: BarcodePrintItem) => {
     setPrintItems([item]);
@@ -393,18 +379,25 @@ export default function InventoryTable() {
     }
   }, [shopKey, debouncedSearch, message]);
 
-  const options: any = useMemo(() => {
+  const memoizedColumns = useMemo(() =>
+    columns(routerRef, handlePrintSingle),
+    [handlePrintSingle]
+  );
+
+  const options: ReactTabulatorOptions = useMemo(() => {
     const baseUrl = getApiBaseUrl();
 
     return {
       layout: "fitColumns",
-      height: 360,
+      height: 500,
+      responsiveLayout: "collapse",
+      responsiveLayoutCollapseStartOpen: false,
       placeholder:
         "No rows match your search or this shop has no inventory yet.",
 
       selectable: true,
 
-      rowDblClick: (e: MouseEvent, row: any) => {
+      rowDblClick: (e: any, row: any) => {
         if ((e.target as HTMLElement).closest("button")) return;
         const id = row.getData().id as string | undefined;
         if (id) routerRef.current?.push(`/inventory/${id}`);
@@ -489,6 +482,23 @@ export default function InventoryTable() {
           </Button>
         )}
 
+        {!shopsLoading && !isFactory && (
+          <Button
+            type="default"
+            icon={<PackagePlus className="h-4 w-4" />}
+            onClick={() => setRefillModalOpen(true)}
+            style={{
+              height: "48px",
+              borderRadius: "12px",
+              padding: "0 20px",
+              fontSize: "14px",
+              fontWeight: 500,
+            }}
+          >
+            Request Refill
+          </Button>
+        )}
+
         <Button
           type="default"
           icon={<Printer className="h-4 w-4" />}
@@ -509,19 +519,25 @@ export default function InventoryTable() {
       <div className={styles.tableSlot} ref={tableSlotRef}>
         <DataTable
           key={shopKey}
-          columns={columns(routerRef, handlePrintSingle)}
-          options={{
+          columns={memoizedColumns}
+          options={useMemo(() => ({
             ...options,
             rowSelectionChanged: (_data: unknown[], rows: unknown[]) => {
               setSelectedCount(rows.length);
             },
-          }}
+          }), [options])}
           onRef={(instanceRef: { current?: any }) => {
             const instance = instanceRef.current ?? null;
             tableRef.current = instance;
             tabulatorRef.current = instance;
-            syncTabulatorHeight();
           }}
+          emptyState={
+            <EmptyState
+              message="No stock found"
+              description="Inventory from the Factory will appear here once products are added or transferred."
+              icon={<PackageSearch size={48} />}
+            />
+          }
         />
       </div>
 
@@ -529,6 +545,11 @@ export default function InventoryTable() {
         open={printModalOpen}
         onCancel={() => setPrintModalOpen(false)}
         items={printItems}
+      />
+
+      <RefillRequestModal
+        open={refillModalOpen}
+        onClose={() => setRefillModalOpen(false)}
       />
     </div>
   );

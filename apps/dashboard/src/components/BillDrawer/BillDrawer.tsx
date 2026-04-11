@@ -26,7 +26,7 @@ export function BillDrawer({
   onQuantityChange,
   onRemove,
   onSaleComplete,
-  orderId = '—',
+  orderId = '-',
 }: BillDrawerProps) {
   return (
     <Drawer
