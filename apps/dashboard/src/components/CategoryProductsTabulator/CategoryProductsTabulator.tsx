@@ -142,7 +142,7 @@ function CategoryProductsTabulatorInner({
           if (!id) {
             const em = document.createElement("span");
             em.className = "category-products-dash";
-            em.textContent = "—";
+            em.textContent = "-";
             return em;
           }
           const btn = document.createElement("button");

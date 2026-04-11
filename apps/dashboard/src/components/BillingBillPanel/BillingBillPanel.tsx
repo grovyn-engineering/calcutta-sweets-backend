@@ -58,7 +58,7 @@ export function BillingBillPanel({
   onQuantityChange,
   onRemove,
   onSaleComplete,
-  orderId = '—',
+  orderId = '-',
   layout = 'sidebar',
   className = '',
 }: BillingBillPanelProps) {
@@ -128,7 +128,7 @@ export function BillingBillPanel({
       const invoiceNo = orderIdToInvoiceRef(saved.id);
       const ok = openPrintableInvoice({
         shopName,
-        shopCode: effectiveShopCode || '—',
+        shopCode: effectiveShopCode || '-',
         invoiceNo,
         customer,
         lines: items.map((i) => ({
@@ -264,13 +264,13 @@ export function BillingBillPanel({
                 key={item.variantId}
                 className="flex gap-3 border-b border-[var(--pearl-bush)] pb-4 last:border-0 last:pb-0"
               >
-                <div className="relative h-16 w-16 shrink-0 self-center overflow-hidden rounded-lg bg-[var(--linen-95)]">
+                <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 self-center rounded-lg bg-[var(--linen-95)]">
                   <Image
                     src={item.imageUrl || placeholderImage}
                     alt={item.name}
                     fill
                     className="object-cover"
-                    sizes="64px"
+                    sizes="(max-width: 640px) 48px, 64px"
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center">
@@ -300,17 +300,17 @@ export function BillingBillPanel({
                       <button
                         type="button"
                         onClick={() => onQuantityChange(item.variantId, -1)}
-                        className="min-h-10 min-w-10 px-2 text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--bistre-100)]"
+                        className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--bistre-100)]"
                       >
                         −
                       </button>
-                      <span className="min-w-[2rem] text-center text-sm font-medium text-[var(--text-primary)]">
+                      <span className="min-w-[1.5rem] sm:min-w-[2rem] text-center text-xs sm:text-sm font-medium text-[var(--text-primary)]">
                         {item.quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => onQuantityChange(item.variantId, 1)}
-                        className="min-h-10 min-w-10 px-2 text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--ochre-100)]"
+                        className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--ochre-100)]"
                       >
                         +
                       </button>
@@ -378,11 +378,11 @@ export function BillingBillPanel({
               </span>
             </div>
           </div>
-          <div className="flex items-baseline justify-between border-y border-[var(--pearl-bush)] py-3">
-            <span className="font-semibold text-[var(--text-primary)]">
+          <div className="flex items-baseline justify-between border-y border-[var(--pearl-bush)] py-2 sm:py-3">
+            <span className="text-sm sm:text-base font-semibold text-[var(--text-primary)]">
               Payable total
             </span>
-            <span className="text-2xl font-bold text-[var(--bistre-800)]">
+            <span className="text-xl sm:text-2xl font-bold text-[var(--bistre-800)]">
               ₹{total.toFixed(2)}
             </span>
           </div>
@@ -399,9 +399,9 @@ export function BillingBillPanel({
               style={
                 paymentMethod === 'CASH'
                   ? {
-                      backgroundColor: 'var(--ochre-600)',
-                      borderColor: 'var(--ochre-600)',
-                    }
+                    backgroundColor: 'var(--ochre-600)',
+                    borderColor: 'var(--ochre-600)',
+                  }
                   : undefined
               }
             >
@@ -415,9 +415,9 @@ export function BillingBillPanel({
               style={
                 paymentMethod === 'UPI_CARD'
                   ? {
-                      backgroundColor: 'var(--ochre-600)',
-                      borderColor: 'var(--ochre-600)',
-                    }
+                    backgroundColor: 'var(--ochre-600)',
+                    borderColor: 'var(--ochre-600)',
+                  }
                   : undefined
               }
             >

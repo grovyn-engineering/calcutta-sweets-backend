@@ -1,6 +1,6 @@
 /**
  * Host matches antd `size="middle"` controls (~32px) so the bell lines up with
- * Tag + Select in the header. Dropdown may wrap the trigger in a span — force
+ * Tag + Select in the header. Dropdown may wrap the trigger in a span - force
  * flex so it doesn’t baseline-align above siblings.
  */
 .bellHost {

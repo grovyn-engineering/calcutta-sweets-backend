@@ -32,6 +32,8 @@ model Shop {
 
   upiId String? // UPI ID for payments (e.g. shop@upi)
 
+  isFactory Boolean @default(false)
+
   allowNextDayBooking       Boolean @default(false)
   allowBookingWhenOutOfStock Boolean @default(false)
 
@@ -42,6 +44,8 @@ model Shop {
   products     Product[]
   orders       Order[]
   roleRequests RoleRequest[]
+  transfersOut StockTransferRequest[] @relation("TransfersOut")
+  transfersIn  StockTransferRequest[] @relation("TransfersIn")
 }
 
 model User {
@@ -185,7 +189,7 @@ model ProductVariant {
   price     Float
   costPrice Float?
 
-  barcode String  @unique
+  barcode String
   sku     String?
 
   hsnCode String?
@@ -199,6 +203,8 @@ model ProductVariant {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([barcode, productId])
 }
 
 model ProductImage {
@@ -227,4 +233,38 @@ enum RequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ================== STOCK TRANSFERS ==================
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+}
+
+model StockTransferRequest {
+  id           String         @id @default(uuid())
+  fromShopCode String
+  fromShop     Shop           @relation("TransfersOut", fields: [fromShopCode], references: [shopCode])
+  toShopCode   String
+  toShop       Shop           @relation("TransfersIn", fields: [toShopCode], references: [shopCode])
+  status       TransferStatus @default(PENDING)
+  note         String?
+  createdById  String?
+  approvedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  items        StockTransferItem[]
+}
+
+model StockTransferItem {
+  id          String               @id @default(uuid())
+  requestId   String
+  request     StockTransferRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  barcode     String
+  productName String
+  variantName String
+  quantity    Int
 }

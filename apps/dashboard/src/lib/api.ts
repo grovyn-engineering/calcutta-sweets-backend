@@ -94,6 +94,9 @@ export async function apiFetch(
 ): Promise<Response> {
   const base = getApiBaseUrl();
   const pathPart = path.startsWith("/") ? path : `/${path}`;
+  const method = (init.method || "GET").toUpperCase();
+  const fullUrl = `${base}${pathPart}`;
+
   const headers = new Headers(init.headers);
   const authHeaders = getAuthHeaders();
   for (const [key, value] of Object.entries(authHeaders)) {
@@ -101,6 +104,7 @@ export async function apiFetch(
       headers.set(key, value);
     }
   }
+
   if (
     !headers.has("Content-Type") &&
     init.body &&
@@ -108,7 +112,21 @@ export async function apiFetch(
   ) {
     headers.set("Content-Type", "application/json");
   }
-  return fetch(`${base}${pathPart}`, { ...init, headers });
+
+  // Deduplicate inflight GET requests
+  if (method === "GET") {
+    const shop = headers.get("X-Shop") || "default";
+    const dedupeKey = `${method}:${fullUrl}:${shop}`;
+    
+    const sharedPromise = dedupeInFlight(dedupeKey, () => 
+      fetch(fullUrl, { ...init, headers })
+    );
+
+    const response = await sharedPromise;
+    return response.clone();
+  }
+
+  return fetch(fullUrl, { ...init, headers });
 }
 
 const inFlightByKey = new Map<string, Promise<unknown>>();

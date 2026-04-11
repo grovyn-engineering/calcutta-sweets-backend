@@ -9,6 +9,9 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 import { EmailService } from '../email/email.service';
+import * as bcrypt from 'bcrypt';
+
+const SALT_ROUNDS = 10;
 
 @Injectable()
 export class UsersService {
@@ -61,10 +64,11 @@ export class UsersService {
       throw new BadRequestException(`Shop ${dto.shopCode} not found`);
     }
 
+    const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const user = await this.prisma.user.create({
       data: {
         email,
-        password: dto.password,
+        password: hashedPassword,
         name: dto.name ?? null,
         shopCode: dto.shopCode,
         role: dto.role,
@@ -105,7 +109,9 @@ export class UsersService {
 
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.password !== undefined) data.password = dto.password;
+    if (dto.password !== undefined) {
+      data.password = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    }
     if (dto.shopCode !== undefined) data.shopCode = dto.shopCode;
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;

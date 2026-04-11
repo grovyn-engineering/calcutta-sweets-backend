@@ -70,7 +70,7 @@ type DashboardPayload = {
 function paymentLabel(raw: string) {
   if (raw === "CASH") return "Cash";
   if (raw === "UPI_CARD") return "UPI / Card";
-  return raw || "—";
+  return raw || "-";
 }
 
 function formatWhen(iso: string) {
@@ -85,6 +85,35 @@ function formatWhen(iso: string) {
 }
 
 const chartStroke = "var(--ochre-500)";
+
+function DashboardSkeleton() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-6 pb-6 animate-pulse">
+      <div className="shrink-0 px-1 sm:px-0">
+        <div className="h-8 w-48 bg-[var(--pearl-bush)] rounded-lg mb-2" />
+        <div className="h-4 w-96 bg-[var(--pearl-bush)] opacity-50 rounded" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} variant="borderless" className="h-32 rounded-xl border border-[var(--pearl-bush)] bg-white shadow-sm" />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <Card title="Loading revenue..." variant="borderless" className="rounded-xl border border-[var(--pearl-bush)] shadow-sm lg:col-span-7 xl:col-span-8 h-[360px]" />
+        <div className="flex flex-col gap-6 lg:col-span-5 xl:col-span-4">
+          <Card key="p-skele" title="Payment mix" variant="borderless" className="rounded-xl border border-[var(--pearl-bush)] shadow-sm h-[240px]" />
+          <Card key="q-skele" title="Quick actions" variant="borderless" className="rounded-xl border border-[var(--pearl-bush)] shadow-sm h-[100px]" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <Card title="Recent bills" variant="borderless" className="rounded-xl border border-[var(--pearl-bush)] shadow-sm lg:col-span-12 h-[300px]" />
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardHome() {
   const router = useRouter();
@@ -120,11 +149,7 @@ export default function DashboardHome() {
   }
 
   if (loading && !data) {
-    return (
-      <div className="flex min-h-[320px] items-center justify-center">
-        <Spin size="large" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!data) {
@@ -142,11 +167,11 @@ export default function DashboardHome() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 pb-6">
-      <div className="shrink-0">
-        <Title level={2} className="!mb-1 !text-[var(--text-primary)]">
+      <div className="shrink-0 px-1 sm:px-0">
+        <Title level={2} className="!mb-1 !text-[var(--text-primary)] !text-xl sm:!text-2xl">
           Dashboard
         </Title>
-        <Text className="text-[var(--text-secondary)]">
+        <Text className="text-[var(--text-secondary)] text-xs sm:text-sm">
           Snapshot of sales, catalogue, and stock for your active shop. Amounts
           and &ldquo;today&rdquo; use UTC calendar days.
         </Text>
@@ -256,7 +281,7 @@ export default function DashboardHome() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Card
-          title="Revenue — last 7 days"
+          title="Revenue - last 7 days"
           variant="borderless"
           className="rounded-xl border border-[var(--pearl-bush)] shadow-sm lg:col-span-7 xl:col-span-8 flex flex-col h-full"
           styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
@@ -368,7 +393,7 @@ export default function DashboardHome() {
               >
                 <span className="flex items-center gap-2">
                   <ShoppingBag className="h-4 w-4 text-[var(--ochre-600)]" />
-                  New sale — Billing POS
+                  New sale - Billing POS
                 </span>
                 <ArrowRight className="h-4 w-4 text-[var(--bistre-400)]" />
               </Link>
@@ -403,6 +428,7 @@ export default function DashboardHome() {
             pagination={false}
             rowKey="id"
             dataSource={data.recentOrders}
+            scroll={{ x: 'max-content' }}
             onRow={(record) => ({
               onClick: () => router.push(`/orders/${record.id}`),
               style: { cursor: "pointer" },

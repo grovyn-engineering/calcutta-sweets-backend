@@ -101,7 +101,7 @@ export default function BillingPOSPage() {
                 Barcode scan
               </h2>
               <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-muted)]">
-                Point your scanner at the label on the product and scan — most
+                Point your scanner at the label on the product and scan - most
                 scanners send Enter automatically. You can also type the code
                 and press Enter.
               </p>

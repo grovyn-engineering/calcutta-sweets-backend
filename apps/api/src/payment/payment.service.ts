@@ -34,7 +34,7 @@ export class PaymentService {
       : 'https://securegw-stage.paytm.in';
   }
 
-  // STEP A: Initiate — call before showing the payment modal
+  // STEP A: Initiate - call before showing the payment modal
   async initiatePayment(orderId: string, amount: number, custId: string) {
     const body = {
       requestType: 'Payment',
@@ -53,17 +53,17 @@ export class PaymentService {
         this.key,
       );
     } catch (error) {
-       console.error('Paytm Signature Generation Error:', error.message);
-       throw new HttpException(
-         'Payment encryption failed. This is usually due to an invalid PAYTM_MERCHANT_KEY length (must be 16 chars).',
-         500
-       );
+      console.error('Paytm Signature Generation Error:', error.message);
+      throw new HttpException(
+        'Payment encryption failed. This is usually due to an invalid PAYTM_MERCHANT_KEY length (must be 16 chars).',
+        500
+      );
     }
 
     try {
       const response = await axios.post(
         `${this.baseUrl}/theia/api/v1/initiateTransaction` +
-          `?mid=${this.mid}&orderId=${orderId}`,
+        `?mid=${this.mid}&orderId=${orderId}`,
         { head: { signature }, body },
       );
 
@@ -86,12 +86,12 @@ export class PaymentService {
     }
   }
 
-  // STEP B: Handle callback — Paytm POSTs here after payment
+  // STEP B: Handle callback - Paytm POSTs here after payment
   async handleCallback(callbackBody: Record<string, any>) {
     const { CHECKSUMHASH, ...params } = callbackBody;
 
     if (!CHECKSUMHASH) {
-       throw new HttpException('Missing checksum hash', 400);
+      throw new HttpException('Missing checksum hash', 400);
     }
 
     const isValid = await PaytmChecksum.verifySignature(
@@ -109,7 +109,7 @@ export class PaymentService {
     };
   }
 
-  // STEP C: Verify — always double-check via API (never trust callback alone)
+  // STEP C: Verify - always double-check via API (never trust callback alone)
   async verifyPayment(orderId: string) {
     const body = { mid: this.mid, orderId };
     const signature = await PaytmChecksum.generateSignature(

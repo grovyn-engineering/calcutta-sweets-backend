@@ -125,7 +125,7 @@ export default function InventoryVariantDetailPage() {
       form.setFieldsValue({
         productName: data.product.name,
         description: data.product.description ?? "",
-        category: data.product.category?.name ?? "—",
+        category: data.product.category?.name ?? "-",
         shopName: data.product.shop.name,
         shopCode: data.product.shopCode,
         variantName: data.name,
@@ -406,7 +406,7 @@ export default function InventoryVariantDetailPage() {
 
               <div className={styles.actions}>
                 {detail?.barcode && (
-                  <Button 
+                  <Button
                     icon={<Printer className="w-4 h-4" />}
                     onClick={() => setPrintModalOpen(true)}
                   >

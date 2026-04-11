@@ -1,10 +1,18 @@
 .layout {
   background: var(--linen);
+  overflow-x: hidden;
 }
 
 .sider {
   background: var(--linen-95) !important;
   border-right: 1px solid var(--pearl-bush);
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  .sider {
+    display: block !important;
+  }
 }
 
 .logoLink {
@@ -50,12 +58,29 @@
 }
 .mainLayout {
   background: var(--linen);
+  transition: margin-left 0.2s;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+@media (min-width: 1024px) {
+  .mainLayout {
+    /* Flex handles this now as Sider is in the flow */
+    margin-left: 0;
+  }
 }
 
 .header {
   background: var(--linen-95) !important;
   border-bottom: 1px solid var(--pearl-bush);
-  padding: 0 24px;
+  padding: 0 16px !important;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .header {
+    padding: 0 24px !important;
+  }
 }
 
 .content {
@@ -72,14 +97,102 @@
 
 .pageTitle {
   color: var(--text-secondary);
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .shopSelect {
-  min-width: 220px;
+  min-width: 100px;
+}
+
+@media (min-width: 640px) {
+  .shopSelect {
+    min-width: 220px;
+  }
+}
+
+.mobileDrawer :global(.ant-drawer-content) {
+  background: var(--linen-95) !important;
+}
+
+.mobileDrawer :global(.ant-drawer-body) {
+  padding: 0;
 }
 
 .headerActions {
   align-items: center;
+  gap: 8px !important;
+}
+
+@media (min-width: 640px) {
+  .headerActions {
+    gap: 16px !important;
+  }
+}
+
+.headerShopSwitcher {
+  display: none !important;
+}
+
+@media (min-width: 500px) {
+  .headerShopSwitcher {
+    display: block !important;
+  }
+}
+
+.mobileDrawerShopSwitcher {
+  padding: 16px;
+  border-top: 1px solid var(--pearl-bush);
+  margin-top: auto;
+}
+
+.mobileDrawerInner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.mobileDrawerHeader {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  height: 64px;
+  border-bottom: 1px solid var(--pearl-bush);
+  background: var(--linen-95);
+  gap: 12px;
+}
+
+.closeButton {
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid var(--pearl-bush) !important;
+  background: var(--linen-100) !important;
+  border-radius: 50% !important;
+  color: var(--bistre-800) !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 4px rgba(44, 24, 16, 0.04) !important;
+}
+
+.closeButton:hover {
+  background: var(--ochre-10) !important;
+  border-color: var(--ochre-200) !important;
+  color: var(--ochre-600) !important;
+  transform: scale(1.05);
+}
+
+.drawerLogo {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.drawerLogo img {
+  max-height: 44px;
+  width: auto;
 }
 
 .profileSection {
@@ -93,6 +206,16 @@
 
 .profileSection:hover {
   background: rgba(44, 24, 16, 0.04);
+}
+
+.mobileMenuButton {
+  display: flex !important;
+}
+
+@media (min-width: 1024px) {
+  .mobileMenuButton {
+    display: none !important;
+  }
 }
 
 .avatarWrapper {

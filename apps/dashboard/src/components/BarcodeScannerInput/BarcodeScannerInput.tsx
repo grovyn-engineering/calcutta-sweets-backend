@@ -11,11 +11,6 @@ interface BarcodeScannerInputProps {
   disabled?: boolean;
 }
 
-/**
- * Optimized for HID (Human Interface Device) barcode scanners.
- * - Keeps itself focused to catch scans even if user clicks elsewhere.
- * - Listens for Enter key (sent automatically by most scanners).
- */
 export function BarcodeScannerInput({
   onAddProduct,
   disabled = false,
@@ -25,18 +20,38 @@ export function BarcodeScannerInput({
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<InputRef>(null);
 
-  // Keep input focused — scanners act as keyboards and need the field active
   useEffect(() => {
-    const refocus = () => {
-      if (!disabled) {
-        // Use timeout to ensure any other focus events have finished
-        setTimeout(() => inputRef.current?.focus(), 10);
+    const refocus = (e: MouseEvent) => {
+      if (disabled || busy) return;
+
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('button') ||
+        target.closest('input') ||
+        target.closest('select') ||
+        target.closest('a') ||
+        target.closest('.ant-select') ||
+        target.closest('.ant-dropdown') ||
+        target.closest('.ant-menu') ||
+        target.closest('.ant-picker')
+      ) {
+        return;
       }
+
+      setTimeout(() => inputRef.current?.focus(), 10);
     };
-    document.addEventListener('click', refocus);
-    refocus();
-    return () => document.removeEventListener('click', refocus);
-  }, [disabled]);
+
+    document.addEventListener('mousedown', refocus);
+
+    const initial = setTimeout(() => {
+      if (!disabled && !busy) inputRef.current?.focus();
+    }, 100);
+
+    return () => {
+      document.removeEventListener('mousedown', refocus);
+      clearTimeout(initial);
+    };
+  }, [disabled, busy]);
 
   const handleScan = async (barcode: string) => {
     const trimmed = barcode.trim();
@@ -59,7 +74,7 @@ export function BarcodeScannerInput({
       }
 
       const v = await res.json();
-      
+
       onAddProduct({
         variantId: v.id,
         productId: v.productId,
@@ -71,14 +86,13 @@ export function BarcodeScannerInput({
         stock: v.stock,
         category: v.category ?? null,
       });
-      
+
       setValue('');
     } catch (err) {
       console.error('Barcode lookup error:', err);
       message.error('Failed to look up barcode.');
     } finally {
       setBusy(false);
-      // Ensure input is focused for next scan
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   };

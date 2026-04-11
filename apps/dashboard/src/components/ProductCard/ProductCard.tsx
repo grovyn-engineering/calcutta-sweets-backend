@@ -116,7 +116,7 @@ export default function ProductDetailCard({ product }: DetailProps) {
                 </div>
                 <div className={styles.variantMeta}>
                   <span>
-                    Stock {v.quantity} {v.unit ?? "—"}
+                    Stock {v.quantity} {v.unit ?? "-"}
                   </span>
                   {v.hsnCode && (
                     <span className={styles.hsn}>HSN {v.hsnCode}</span>
@@ -137,7 +137,7 @@ type PosProps = {
   onAdd: (line: ProductCardProduct) => void;
 };
 
-/** Compact tile for Billing POS — first variant price; Add to bill. */
+/** Compact tile for Billing POS - first variant price; Add to bill. */
 export function ProductCard({ product, badge, onAdd }: PosProps) {
   const line = productToBillLine(product);
   const priceLabel = formatInr(line.price);
