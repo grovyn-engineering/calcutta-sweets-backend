@@ -308,11 +308,11 @@ export default function CategoryDetailPage() {
                   </Form.Item>
                   <Form.Item name="unit" label="Unit">
                     <Select placeholder="PC" options={[
-                      { value: "PC", label: "PC — Piece" },
-                      { value: "KG", label: "KG — Kilogram" },
-                      { value: "GM", label: "GM — Gram" },
-                      { value: "LTR", label: "LTR — Litre" },
-                      { value: "ML", label: "ML — Millilitre" },
+                      { value: "PC", label: "PC - Piece" },
+                      { value: "KG", label: "KG - Kilogram" },
+                      { value: "GM", label: "GM - Gram" },
+                      { value: "LTR", label: "LTR - Litre" },
+                      { value: "ML", label: "ML - Millilitre" },
                     ]} allowClear />
                   </Form.Item>
                   <Form.Item name="sku" label="SKU">

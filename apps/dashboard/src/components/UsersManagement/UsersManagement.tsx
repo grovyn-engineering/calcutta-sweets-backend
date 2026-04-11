@@ -13,6 +13,8 @@ type TabulatorPageable = { setPage: (page: number) => void };
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { ShieldAlert } from "lucide-react";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./UsersManagement.module.css";
@@ -89,7 +91,7 @@ export default function UsersManagement() {
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const editHandlerRef = useRef<(row: UserRow) => void>(() => {});
+  const editHandlerRef = useRef<(row: UserRow) => void>(() => { });
 
   const openEdit = useCallback((row: UserRow) => {
     setEditRow(row);
@@ -108,7 +110,7 @@ export default function UsersManagement() {
     const len = 12;
     let pwd = "";
     for (let i = 0; i < len; i++) {
-        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return pwd;
   }, []);
@@ -149,7 +151,7 @@ export default function UsersManagement() {
           const span = document.createElement("span");
           if (!v) {
             span.className = "users-name-muted";
-            span.textContent = "—";
+            span.textContent = "-";
           } else {
             span.textContent = v;
           }
@@ -266,7 +268,7 @@ export default function UsersManagement() {
     };
   }, [baseUrl, effectiveShopCode]);
 
-  /** Reload remote data when shop changes — do not remount the grid (Tabulator + ResizeObserver crash). */
+  /** Reload remote data when shop changes - do not remount the grid (Tabulator + ResizeObserver crash). */
   useEffect(() => {
     if (!readyForTable) return;
     const t = tableRef.current;
@@ -432,6 +434,13 @@ export default function UsersManagement() {
               onRef={(instanceRef: { current?: TabulatorPageable }) => {
                 tableRef.current = instanceRef.current ?? null;
               }}
+              emptyState={
+                <EmptyState
+                  message="No users found"
+                  description="Add your team members and assign them roles to start managing your shop."
+                  icon={<ShieldAlert size={48} />}
+                />
+              }
             />
           </div>
         )}
@@ -520,20 +529,20 @@ export default function UsersManagement() {
               <Input />
             </Form.Item>
             <Form.Item
-               name="password"
-               label={
-                 <div className="flex items-center justify-between w-full">
-                   <span>New password (optional)</span>
-                   <Button
-                     type="link"
-                     size="small"
-                     className="h-auto p-0 text-[11px] font-semibold text-[var(--ochre-600)]"
-                     onClick={() => handleSuggestPassword("edit")}
-                   >
-                     Suggest strong password
-                   </Button>
-                 </div>
-               }
+              name="password"
+              label={
+                <div className="flex items-center justify-between w-full">
+                  <span>New password (optional)</span>
+                  <Button
+                    type="link"
+                    size="small"
+                    className="h-auto p-0 text-[11px] font-semibold text-[var(--ochre-600)]"
+                    onClick={() => handleSuggestPassword("edit")}
+                  >
+                    Suggest strong password
+                  </Button>
+                </div>
+              }
             >
               <Input.Password
                 autoComplete="new-password"

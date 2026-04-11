@@ -27,7 +27,7 @@ export function ProductCatalogRow({ product }: Props) {
   const maxP = prices.length ? Math.max(...prices) : 0;
   const priceLabel =
     prices.length === 0
-      ? "—"
+      ? "-"
       : minP === maxP
         ? formatInr(minP)
         : `${formatInr(minP)}–${formatInr(maxP)}`;
@@ -88,7 +88,7 @@ export function ProductCatalogRow({ product }: Props) {
             Inventory
           </Link>
         ) : (
-          <span className={styles.manageDisabled}>—</span>
+          <span className={styles.manageDisabled}>-</span>
         )}
       </div>
     </div>

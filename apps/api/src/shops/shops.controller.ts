@@ -1,35 +1,59 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { ShopsService } from './shops.service';
 import { CreateShopDto } from './dto/create-shop.dto';
+import { CreateShopWithInventoryDto } from './dto/create-shop-with-inventory.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
 
 @Controller('shops')
+@UseGuards(JwtAuthGuard, ShopScopeGuard)
 export class ShopsController {
   constructor(private readonly shopsService: ShopsService) { }
 
   @Post()
-  create(@Body() createShopDto: CreateShopDto) {
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  async create(@Req() req: Request, @Body() createShopDto: CreateShopDto) {
+    if (!(await this.shopsService.isFactory(req.effectiveShopCode!))) {
+      throw new ForbiddenException('Shop management is only allowed from the Factory scope');
+    }
     return this.shopsService.create(createShopDto);
   }
 
-  @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('bulk-create')
   @Roles(UserRole.SUPER_ADMIN)
-  findAll() {
+  @UseGuards(RolesGuard)
+  async bulkCreate(@Req() req: Request, @Body() dto: CreateShopWithInventoryDto) {
+    if (!(await this.shopsService.isFactory(req.effectiveShopCode!))) {
+      throw new ForbiddenException('Shop management is only allowed from the Factory scope');
+    }
+    return this.shopsService.createWithInitialInventory(dto);
+  }
+
+  @Get()
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  async findAll(@Req() req: Request) {
+    if (!(await this.shopsService.isFactory(req.effectiveShopCode!))) {
+      return []; // Return empty list for non-factory scope
+    }
     return this.shopsService.findAll();
   }
 

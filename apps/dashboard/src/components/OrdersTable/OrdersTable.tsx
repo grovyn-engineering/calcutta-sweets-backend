@@ -10,8 +10,9 @@ import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { Receipt, Search } from "lucide-react";
 import styles from "./OrdersTable.module.css";
-import { Search } from "lucide-react";
 
 type TabulatorPageable = { setPage: (page: number) => void };
 
@@ -103,7 +104,7 @@ export default function OrdersTable() {
         headerSort: false,
         formatter: (cell) => {
           const val = cell.getValue();
-          if (!val) return "—";
+          if (!val) return "-";
           return formatWhen(String(val));
         },
       },
@@ -116,7 +117,7 @@ export default function OrdersTable() {
           const id = String(cell.getValue() ?? "");
           const span = document.createElement("span");
           span.className = "orders-bill-ref";
-          span.textContent = id ? orderIdToInvoiceRef(id) : "—";
+          span.textContent = id ? orderIdToInvoiceRef(id) : "-";
           return span;
         },
       },
@@ -136,7 +137,7 @@ export default function OrdersTable() {
             span.textContent = "UPI / Card";
           } else {
             span.className = "orders-pay-pill";
-            span.textContent = raw || "—";
+            span.textContent = raw || "-";
           }
           return span;
         },
@@ -236,7 +237,7 @@ export default function OrdersTable() {
     };
   }, []);
 
-  /** Row clicks: use `events` — this wrapper doesn’t pick up `rowClick` from `options`. */
+  /** Row clicks: use `events` - this wrapper doesn’t pick up `rowClick` from `options`. */
   const events = useMemo(
     () => ({
       rowClick: (_e: unknown, row: { getData: () => OrderRow }) => {
@@ -267,13 +268,20 @@ export default function OrdersTable() {
       <div className={styles.tableSlot}>
         <DataTable
           columns={columns}
-          options={{
+          options={useMemo(() => ({
             ...options,
             rowClick: events.rowClick
-          }}
+          }), [options, events.rowClick])}
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}
+          emptyState={
+            <EmptyState
+              message="No bills found"
+              description="Orders from your Billing POS will appear here once you complete a sale."
+              icon={<Receipt size={48} />}
+            />
+          }
         />
       </div>
     </div>

@@ -13,7 +13,7 @@ export type ActivityItemDto = {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getShopActivity(shopCode: string): Promise<{
     since: string;
@@ -72,7 +72,7 @@ export class NotificationsService {
         type: 'new_variant',
         at: v.createdAt.toISOString(),
         title: 'New variant / SKU',
-        body: `${v.product.name} — ${v.name} was added.`,
+        body: `${v.product.name} - ${v.name} was added.`,
         hrefHint: `/inventory/${v.id}`,
       });
     }

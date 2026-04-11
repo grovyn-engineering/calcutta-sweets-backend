@@ -65,7 +65,7 @@ function apiRowToBilling(d: ApiVariantRow): BillingVariantRow {
     price: d.price,
     unit: d.unit ?? 'PC',
     stock: d.quantity,
-    category: cat && cat !== '—' ? cat : null,
+    category: cat && cat !== '-' ? cat : null,
   };
 }
 
@@ -143,7 +143,7 @@ function BillingPosManualSectionInner({
 
   /**
    * Reload from page 1 when shop, debounced search, or category changes.
-   * Skip the first run — Tabulator performs the initial remote load on mount.
+   * Skip the first run - Tabulator performs the initial remote load on mount.
    */
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
@@ -158,10 +158,20 @@ function BillingPosManualSectionInner({
   const columns = useMemo<ColumnDefinition[]>(
     () => [
       {
+        title: 'S.No.',
+        formatter: 'responsiveCollapse',
+        width: 30,
+        minWidth: 30,
+        hozAlign: 'center',
+        resizable: false,
+        headerSort: false,
+      },
+      {
         title: 'Product',
         field: 'productName',
-        minWidth: 168,
+        minWidth: 140,
         headerSort: false,
+        responsive: 0,
         formatter: (cell) => {
           const row = cell.getRow().getData() as ApiVariantRow;
           const wrap = document.createElement('div');
@@ -173,7 +183,7 @@ function BillingPosManualSectionInner({
           const cat = (row.category ?? '').trim();
           const parts = [
             row.variantName,
-            cat && cat !== '—' ? cat.replace(/_/g, ' ') : null,
+            cat && cat !== '-' ? cat.replace(/_/g, ' ') : null,
           ].filter(Boolean);
           sub.textContent = parts.join(' · ');
           wrap.appendChild(titleEl);
@@ -184,9 +194,10 @@ function BillingPosManualSectionInner({
       {
         title: 'Barcode',
         field: 'barcode',
-        minWidth: 140,
+        minWidth: 120,
         cssClass: 'billing-pos-col-barcode',
         headerSort: false,
+        responsive: 2,
         formatter: (cell) => {
           const raw = String(cell.getValue() ?? '');
           const wrap = document.createElement('div');
@@ -220,9 +231,11 @@ function BillingPosManualSectionInner({
       {
         title: 'Stock',
         field: 'quantity',
-        width: 88,
+        width: 100,
+        minWidth: 90,
         hozAlign: 'left',
         headerSort: false,
+        responsive: 1,
         formatter: (cell) => {
           const row = cell.getRow().getData() as ApiVariantRow;
           return `${row.quantity ?? 0} ${row.unit ?? 'PC'}`;
@@ -231,19 +244,23 @@ function BillingPosManualSectionInner({
       {
         title: 'Price',
         field: 'price',
-        width: 88,
+        width: 90,
+        minWidth: 80,
         hozAlign: 'left',
         headerSort: false,
+        responsive: 0,
         formatter: (cell) =>
           inr.format(Number(cell.getValue()) || 0),
       },
       {
         title: '',
         field: '_add',
-        width: 76,
+        width: 85,
+        minWidth: 80,
         hozAlign: 'right',
         headerSort: false,
         resizable: false,
+        responsive: 0,
         formatter: (cell) => {
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -268,7 +285,10 @@ function BillingPosManualSectionInner({
   const options = useMemo<ReactTabulatorOptions>(() => {
     return {
       layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      responsiveLayoutCollapseStartOpen: false,
       height: '100%',
+      minHeight: 400,
       placeholder:
         'No products match your search or category for this shop.',
       /**
@@ -330,8 +350,8 @@ function BillingPosManualSectionInner({
   if (!shopCode) return null;
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-      <div className="min-w-0 shrink-0 min-[900px]:max-w-[46%]">
+    <section className="flex min-h-0 min-w-100 flex-1 flex-col gap-3">
+      <div className="min-w-0 shrink-0">
         <h2 className="mb-1 text-sm font-semibold text-[var(--bistre-800)]">
           Manual billing
         </h2>

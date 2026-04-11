@@ -169,7 +169,7 @@ export class InventoryService {
       variantName: v.name,
       sku: v.sku ?? '',
       barcode: v.barcode,
-      category: v.product.category?.name ?? '—',
+      category: v.product.category?.name ?? '-',
       quantity: v.quantity,
       minStock: v.minStock,
       unit: v.unit ?? 'PC',

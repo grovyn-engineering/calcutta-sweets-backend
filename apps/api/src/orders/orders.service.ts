@@ -11,7 +11,7 @@ const POS_GST_RATE = 0.05;
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async createPosOrder(
     shopCode: string,
@@ -108,12 +108,12 @@ export class OrdersService {
       status: { not: OrderStatus.DRAFT },
       ...(qt
         ? {
-            OR: [
-              { customerName: { contains: qt, mode: 'insensitive' as const } },
-              { customerPhone: { contains: qt, mode: 'insensitive' as const } },
-              { id: { equals: qt } },
-            ],
-          }
+          OR: [
+            { customerName: { contains: qt, mode: 'insensitive' as const } },
+            { customerPhone: { contains: qt, mode: 'insensitive' as const } },
+            { id: { equals: qt } },
+          ],
+        }
         : {}),
     };
 
@@ -187,7 +187,7 @@ export class OrdersService {
         quantity: i.quantity,
         unitPrice: i.price,
         productName: i.product.name,
-        variantLabel: i.productVariant?.name ?? '—',
+        variantLabel: i.productVariant?.name ?? '-',
         unit: i.productVariant?.unit ?? null,
         barcode: i.productVariant?.barcode ?? '',
       })),
