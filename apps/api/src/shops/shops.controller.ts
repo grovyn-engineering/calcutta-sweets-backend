@@ -51,9 +51,6 @@ export class ShopsController {
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   async findAll(@Req() req: Request) {
-    if (!(await this.shopsService.isFactory(req.effectiveShopCode!))) {
-      return []; // Return empty list for non-factory scope
-    }
     return this.shopsService.findAll();
   }
 
