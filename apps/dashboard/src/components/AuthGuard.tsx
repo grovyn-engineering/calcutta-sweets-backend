@@ -57,26 +57,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [pathname, isAuthenticated, isLoading, user, router]);
 
   if (isLoading) {
-    return (
-      <div className={styles.authShell}>
-        {children}
-        <div
-          className={styles.loadingOverlay}
-          aria-busy="true"
-          aria-label="Loading session"
-        >
-          <LoadingDots />
-        </div>
-      </div>
-    );
+    return <LoadingDots fullScreen />;
   }
 
   if (!isAuthenticated && isProtectedPath(pathname)) {
-    return (
-      <div className={styles.fullPageLoader} aria-busy="true" aria-label="Redirecting">
-        <LoadingDots />
-      </div>
-    );
+    return <LoadingDots fullScreen />;
   }
 
   if (
@@ -85,11 +70,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isSuperAdminOnlyPath(pathname) &&
     user.role !== 'SUPER_ADMIN'
   ) {
-    return (
-      <div className={styles.fullPageLoader} aria-busy="true" aria-label="Redirecting">
-        <LoadingDots />
-      </div>
-    );
+    return <LoadingDots fullScreen />;
   }
 
   return <>{children}</>;

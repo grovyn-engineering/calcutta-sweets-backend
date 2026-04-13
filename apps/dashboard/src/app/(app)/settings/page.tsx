@@ -5,12 +5,14 @@ import { UserOutlined, SafetyCertificateOutlined, IdcardOutlined, CrownOutlined 
 import { PersonalDetails } from "./components/PersonalDetails";
 import { SecuritySection } from "./components/SecuritySection";
 import { RolesSection } from "./components/RolesSection";
+import { TaxSettings } from "./components/TaxSettings";
 import { RoleRequestsAdmin } from "./components/RoleRequestsAdmin";
 import { useAuth } from "../../../contexts/AuthContext";
 import styles from "./SettingsPage.module.css";
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const isAtLeastManager = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.role === "MANAGER";
 
   const items: any[] = [
     {
@@ -44,6 +46,19 @@ export default function SettingsPage() {
       children: <RolesSection />
     }
   ];
+
+  if (isAtLeastManager) {
+    items.push({
+      key: '5',
+      label: (
+        <span className={styles.panelLabel}>
+          <IdcardOutlined className="text-amber-400" />
+          <span className={styles.panelTitle}>Tax Configuration</span>
+        </span>
+      ),
+      children: <TaxSettings />
+    });
+  }
 
   if (user?.role === "SUPER_ADMIN") {
     items.push({

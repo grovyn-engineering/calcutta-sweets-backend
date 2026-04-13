@@ -226,6 +226,7 @@ function CategoryProductsTabulatorInner({
           columns={columns}
           options={options}
           onRef={onTableRef}
+          minHeight={300}
         />
       </div>
     </div>

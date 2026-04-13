@@ -25,8 +25,6 @@ const ReactTabulator = dynamic(
   { ssr: false, loading: () => <TableSkeleton /> }
 );
 
-import { EmptyState } from "@/components/EmptyState/EmptyState";
-
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 
 type DataTableProps = {
@@ -35,39 +33,47 @@ type DataTableProps = {
   data?: any[];
   onRef?: (instanceRef: { current?: any }) => void;
   emptyState?: React.ReactNode;
+  minHeight?: number | string;
 };
 
-export function DataTable({ columns, options, data, onRef, emptyState }: DataTableProps) {
+export function DataTable({ columns, options, data, onRef, emptyState, minHeight = 400 }: DataTableProps) {
   const [isEmpty, setIsEmpty] = useState(false);
   const [loading, setLoading] = useState(true);
+  const isAjaxInFlight = React.useRef(false);
   const internalRef = React.useRef<any>(null);
+
+  // Convert numeric minHeight to px
+  const minHeightStyle = typeof minHeight === 'number' ? `${minHeight}px` : minHeight;
 
   const internalOptions = useMemo(() => ({
     layout: "fitDataFill",
     dataLoader: false, // We use our own overlay
     ...options,
     ajaxRequesting: () => {
+      isAjaxInFlight.current = true;
       setLoading(true);
       setIsEmpty(false);
     },
-    dataLoaded: () => {
+    dataLoaded: (data: any[]) => {
       setLoading(false);
-      if (internalRef.current) {
-        setIsEmpty(internalRef.current.getDataCount() === 0);
-      }
+      setIsEmpty(data.length === 0);
     },
     ajaxResponse: (_url: string, _params: any, response: any) => {
-      // Still set loading false here in case dataLoaded doesn't catch everything
-      setLoading(false);
+      isAjaxInFlight.current = false;
+      // Fallback: hide loader after data arrives, even if events are missed
+      setTimeout(() => setLoading(false), 100);
       return response;
     },
+    renderComplete: () => {
+      setLoading(false);
+    },
     ajaxError: () => {
+      isAjaxInFlight.current = false;
       setLoading(false);
       setIsEmpty(true);
     },
-    dataChanged: (data: any[]) => {
-      setIsEmpty(data.length === 0);
-    }
+    // Remove dataChanged listener for isEmpty as it triggers too often
+    // causing overlays during internal Tabulator state changes.
   }), [options]);
 
   const handleRef = (ref: { current: any }) => {
@@ -76,13 +82,20 @@ export function DataTable({ columns, options, data, onRef, emptyState }: DataTab
   };
 
   return (
-    <div className={styles.tableWrapper} style={{ position: 'relative' }}>
+    <div
+      className={styles.tableWrapper}
+      style={{
+        position: 'relative',
+        '--table-min-height': minHeightStyle
+      } as React.CSSProperties}
+    >
       <ReactTabulator
         columns={columns}
         options={internalOptions}
         data={data}
         onRef={handleRef}
       />
+
       {loading && (
         <div style={{
           position: 'absolute',
@@ -91,14 +104,17 @@ export function DataTable({ columns, options, data, onRef, emptyState }: DataTab
           right: 0,
           bottom: 0,
           zIndex: 20,
-          background: 'rgba(255, 255, 255, 0.85)',
+          background: 'rgba(255, 255, 255, 0.95)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          borderRadius: '16px'
         }}>
           <LoadingDots />
         </div>
       )}
+
+      {/* Only show empty state if NOT loading and data is empty */}
       {!loading && isEmpty && emptyState && (
         <div style={{
           position: 'absolute',
@@ -111,7 +127,8 @@ export function DataTable({ columns, options, data, onRef, emptyState }: DataTab
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '20px'
+          padding: '20px',
+          borderRadius: '16px'
         }}>
           {emptyState}
         </div>

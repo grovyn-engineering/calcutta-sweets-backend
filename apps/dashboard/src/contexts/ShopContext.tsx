@@ -22,6 +22,8 @@ export type ShopOption = {
   shopCode: string;
   name: string;
   isFactory: boolean;
+  cgstRate: number;
+  sgstRate: number;
 };
 
 type ShopContextValue = {
@@ -51,7 +53,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         .then(async (res) => {
           if (!res.ok) throw new Error(res.statusText);
           return res.json() as Promise<
-            { id: string; shopCode: string; name: string; isFactory: boolean }[]
+            { id: string; shopCode: string; name: string; isFactory: boolean; cgstRate?: number; sgstRate?: number }[]
           >;
         })
         .then((list) => {
@@ -60,6 +62,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
             shopCode: s.shopCode,
             name: s.name,
             isFactory: !!s.isFactory,
+            cgstRate: s.cgstRate ?? 2.5,
+            sgstRate: s.sgstRate ?? 2.5,
           }));
           setShops(mapped);
           const codes = new Set(mapped.map((s) => s.shopCode));
@@ -94,13 +98,21 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, user, defaultEnv]);
 
   const setEffectiveShopCode = useCallback((code: string) => {
+    if (!code || shopsLoading) return;
+
     setEffectiveShopCodeState(code);
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, code);
-      // Reload the page so all shop-scoped data re-fetches cleanly
-      window.location.reload();
+      try {
+        localStorage.setItem(STORAGE_KEY, code);
+        setTimeout(() => {
+          window.location.reload();
+        }, 50);
+      } catch (e) {
+        console.error("Failed to persist shop code", e);
+        window.location.reload();
+      }
     }
-  }, []);
+  }, [shopsLoading]);
 
   const value = useMemo<ShopContextValue>(
     () => ({

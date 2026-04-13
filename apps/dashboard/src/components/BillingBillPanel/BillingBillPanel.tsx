@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Button } from 'antd';
+import { App, Button, Modal, InputNumber } from 'antd';
 import Image from 'next/image';
 import {
   UserPlus,
@@ -35,7 +35,6 @@ export interface BillItem {
 
 const placeholderImage =
   'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?w=100&h=100&fit=crop';
-const GST_RATE = 0.05;
 const DEFAULT_DISCOUNT = 0;
 
 export type BillingBillPanelLayout = 'sidebar' | 'drawer';
@@ -64,20 +63,37 @@ export function BillingBillPanel({
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
   const { shops, effectiveShopCode } = useShop();
-  const shopName = useMemo(
-    () =>
-      shops.find((s) => s.shopCode === effectiveShopCode)?.name ??
-      'Calcutta Sweets',
+  const currentShop = useMemo(
+    () => shops.find((s) => s.shopCode === effectiveShopCode),
     [shops, effectiveShopCode],
   );
 
-  const subtotal = items.reduce(
+  const shopName = currentShop?.name ?? 'Calcutta Sweets';
+  const cgstRate = currentShop?.cgstRate ?? 2.5;
+  const sgstRate = currentShop?.sgstRate ?? 2.5;
+  const totalTaxRate = (cgstRate + sgstRate) / 100;
+
+  // With inclusive tax, "subtotal" here is the items gross total (sum of inclusive prices)
+  const itemsGrossTotal = items.reduce(
     (sum, i) => sum + i.unitPrice * i.quantity,
     0,
   );
-  const gst = subtotal * GST_RATE;
-  const discount = DEFAULT_DISCOUNT;
-  const total = subtotal + gst - discount;
+  
+  const [discount, setDiscount] = useState(0);
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [tempDiscount, setTempDiscount] = useState(0);
+  
+  // Total payable matches the gross minus discount
+  const total = itemsGrossTotal - discount;
+
+  // Calculate taxes backward from the total
+  const gstAmount = total * (totalTaxRate / (1 + totalTaxRate));
+  const cgstAmount = total * ((cgstRate / 100) / (1 + totalTaxRate));
+  const sgstAmount = total * ((sgstRate / 100) / (1 + totalTaxRate));
+  
+  // The base amount (pre-tax) for reporting
+  const baseAmount = total - gstAmount;
+
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const [customer, setCustomer] = useState<CustomerFormValues | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(
@@ -139,9 +155,9 @@ export function BillingBillPanel({
           unit: i.unit,
           unitPrice: i.unitPrice,
         })),
-        subtotal,
-        gstRate: GST_RATE,
-        gstAmount: gst,
+        subtotal: baseAmount, // Base amount for invoice
+        gstRate: totalTaxRate,
+        gstAmount: gstAmount,
         discount,
         total,
       });
@@ -153,6 +169,7 @@ export function BillingBillPanel({
         message.success('Bill saved and sent to print.');
       }
       setPaymentMethod(null);
+      setDiscount(0);
       onSaleComplete?.();
     } catch {
       message.error('Network error while saving the sale.');
@@ -351,15 +368,21 @@ export function BillingBillPanel({
         <div className="shrink-0 space-y-4 rounded-t-2xl border-t-2 border-[var(--pearl-bush)] bg-[var(--linen-95)] p-4">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-[var(--text-secondary)]">
-              <span>Subtotal</span>
+              <span>Items Total (Incl. Tax)</span>
               <span className="font-medium text-[var(--text-primary)]">
-                ₹{subtotal.toFixed(2)}
+                ₹{itemsGrossTotal.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-[var(--text-secondary)]">
-              <span>GST (5%)</span>
+              <span>CGST ({cgstRate}%)</span>
               <span className="font-medium text-[var(--text-primary)]">
-                ₹{gst.toFixed(2)}
+                ₹{cgstAmount.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-[var(--text-secondary)]">
+              <span>SGST ({sgstRate}%)</span>
+              <span className="font-medium text-[var(--text-primary)]">
+                ₹{sgstAmount.toFixed(2)}
               </span>
             </div>
             <div className="flex items-center justify-between text-[var(--text-secondary)]">
@@ -367,6 +390,10 @@ export function BillingBillPanel({
                 Discount
                 <button
                   type="button"
+                  onClick={() => {
+                    setTempDiscount(discount);
+                    setIsDiscountModalOpen(true);
+                  }}
                   className="rounded-lg p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--ochre-10)] hover:text-[var(--ochre-500)]"
                   aria-label="Edit discount"
                 >
@@ -447,6 +474,36 @@ export function BillingBillPanel({
         initialValues={customer ?? undefined}
         onSave={(values) => setCustomer(values)}
       />
+
+      <Modal
+        title="Adjust Discount"
+        open={isDiscountModalOpen}
+        onOk={() => {
+          setDiscount(tempDiscount);
+          setIsDiscountModalOpen(false);
+        }}
+        onCancel={() => setIsDiscountModalOpen(false)}
+        okText="Apply Discount"
+        cancelText="Keep Current"
+        okButtonProps={{ 
+          style: { backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }
+        }}
+      >
+        <div className="py-4">
+          <p className="mb-2 text-sm text-[var(--text-secondary)]">Enter a fixed discount amount (₹) to apply to this sale.</p>
+          <InputNumber
+            className="w-full"
+            size="large"
+            min={0}
+            max={itemsGrossTotal}
+            value={tempDiscount}
+            onChange={(val) => setTempDiscount(val ?? 0)}
+            prefix="₹"
+            placeholder="0.00"
+            autoFocus
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

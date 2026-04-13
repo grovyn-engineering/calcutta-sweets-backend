@@ -9,16 +9,35 @@ export enum Unit {
 export function getCategory(name: string) {
   const n = name.toLowerCase();
 
-  if (n.includes("ice cream") || n.includes("cone")) return "ICE_CREAM";
-  if (n.includes("juice") || n.includes("cola") || n.includes("drink") || n.includes("lassi")) return "DRINKS";
-  if (n.includes("pickle") || n.includes("paste")) return "GROCERY";
-  if (n.includes("kaju") || n.includes("badam") || n.includes("pista")) return "DRY_FRUITS";
-  if (n.includes("biscuit") || n.includes("cookies")) return "BAKERY";
-  if (n.includes("sev") || n.includes("mixture") || n.includes("namkeen")) return "NAMKEEN";
-  if (n.includes("candy") || n.includes("chocolate")) return "CANDY";
-  if (n.includes("kachori") || n.includes("samosa") || n.includes("chaat")) return "FAST_FOOD";
+  // Beverages & Drinks
+  if (n.includes("juice") || n.includes("cola") || n.includes("drink") || n.includes("lassi") || n.includes("pepsi") || n.includes("7up") || n.includes("sprite") || n.includes("thums up") || n.includes("mirinda") || n.includes("soda") || n.includes("milkshake") || n.includes("sharbat")) return "Beverages";
+  
+  // Dairy & Milk Based
+  if (n.includes("dahi") || n.includes("curd") || n.includes("paneer") || n.includes("khoya") || n.includes("rabri") || n.includes("malai") || n.includes("milk cake")) return "Dairy";
+  
+  // Ice Cream
+  if (n.includes("ice cream") || n.includes("cone") || n.includes("bar") || n.includes("cassata") || n.includes("kulfi")) return "Ice Cream";
+  
+  // Snacks / Namkeen
+  if (n.includes("sev") || n.includes("mixture") || n.includes("namkeen") || n.includes("bhujia") || n.includes("mathri") || n.includes("mathari") || n.includes("para") || n.includes("chana jor") || n.includes("chips") || n.includes("lays") || n.includes("kurkure") || n.includes("khakhra") || n.includes("papad") || n.includes("mixture") || n.includes("bhakarwadi")) return "Namkeen";
+  
+  // Bakery & Biscuits
+  if (n.includes("biscuit") || n.includes("cookies") || n.includes("toast") || n.includes("rusk") || n.includes("cake")) return "Bakery";
+  
+  // Dry Fruits
+  if (n.includes("kaju") || n.includes("badam") || n.includes("pista") || n.includes("akhrot") || n.includes("kismis") || n.includes("khajur") || n.includes("anjir") || n.includes("mewa") || n.includes("nuts")) return "Dry Fruits";
+  
+  // Fast Food / Savory
+  if (n.includes("kachori") || n.includes("samosa") || n.includes("chaat") || n.includes("dhokla") || n.includes("cutlet") || n.includes("thepla") || n.includes("gupchup") || n.includes("aloo gunda")) return "Fast Food";
+  
+  // Grocery & Packaged
+  if (n.includes("pickle") || n.includes("paste") || n.includes("sauce") || n.includes("ketchup") || n.includes("amla murabba") || n.includes("honey") || n.includes("muesli")) return "Grocery";
+  
+  // Candy & Confectionery
+  if (n.includes("candy") || n.includes("chocolate") || n.includes("chikki") || n.includes("petha") || n.includes("saunf") || n.includes("immli")) return "Candy";
 
-  return "SWEETS";
+  // Fallback to Sweets
+  return "Sweets";
 }
 
 export function extractVariant(name: string) {

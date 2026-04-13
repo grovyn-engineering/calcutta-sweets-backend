@@ -288,15 +288,8 @@ function BillingPosManualSectionInner({
       responsiveLayout: 'collapse',
       responsiveLayoutCollapseStartOpen: false,
       height: '100%',
-      minHeight: 400,
       placeholder:
         'No products match your search or category for this shop.',
-      /**
-       * Remote pagination only (no `progressiveLoad: 'scroll'`). Tabulator’s
-       * progressive-scroll mode auto-fetches the next page while it thinks the
-       * viewport is not “full” (scrollHeight vs clientHeight), which can chain
-       * many requests without the user scrolling.
-       */
       pagination: true,
       paginationMode: 'remote',
       paginationSize: PAGE_SIZE,
@@ -387,6 +380,7 @@ function BillingPosManualSectionInner({
             columns={columns}
             options={options}
             onRef={onTableRef}
+            minHeight={500}
           />
         </div>
       </div>

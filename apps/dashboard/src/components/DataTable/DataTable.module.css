@@ -1,6 +1,6 @@
 .tableWrapper {
   width: 100%;
-  min-height: 200px;
+  min-height: var(--table-min-height, 400px);
   flex: 1;
   padding: 0;
   min-width: 0;
@@ -203,7 +203,8 @@
 .tableWrapper :global(.tabulator .tabulator-loader),
 .tableWrapper :global(.tabulator .tabulator-alert),
 .tableWrapper :global(.tabulator-loader),
-.tableWrapper :global(.tabulator-alert) {
+.tableWrapper :global(.tabulator-alert),
+.tableWrapper :global(.tabulator .tabulator-placeholder) {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;

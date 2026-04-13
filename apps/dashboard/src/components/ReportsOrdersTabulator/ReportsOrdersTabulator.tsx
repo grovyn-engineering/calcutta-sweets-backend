@@ -182,6 +182,7 @@ export default function ReportsOrdersTabulator() {
           ...options,
           rowClick: events.rowClick
         }), [options, events.rowClick])}
+        minHeight={400}
       />
     </div>
   );

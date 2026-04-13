@@ -27,8 +27,6 @@ import { openPrintableInvoice, orderIdToInvoiceRef } from "@/lib/printInvoice";
 
 import styles from "./bill-detail.module.css";
 
-const GST_RATE = 0.05;
-
 const { Text, Title } = Typography;
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -104,6 +102,9 @@ export default function OrderBillDetailPage() {
       "Calcutta Sweets",
     [shops, effectiveShopCode],
   );
+
+  const currentShop = shops.find((s) => s.shopCode === effectiveShopCode);
+  const totalTaxRate = ((currentShop?.cgstRate ?? 2.5) + (currentShop?.sgstRate ?? 2.5)) / 100;
 
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -244,7 +245,7 @@ export default function OrderBillDetailPage() {
         unitPrice: i.unitPrice,
       })),
       subtotal: order.subtotal,
-      gstRate: GST_RATE,
+      gstRate: totalTaxRate,
       gstAmount: order.tax,
       discount: order.discount,
       total: order.totalAmount,
@@ -263,6 +264,8 @@ export default function OrderBillDetailPage() {
     x: "max-content" as const,
   };
   const tableSize = lineCount > 14 ? ("small" as const) : ("middle" as const);
+
+  if (loading && !order) return <LoadingDots fullScreen />;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto pb-2">
@@ -299,13 +302,9 @@ export default function OrderBillDetailPage() {
         ]}
       />
 
-      {loading && !order ? (
-        <div className="flex flex-1 items-center justify-center py-16">
-          <LoadingDots />
-        </div>
-      ) : order ? (
+      {order ? (
         <>
-          <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <Space align="center" size="middle" wrap className="mb-2">
                 <Title level={2} className="!mb-0 !text-[var(--text-primary)]">
@@ -410,15 +409,21 @@ export default function OrderBillDetailPage() {
                     </Text>
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
-                        <span>Subtotal</span>
+                        <span>Items Total (Incl. Tax)</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
                           {inr.format(order.subtotal)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
-                        <span>GST (5%)</span>
+                        <span>CGST</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
-                          {inr.format(order.tax)}
+                          {inr.format(order.tax / 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
+                        <span>SGST</span>
+                        <span className="tabular-nums font-medium text-[var(--text-primary)]">
+                          {inr.format(order.tax / 2)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">

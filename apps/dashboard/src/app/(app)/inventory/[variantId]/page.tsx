@@ -181,6 +181,8 @@ export default function InventoryVariantDetailPage() {
     }
   };
 
+  if (loading && !detail) return <LoadingDots fullScreen />;
+
   const productLabel = detail?.product.name ?? "Product";
 
   return (
@@ -220,206 +222,216 @@ export default function InventoryVariantDetailPage() {
           onFinish={onFinish}
           requiredMark={false}
         >
-          {loading && !detail ? (
-            <div className={styles.formLoading}>
-              <LoadingDots />
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className={styles.title}>{productLabel}</h1>
+              <p className={styles.subtitle}>
+                Variant: <strong>{detail?.name}</strong>
+                {detail?.product.category?.name ? (
+                  <>
+                    {" "}
+                    · {detail.product.category.name}
+                  </>
+                ) : null}
+              </p>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h1 className={styles.title}>{productLabel}</h1>
-                  <p className={styles.subtitle}>
-                    Variant: <strong>{detail?.name}</strong>
-                    {detail?.product.category?.name ? (
-                      <>
-                        {" "}
-                        · {detail.product.category.name}
-                      </>
-                    ) : null}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-[var(--linen-100)] border border-[var(--bistre-100)]">
-                  <Globe className="w-4 h-4 text-[var(--bistre-400)]" />
-                  <span className="text-xs font-medium text-[var(--bistre-600)] mr-1">Public on website</span>
-                  <Form.Item name="isListedOnWebsite" valuePropName="checked" noStyle>
-                    <Switch size="small" />
-                  </Form.Item>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-[var(--linen-100)] border border-[var(--bistre-100)]">
+              <Globe className="w-4 h-4 text-[var(--bistre-400)]" />
+              <span className="text-xs font-medium text-[var(--bistre-600)] mr-1">
+                Public on website
+              </span>
+              <Form.Item
+                name="isListedOnWebsite"
+                valuePropName="checked"
+                noStyle
+              >
+                <Switch size="small" />
+              </Form.Item>
+            </div>
+          </div>
 
-              <Collapse
-                bordered={false}
-                className={styles.collapse}
-                defaultActiveKey={["general", "images", "stock", "pricing"]}
-                items={[
-                  {
-                    key: "images",
-                    label: "Product images",
-                    children: (
-                      <div className={styles.imageSection}>
-                        <div className={styles.imageGallery}>
-                          {imageUrls.map((url, index) => (
-                            <div key={index} className={styles.imageContainer}>
-                              <img src={url} alt={`Product ${index}`} className={styles.previewImage} />
-                              <button
-                                type="button"
-                                className={styles.deleteImageBtn}
-                                onClick={() => removeImage(url)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
-                          <Upload
-                            accept="image/*"
-                            showUploadList={false}
-                            multiple={false}
-                            beforeUpload={handleUpload}
+          <Collapse
+            bordered={false}
+            className={styles.collapse}
+            defaultActiveKey={["general", "images", "stock", "pricing"]}
+            items={[
+              {
+                key: "images",
+                label: "Product images",
+                children: (
+                  <div className={styles.imageSection}>
+                    <div className={styles.imageGallery}>
+                      {imageUrls.map((url, index) => (
+                        <div key={index} className={styles.imageContainer}>
+                          <img
+                            src={url}
+                            alt={`Product ${index}`}
+                            className={styles.previewImage}
+                          />
+                          <button
+                            type="button"
+                            className={styles.deleteImageBtn}
+                            onClick={() => removeImage(url)}
                           >
-                            <div className={styles.uploadBox}>
-                              <UploadIcon className="w-6 h-6 mb-2" />
-                              <span className="text-xs font-bold">Upload</span>
-                            </div>
-                          </Upload>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-
-                        <div className={styles.urlInputGroup}>
-                          <Input
-                            placeholder="Or paste an image URL here..."
-                            value={newUrl}
-                            onChange={(e) => setNewUrl(e.target.value)}
-                            onPressEnter={(e) => {
-                              e.preventDefault();
-                              addImageByUrl();
-                            }}
-                            prefix={<LinkIcon className="w-4 h-4 text-[var(--bistre-400)]" />}
-                            suffix={
-                              <Button
-                                type="text"
-                                size="small"
-                                onClick={addImageByUrl}
-                                className="flex items-center justify-center p-1"
-                              >
-                                <Plus className="w-4 h-4 text-[var(--ochre-600)]" />
-                              </Button>
-                            }
-                          />
+                      ))}
+                      <Upload
+                        accept="image/*"
+                        showUploadList={false}
+                        multiple={false}
+                        beforeUpload={handleUpload}
+                      >
+                        <div className={styles.uploadBox}>
+                          <UploadIcon className="w-6 h-6 mb-2" />
+                          <span className="text-xs font-bold">Upload</span>
                         </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    key: "general",
-                    label: "General information",
-                    children: (
-                      <div className={styles.grid}>
-                        <Form.Item name="productName" label="Product name">
-                          <Input disabled />
-                        </Form.Item>
-                        <Form.Item name="shopName" label="Shop">
-                          <Input disabled />
-                        </Form.Item>
-                        <Form.Item name="shopCode" label="Shop code">
-                          <Input disabled />
-                        </Form.Item>
-                        <Form.Item name="category" label="Category">
-                          <Input disabled />
-                        </Form.Item>
-                        <Form.Item
-                          name="description"
-                          label="Description"
-                          className={styles.span2}
-                          help="Visible to customers on the website menu"
-                        >
-                          <Input.TextArea rows={3} placeholder="Add a tempting description for your customers..." />
-                        </Form.Item>
-                        <Form.Item name="variantName" label="Variant name">
-                          <Input disabled />
-                        </Form.Item>
-                        <Form.Item name="barcode" label="Barcode">
-                          <Input disabled />
-                        </Form.Item>
-                        <Form.Item name="sku" label="SKU">
-                          <Input placeholder="Optional" />
-                        </Form.Item>
-                        <Form.Item name="hsnCode" label="HSN code">
-                          <Input placeholder="Optional" />
-                        </Form.Item>
-                      </div>
-                    ),
-                  },
-                  {
-                    key: "stock",
-                    label: "Stock",
-                    children: (
-                      <div className={styles.grid}>
-                        <Form.Item
-                          name="quantity"
-                          label="Quantity on hand"
-                          rules={[{ required: true, type: "number", min: 0 }]}
-                        >
-                          <InputNumber className={styles.fullWidth} min={0} />
-                        </Form.Item>
-                        <Form.Item name="minStock" label="Minimum stock alert">
-                          <InputNumber className={styles.fullWidth} min={0} />
-                        </Form.Item>
-                        <Form.Item
-                          name="unit"
-                          label="Unit"
-                          rules={[{ required: true, message: "Select unit" }]}
-                        >
-                          <Select options={UNIT_OPTIONS} className={styles.fullWidth} />
-                        </Form.Item>
-                      </div>
-                    ),
-                  },
-                  {
-                    key: "pricing",
-                    label: "Pricing",
-                    children: (
-                      <div className={styles.grid}>
-                        <Form.Item
-                          name="price"
-                          label="Selling price (INR)"
-                          rules={[{ required: true, type: "number", min: 0 }]}
-                        >
-                          <InputNumber
-                            className={styles.fullWidth}
-                            min={0}
-                            step={1}
-                            prefix="₹"
-                          />
-                        </Form.Item>
-                        <Form.Item name="costPrice" label="Cost price (INR)">
-                          <InputNumber
-                            className={styles.fullWidth}
-                            min={0}
-                            step={1}
-                          />
-                        </Form.Item>
-                      </div>
-                    ),
-                  },
-                ]}
-              />
+                      </Upload>
+                    </div>
 
-              <div className={styles.actions}>
-                {detail?.barcode && (
-                  <Button
-                    icon={<Printer className="w-4 h-4" />}
-                    onClick={() => setPrintModalOpen(true)}
-                  >
-                    Print Label
-                  </Button>
-                )}
-                <Button onClick={() => router.push("/inventory")}>Back</Button>
-                <Button type="primary" htmlType="submit" loading={saving}>
-                  Save changes
-                </Button>
-              </div>
-            </>
-          )}
+                    <div className={styles.urlInputGroup}>
+                      <Input
+                        placeholder="Or paste an image URL here..."
+                        value={newUrl}
+                        onChange={(e) => setNewUrl(e.target.value)}
+                        onPressEnter={(e) => {
+                          e.preventDefault();
+                          addImageByUrl();
+                        }}
+                        prefix={
+                          <LinkIcon className="w-4 h-4 text-[var(--bistre-400)]" />
+                        }
+                        suffix={
+                          <Button
+                            type="text"
+                            size="small"
+                            onClick={addImageByUrl}
+                            className="flex items-center justify-center p-1"
+                          >
+                            <Plus className="w-4 h-4 text-[var(--ochre-600)]" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: "general",
+                label: "General information",
+                children: (
+                  <div className={styles.grid}>
+                    <Form.Item name="productName" label="Product name">
+                      <Input disabled />
+                    </Form.Item>
+                    <Form.Item name="shopName" label="Shop">
+                      <Input disabled />
+                    </Form.Item>
+                    <Form.Item name="shopCode" label="Shop code">
+                      <Input disabled />
+                    </Form.Item>
+                    <Form.Item name="category" label="Category">
+                      <Input disabled />
+                    </Form.Item>
+                    <Form.Item
+                      name="description"
+                      label="Description"
+                      className={styles.span2}
+                      help="Visible to customers on the website menu"
+                    >
+                      <Input.TextArea
+                        rows={3}
+                        placeholder="Add a tempting description for your customers..."
+                      />
+                    </Form.Item>
+                    <Form.Item name="variantName" label="Variant name">
+                      <Input disabled />
+                    </Form.Item>
+                    <Form.Item name="barcode" label="Barcode">
+                      <Input disabled />
+                    </Form.Item>
+                    <Form.Item name="sku" label="SKU">
+                      <Input placeholder="Optional" />
+                    </Form.Item>
+                    <Form.Item name="hsnCode" label="HSN code">
+                      <Input placeholder="Optional" />
+                    </Form.Item>
+                  </div>
+                ),
+              },
+              {
+                key: "stock",
+                label: "Stock",
+                children: (
+                  <div className={styles.grid}>
+                    <Form.Item
+                      name="quantity"
+                      label="Quantity on hand"
+                      rules={[{ required: true, type: "number", min: 0 }]}
+                    >
+                      <InputNumber className={styles.fullWidth} min={0} />
+                    </Form.Item>
+                    <Form.Item name="minStock" label="Minimum stock alert">
+                      <InputNumber className={styles.fullWidth} min={0} />
+                    </Form.Item>
+                    <Form.Item
+                      name="unit"
+                      label="Unit"
+                      rules={[{ required: true, message: "Select unit" }]}
+                    >
+                      <Select
+                        options={UNIT_OPTIONS}
+                        className={styles.fullWidth}
+                      />
+                    </Form.Item>
+                  </div>
+                ),
+              },
+              {
+                key: "pricing",
+                label: "Pricing",
+                children: (
+                  <div className={styles.grid}>
+                    <Form.Item
+                      name="price"
+                      label="Selling price (INR)"
+                      rules={[{ required: true, type: "number", min: 0 }]}
+                    >
+                      <InputNumber
+                        className={styles.fullWidth}
+                        min={0}
+                        step={1}
+                        prefix="₹"
+                      />
+                    </Form.Item>
+                    <Form.Item name="costPrice" label="Cost price (INR)">
+                      <InputNumber
+                        className={styles.fullWidth}
+                        min={0}
+                        step={1}
+                      />
+                    </Form.Item>
+                  </div>
+                ),
+              },
+            ]}
+          />
+
+          <div className={styles.actions}>
+            {detail?.barcode && (
+              <Button
+                icon={<Printer className="w-4 h-4" />}
+                onClick={() => setPrintModalOpen(true)}
+              >
+                Print Label
+              </Button>
+            )}
+            <Button onClick={() => router.push("/inventory")}>Back</Button>
+            <Button type="primary" htmlType="submit" loading={saving}>
+              Save changes
+            </Button>
+          </div>
         </Form>
       </Card>
 
@@ -427,13 +439,15 @@ export default function InventoryVariantDetailPage() {
         <BarcodePrintModal
           open={printModalOpen}
           onCancel={() => setPrintModalOpen(false)}
-          items={[{
-            id: detail.id,
-            productName: detail.product.name,
-            variantName: detail.name,
-            barcode: detail.barcode,
-            price: detail.price,
-          }]}
+          items={[
+            {
+              id: detail.id,
+              productName: detail.product.name,
+              variantName: detail.name,
+              barcode: detail.barcode,
+              price: detail.price,
+            },
+          ]}
         />
       )}
     </div>

@@ -18,7 +18,7 @@ import {
   type BarcodePrintItem,
 } from "@/components/BarcodePrintModal/BarcodePrintModal";
 import { RefillRequestModal } from "@/components/RefillRequestModal/RefillRequestModal";
-import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders, getEffectiveShopCodeForHeader } from "@/lib/api";
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShop } from "@/contexts/ShopContext";
@@ -278,7 +278,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   // Single ref for the raw Tabulator instance
   const tabulatorRef = useRef<any>(null);
 
-  const shopKey = shopCodeOverride || effectiveShopCode || defaultShop;
+  const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
 
   // Reset to page 1 when search or shop changes
@@ -437,9 +437,10 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         });
       },
 
+      ajaxParams: { shopCode: shopKey },
       dataLoader: false,
     };
-  }, []);
+  }, [shopKey]);
 
   return (
     <div className={styles.root}>
@@ -518,7 +519,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
 
       <div className={styles.tableSlot} ref={tableSlotRef}>
         <DataTable
-          key={shopKey}
           columns={memoizedColumns}
           options={useMemo(() => ({
             ...options,
@@ -540,17 +540,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           }
         />
       </div>
-
-      <BarcodePrintModal
-        open={printModalOpen}
-        onCancel={() => setPrintModalOpen(false)}
-        items={printItems}
-      />
-
-      <RefillRequestModal
-        open={refillModalOpen}
-        onClose={() => setRefillModalOpen(false)}
-      />
     </div>
   );
 }

@@ -145,46 +145,6 @@
   color: transparent !important;
 }
 
-.wrap :global(.users-tabulator-dots) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 28px;
-}
-
-.wrap :global(.users-tabulator-dots span) {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ochre-500);
-  animation: users-dot-jump 0.6s ease-in-out infinite;
-}
-
-.wrap :global(.users-tabulator-dots span:nth-child(1)) {
-  animation-delay: 0s;
-}
-
-.wrap :global(.users-tabulator-dots span:nth-child(2)) {
-  animation-delay: 0.15s;
-}
-
-.wrap :global(.users-tabulator-dots span:nth-child(3)) {
-  animation-delay: 0.3s;
-}
-
-@keyframes users-dot-jump {
-
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-  }
-
-  30% {
-    transform: translateY(-10px);
-  }
-}
 
 .wrap :global(.tabulator .tabulator-header) {
   position: relative;

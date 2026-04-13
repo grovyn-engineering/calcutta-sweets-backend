@@ -87,11 +87,7 @@ export default function CategoriesPage() {
   };
 
   if (!shopCode || loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <LoadingDots />
-      </div>
-    );
+    return <LoadingDots fullScreen />;
   }
 
   if (error) {

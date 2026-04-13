@@ -11,7 +11,7 @@ import {
 
 @Injectable()
 export class SeedService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async run(): Promise<void> {
     if (!process.env['DATABASE_URL']) {
@@ -23,18 +23,6 @@ export class SeedService {
     const shopCode = process.env['SEED_SHOP_CODE'] ?? 'SH000001';
     const isFactory = shopCode.toLowerCase().includes('factory') || shopCode === 'FACTORY01';
 
-    const shop = await this.prisma.shop.upsert({
-      where: { shopCode },
-      create: {
-        shopCode,
-        name: process.env['SEED_SHOP_NAME'] ?? 'Calcutta Sweets',
-        isFactory,
-      },
-      update: {
-        isFactory,
-      },
-    });
-
     if (process.env['SEED_CLEAN'] === 'true') {
       console.log(`🧹 Cleaning existing data for shop ${shopCode}...`);
       const productsToDelete = await this.prisma.product.findMany({
@@ -42,7 +30,7 @@ export class SeedService {
         select: { id: true }
       });
       const productIds = productsToDelete.map(p => p.id);
-      
+
       await this.prisma.productVariant.deleteMany({
         where: { productId: { in: productIds } }
       });
@@ -79,7 +67,7 @@ export class SeedService {
       for (const variant of variants) {
         // High stock for Factory, default for retail
         const initialQuantity = isFactory ? 5000 : (variant.unit === Unit.KG ? 20 : 100);
-        
+
         await this.prisma.productVariant.create({
           data: {
             productId: product.id,
@@ -95,5 +83,9 @@ export class SeedService {
     }
 
     console.log('✅ FULL DATA SEEDED SUCCESSFULLY');
+  }
+
+  async fixCategories(): Promise<void> {
+    console.log('Skipping category fix (not implemented)');
   }
 }

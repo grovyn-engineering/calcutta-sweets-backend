@@ -20,36 +20,28 @@ export function BarcodeScannerInput({
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<InputRef>(null);
 
+  const shouldOwn = () =>
+    !disabled &&
+    !busy &&
+    inputRef.current?.input != null &&
+    (document.activeElement === document.body ||
+      document.activeElement === null ||
+      document.activeElement === inputRef.current.input);
+
+  const tryFocus = () => {
+    if (shouldOwn()) inputRef.current?.focus();
+  };
+
   useEffect(() => {
-    const refocus = (e: MouseEvent) => {
-      if (disabled || busy) return;
-
-      const target = e.target as HTMLElement;
-      if (
-        target.closest('button') ||
-        target.closest('input') ||
-        target.closest('select') ||
-        target.closest('a') ||
-        target.closest('.ant-select') ||
-        target.closest('.ant-dropdown') ||
-        target.closest('.ant-menu') ||
-        target.closest('.ant-picker')
-      ) {
-        return;
-      }
-
-      setTimeout(() => inputRef.current?.focus(), 10);
+    const raf = requestAnimationFrame(tryFocus);
+    const onFocusOut = () => {
+      requestAnimationFrame(tryFocus);
     };
 
-    document.addEventListener('mousedown', refocus);
-
-    const initial = setTimeout(() => {
-      if (!disabled && !busy) inputRef.current?.focus();
-    }, 100);
-
+    document.addEventListener('focusout', onFocusOut);
     return () => {
-      document.removeEventListener('mousedown', refocus);
-      clearTimeout(initial);
+      cancelAnimationFrame(raf);
+      document.removeEventListener('focusout', onFocusOut);
     };
   }, [disabled, busy]);
 
@@ -73,7 +65,17 @@ export function BarcodeScannerInput({
         return;
       }
 
-      const v = await res.json();
+      const v: {
+        id: string;
+        productId: string;
+        productName: string;
+        variantName: string;
+        barcode: string;
+        price: number;
+        unit?: string;
+        stock: number;
+        category?: string | null;
+      } = await res.json();
 
       onAddProduct({
         variantId: v.id,
@@ -93,7 +95,7 @@ export function BarcodeScannerInput({
       message.error('Failed to look up barcode.');
     } finally {
       setBusy(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      requestAnimationFrame(tryFocus);
     }
   };
 

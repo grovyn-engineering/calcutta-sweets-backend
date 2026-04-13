@@ -422,28 +422,20 @@ export default function UsersManagement() {
       </div>
 
       <div className={styles.tableSlot}>
-        {!readyForTable ? (
-          <div className={styles.tableLoading} aria-busy="true">
-            <LoadingDots />
-          </div>
-        ) : (
-          <div className={styles.wrap}>
-            <DataTable
-              columns={columns}
-              options={options}
-              onRef={(instanceRef: { current?: TabulatorPageable }) => {
-                tableRef.current = instanceRef.current ?? null;
-              }}
-              emptyState={
-                <EmptyState
-                  message="No users found"
-                  description="Add your team members and assign them roles to start managing your shop."
-                  icon={<ShieldAlert size={48} />}
-                />
-              }
+        <DataTable
+          columns={columns}
+          options={options}
+          onRef={(instanceRef: { current?: TabulatorPageable }) => {
+            tableRef.current = instanceRef.current ?? null;
+          }}
+          emptyState={
+            <EmptyState
+              message="No users found"
+              description="Add your team members and assign them roles to start managing your shop."
+              icon={<ShieldAlert size={48} />}
             />
-          </div>
-        )}
+          }
+        />
       </div>
 
       <Modal

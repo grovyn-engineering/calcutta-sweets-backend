@@ -7,7 +7,6 @@ import { PrismaService } from '../prisma.service';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { OrderStatus, Prisma } from '@calcutta/database';
 
-const POS_GST_RATE = 0.05;
 
 @Injectable()
 export class OrdersService {
@@ -42,13 +41,22 @@ export class OrdersService {
       }
     }
 
-    const subtotal = dto.items.reduce(
+    const shop = await this.prisma.shop.findUnique({
+      where: { shopCode },
+      select: { cgstRate: true, sgstRate: true },
+    });
+
+    const itemsGrossTotal = dto.items.reduce(
       (s, i) => s + i.quantity * i.unitPrice,
       0,
     );
     const discount = dto.discount ?? 0;
-    const tax = subtotal * POS_GST_RATE;
-    const totalAmount = subtotal + tax - discount;
+    const totalAmount = itemsGrossTotal - discount;
+
+    // Inclusive tax calculation: Total = PreTax + (PreTax * Rate)
+    // Tax = Total * (Rate / (1 + Rate))
+    const totalTaxRate = ((shop?.cgstRate ?? 2.5) + (shop?.sgstRate ?? 2.5)) / 100;
+    const tax = totalAmount * (totalTaxRate / (1 + totalTaxRate));
 
     const order = await this.prisma.$transaction(async (tx) => {
       const o = await tx.order.create({

@@ -111,7 +111,7 @@ export default function OrdersTable() {
       {
         title: "Bill ref",
         field: "id",
-        width: 112,
+        width: 125,
         headerSort: false,
         formatter: (cell) => {
           const id = String(cell.getValue() ?? "");
@@ -166,7 +166,7 @@ export default function OrdersTable() {
       {
         title: "Lines",
         field: "itemCount",
-        width: 64,
+        width: 80,
         hozAlign: "right",
         headerSort: false,
       },
@@ -275,6 +275,7 @@ export default function OrdersTable() {
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}
+          minHeight={450}
           emptyState={
             <EmptyState
               message="No bills found"

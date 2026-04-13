@@ -184,21 +184,9 @@ export default function CategoryDetailPage() {
     }
   };
 
-  if (!shopCode || !categoryId) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <LoadingDots />
-      </div>
-    );
-  }
+  if (!shopCode || !categoryId) return <LoadingDots fullScreen />;
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <LoadingDots />
-      </div>
-    );
-  }
+  if (loading) return <LoadingDots fullScreen />;
 
   if (error) {
     return (

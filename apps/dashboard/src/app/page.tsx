@@ -15,8 +15,6 @@ export default function HomePage() {
   }, [isAuthenticated, isLoading, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--linen)]">
-      <LoadingDots />
-    </div>
+    <LoadingDots fullScreen />
   );
 }

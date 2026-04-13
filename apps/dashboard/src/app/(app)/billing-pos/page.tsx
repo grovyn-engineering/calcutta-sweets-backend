@@ -86,7 +86,7 @@ export default function BillingPOSPage() {
     setBillItems([]);
   }, []);
 
-  if (!shopCode) return <LoadingDots />;
+  if (!shopCode) return <LoadingDots fullScreen />;
 
   return (
     <div className={`${styles.billingLayout} min-h-0 flex-1`}>

@@ -14,7 +14,7 @@ export default function ShopsPage() {
   const { data, loading, fetchApi } = useFetch('/shops', { method: 'GET' });
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  if (loading && !data) return <LoadingDots />;
+  if (loading && !data) return <LoadingDots fullScreen />;
   
   const shops = ((data as Shop[]) || []).filter(s => !s.isFactory);
 

@@ -35,7 +35,7 @@ export default function ProductsPage() {
     [effectiveShopCode, listVersion],
   );
 
-  if (!shopCode || loading) return <LoadingDots />;
+  if (!shopCode || loading) return <LoadingDots fullScreen />;
   if (error) return <div>Error: {String(error)}</div>;
   if (!data) return <div>No data</div>;
 

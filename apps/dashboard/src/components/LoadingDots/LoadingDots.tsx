@@ -1,8 +1,17 @@
 import styles from './LoadingDots.module.css';
 
-export function LoadingDots() {
+interface LoadingDotsProps {
+  fullScreen?: boolean;
+}
+
+export function LoadingDots({ fullScreen }: LoadingDotsProps) {
   return (
-    <div className={styles.container} role="status" aria-label="Loading">
+    <div
+      className={fullScreen ? styles.fullScreen : styles.container}
+      role="status"
+      aria-label="Loading"
+    >
+      <span className={styles.dot} />
       <span className={styles.dot} />
       <span className={styles.dot} />
       <span className={styles.dot} />

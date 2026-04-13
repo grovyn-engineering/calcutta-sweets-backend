@@ -4,7 +4,6 @@
   border: 1px solid var(--pearl-bush);
   background: var(--linen-100);
   flex: 1 1 auto;
-  /* Definite height so Tabulator `height: "100%"` fills the scroll viewport */
   height: min(65vh, 640px);
   min-height: 300px;
   min-width: 0;

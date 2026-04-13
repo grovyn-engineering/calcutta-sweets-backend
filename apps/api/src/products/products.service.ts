@@ -11,7 +11,7 @@ export class ProductsService {
   async generateBarcode(): Promise<string> {
     const lastVariant = await this.prisma.productVariant.findFirst({
       where: { barcode: { startsWith: 'CS' } },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { barcode: 'desc' },
     });
 
     let nextNumber = 1;
