@@ -14,6 +14,19 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  /**
+   * Liveness probe — no DB I/O. Use for Render health checks and uptime pings.
+   * Path is `/health` (not under `/api`) so platforms can use a standard URL.
+   */
+  @Get('health')
+  health() {
+    return {
+      status: 'ok',
+      service: 'calcutta-sweets-api',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   /** Verify database connection */
   @Get('health/db')
   async checkDb() {
