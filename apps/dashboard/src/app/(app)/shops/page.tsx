@@ -3,7 +3,7 @@
 import type { Shop } from "@prisma/client";
 import useFetch from "@/hooks/useFetch";
 import ShopCard from "@/components/ShopCard/ShopCard";
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { Button } from "antd";
 import { PlusCircle, Store } from "lucide-react";
 import CreateShopWizard from "./CreateShopWizard";
@@ -14,8 +14,6 @@ export default function ShopsPage() {
   const { data, loading, fetchApi } = useFetch('/shops', { method: 'GET' });
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  if (loading && !data) return <LoadingDots fullScreen />;
-  
   const shops = ((data as Shop[]) || []).filter(s => !s.isFactory);
 
   return (
@@ -36,7 +34,9 @@ export default function ShopsPage() {
         </Button>
       </div>
 
-      {shops.length === 0 ? (
+      {loading && !data ? (
+        <ContentSkeleton variant="card-grid" gridItems={6} />
+      ) : shops.length === 0 ? (
         <EmptyState 
           message="No shops found" 
           description="Click the button above to create your first retail location."

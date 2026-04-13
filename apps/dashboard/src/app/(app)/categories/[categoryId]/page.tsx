@@ -17,7 +17,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import { CategoryProductsTabulator } from "@/components/CategoryProductsTabulator/CategoryProductsTabulator";
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch } from "@/lib/api";
 import { useShop } from "@/contexts/ShopContext";
@@ -184,27 +184,7 @@ export default function CategoryDetailPage() {
     }
   };
 
-  if (!shopCode || !categoryId) return <LoadingDots fullScreen />;
-
-  if (loading) return <LoadingDots fullScreen />;
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
-        {String(error)}
-      </div>
-    );
-  }
-
-  if (!isCategoryDetail(data)) {
-    return (
-      <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
-        Category not found.
-      </div>
-    );
-  }
-
-  const cat = data;
+  const cat = isCategoryDetail(data) ? data : null;
 
   return (
     <div className={styles.page}>
@@ -212,6 +192,22 @@ export default function CategoryDetailPage() {
         ← Back to categories
       </Link>
 
+      {!shopCode || !categoryId ? (
+        <p className="mt-4 text-[var(--text-secondary)]">
+          Select a shop in the header and open a category from the list.
+        </p>
+      ) : loading ? (
+        <ContentSkeleton variant="detail" rowCount={8} className="mt-4" />
+      ) : error ? (
+        <div className="mt-4 rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
+          {String(error)}
+        </div>
+      ) : !cat ? (
+        <div className="mt-4 rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
+          Category not found.
+        </div>
+      ) : (
+        <>
       <header className={styles.hero}>
         <div className={styles.heroText}>
           <p className={styles.eyebrow}>Category</p>
@@ -359,6 +355,8 @@ export default function CategoryDetailPage() {
           </Form.Item>
         </Form>
       </Modal>
+        </>
+      )}
     </div>
   );
 }

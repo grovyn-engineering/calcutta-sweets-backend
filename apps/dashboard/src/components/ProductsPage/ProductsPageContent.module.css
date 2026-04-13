@@ -6,7 +6,6 @@
   flex: 1;
 }
 
-/* Layered parchment + warm ochre wash + left accent stripe */
 .intro {
   position: relative;
   flex-shrink: 0;
@@ -57,7 +56,6 @@
   color: var(--bistre-600);
 }
 
-/* Stat card: ochre frame + linen highlight */
 .countPill {
   display: flex;
   flex-direction: column;
@@ -116,7 +114,6 @@
   z-index: 1;
 }
 
-/* Premium search frame: crisp white, clean border, soft shadow */
 .searchFrame {
   border-radius: 12px;
   background: #ffffff;
@@ -170,7 +167,6 @@
   gap: 0.85rem;
 }
 
-/* Segmented: linen track, ochre selection */
 .segmentedWrap :global(.ant-segmented) {
   background: rgba(44, 24, 16, 0.03) !important;
   padding: 4px !important;
@@ -304,4 +300,40 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.initialLoad {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 18rem;
+  padding: 0.5rem 0 1rem;
+}
+
+.scrollSentinel {
+  height: 1px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.loadMoreRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem 2rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--bistre-500);
+}
+
+.errorBanner {
+  margin: 0;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  background: rgba(185, 60, 60, 0.08);
+  border: 1px solid rgba(185, 60, 60, 0.25);
+  color: var(--bistre-800);
+  font-size: 0.875rem;
 }

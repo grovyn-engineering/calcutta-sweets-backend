@@ -10,10 +10,8 @@ import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 /** Minimal Tabulator surface used here (avoids importing untyped tabulator-tables). */
 type TabulatorPageable = { setPage: (page: number) => void };
 
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
-import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { ShieldAlert } from "lucide-react";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
@@ -428,13 +426,9 @@ export default function UsersManagement() {
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}
-          emptyState={
-            <EmptyState
-              message="No users found"
-              description="Add your team members and assign them roles to start managing your shop."
-              icon={<ShieldAlert size={48} />}
-            />
-          }
+          emptyTitle="No users found"
+          emptyDescription="Add your team members and assign them roles to start managing your shop."
+          emptyIcon={<ShieldAlert size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>
 

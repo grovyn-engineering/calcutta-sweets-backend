@@ -30,6 +30,10 @@ export class ProductsController {
     );
   }
 
+  /**
+   * Lists products for the scoped shop. If `page` is omitted, returns the full list; otherwise
+   * paginates with optional `q` / `search`, `categoryId`, and `status` (`active` | `inactive`).
+   */
   @Get()
   findAll(
     @Req() req: Request,
@@ -38,6 +42,7 @@ export class ProductsController {
     @Query('q') q?: string,
     @Query('search') search?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('status') status?: string,
   ) {
     const shop = req.effectiveShopCode;
     if (pageStr === undefined || pageStr === '') {
@@ -48,9 +53,13 @@ export class ProductsController {
       100,
       Math.max(1, parseInt(sizeStr ?? '20', 10) || 20),
     );
+    const st = status?.trim().toLowerCase();
+    const statusFilter =
+      st === 'active' || st === 'inactive' ? st : undefined;
     return this.productsService.findPage(shop!, page, size, {
       search: (q ?? search)?.trim() || undefined,
       categoryId: categoryId?.trim() || undefined,
+      status: statusFilter,
     });
   }
 

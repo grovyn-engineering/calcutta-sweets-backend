@@ -36,6 +36,28 @@ const sidebarItemsDef: SidebarItem[] = [
   { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link>, permissionKey: 'canAccessSettings' },
 ];
 
+/** Bases that map nested routes to a single sidebar item (e.g. /shops/SH000001 → /shops). */
+const SIDEBAR_ROUTE_PREFIXES = [
+  '/dashboard',
+  '/billing-pos',
+  '/orders',
+  '/products',
+  '/inventory',
+  '/stock-transfers',
+  '/categories',
+  '/reports',
+  '/users',
+  '/shops',
+  '/settings',
+] as const;
+
+function sidebarSelectedKey(pathname: string): string {
+  const hit = SIDEBAR_ROUTE_PREFIXES.find(
+    (base) => pathname === base || pathname.startsWith(`${base}/`),
+  );
+  return hit ?? pathname;
+}
+
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/billing-pos': 'Billing POS',
@@ -69,7 +91,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         if (item.superAdminOnly && !isSuper) return false;
         if (item.permissionKey && permissions && !permissions[item.permissionKey]) return false;
 
-        // Hide management items in Retail scope
         const factoryOnlyKeys = ["/stock-transfers", "/shops"];
         if (!isFactory && factoryOnlyKeys.includes(item.key)) return false;
 
@@ -96,18 +117,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
+  const selectedSidebarKey = useMemo(
+    () => sidebarSelectedKey(pathname),
+    [pathname],
+  );
+
   const MainMenu = (
     <Menu
       mode="inline"
-      selectedKeys={[
-        ['/orders', '/products', '/inventory', '/stock-transfers', '/categories', '/users', '/settings']
-          .find((base) => pathname.startsWith(base + '/') || pathname === base) ?? pathname,
-      ]}
+      selectedKeys={[selectedSidebarKey]}
       items={sidebarItems}
       className={`${styles.menu}`}
     />
@@ -115,14 +137,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const SidebarContent = (
     <>
-      <Link href="/dashboard" className={`flex h-14 items-center gap-3 px-6 ${styles.logoLink}`} scroll={false}>
+      <Link
+        href="/dashboard"
+        className={`flex h-16 shrink-0 items-center justify-center px-4 ${styles.logoLink}`}
+        scroll={false}
+      >
         <Image
           src={logo}
           alt="Calcutta Sweets"
-          width={90}
-          height={70}
-          className="object-contain"
-          style={{ width: 'auto', height: 'auto' }}
+          width={200}
+          height={80}
+          className={`h-[52px] w-auto max-w-[200px] object-contain object-center ${styles.logoImage}`}
+          priority
         />
       </Link>
       {MainMenu}
@@ -134,7 +160,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <Sider
         width={240}
         theme="light"
-        className={`min-h-screen sticky top-0 h-screen z-10 ${styles.sider}`}
+        className={`flex min-h-screen flex-col sticky top-0 h-screen z-10 ${styles.sider}`}
       >
         {SidebarContent}
       </Sider>
@@ -193,24 +219,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       <Layout className={`min-h-screen flex-1 ${styles.mainLayout}`}>
         <Header
-          className={`h-16 flex items-center justify-between gap-4 px-4 sm:px-6 ${styles.header}`}
+          className={`flex items-center justify-between gap-4 ${styles.header}`}
         >
-          <div className="flex items-center gap-3">
+          <div className={`flex min-w-0 flex-1 items-center gap-3 ${styles.headerTitleCluster}`}>
             <Button
-              className={`${styles.mobileMenuButton} flex items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-white`}
+              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-[var(--linen-100)]`}
               onClick={() => setIsMobileMenuOpen(true)}
               icon={<MenuIcon className="size-5 text-[var(--bistre-800)]" />}
             />
-            <span className={`text-base font-semibold truncate ${styles.pageTitle} pl-1`}>
+            <span className={`truncate text-base font-semibold leading-tight ${styles.pageTitle}`}>
               {pageTitle}
             </span>
           </div>
-          <div className={`flex items-center gap-2 sm:gap-4 ${styles.headerActions}`}>
+          <div className={`flex shrink-0 items-center ${styles.headerToolbar}`}>
             {showShopSwitcher && (
               <div className={styles.headerShopSwitcher}>
                 <Select
                   size="middle"
-                  className={styles.shopSelect}
+                  className={`${styles.shopSelect} ${styles.headerShopSelect}`}
                   value={effectiveShopCode}
                   disabled={shopsLoading && shops.length === 0}
                   options={shops.map((s) => ({
@@ -226,7 +252,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
             <ActivityNotificationsBell />
 
-            <div className="h-6 w-[1px] bg-[rgba(44,24,16,0.08)] mx-2" aria-hidden="true" />
+            <div className={styles.headerToolbarDivider} aria-hidden="true" />
 
             <Dropdown
               menu={{

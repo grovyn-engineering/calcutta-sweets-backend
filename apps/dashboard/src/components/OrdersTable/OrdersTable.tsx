@@ -10,7 +10,6 @@ import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
-import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { Receipt, Search } from "lucide-react";
 import styles from "./OrdersTable.module.css";
 
@@ -276,13 +275,9 @@ export default function OrdersTable() {
             tableRef.current = instanceRef.current ?? null;
           }}
           minHeight={450}
-          emptyState={
-            <EmptyState
-              message="No bills found"
-              description="Orders from your Billing POS will appear here once you complete a sale."
-              icon={<Receipt size={48} />}
-            />
-          }
+          emptyTitle="No bills found"
+          emptyDescription="Orders from your Billing POS will appear here once you complete a sale."
+          emptyIcon={<Receipt size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>
     </div>

@@ -22,7 +22,6 @@ import { getApiBaseUrl, getAuthHeaders, getEffectiveShopCodeForHeader } from "@/
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShop } from "@/contexts/ShopContext";
-import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { Printer, PackagePlus, PackageSearch } from "lucide-react";
 import styles from "./InventoryTable.module.css";
 
@@ -47,31 +46,48 @@ const columns = (
   routerRef: React.RefObject<ReturnType<typeof useRouter> | null>,
   onPrint: (item: BarcodePrintItem) => void
 ): ColumnDefinition[] => [
-    // ── Checkbox column ──────────────────────────────────────────────────────
     {
       title: '',
       formatter: "rowSelection",
       titleFormatter: "rowSelection",
       hozAlign: "center",
       headerHozAlign: "center",
+      cssClass: "inventory-select-cell",
       responsive: 0,
       width: 44,
       headerSort: false,
       resizable: false,
-      minWidth: 60,
+      minWidth: 52,
       cellClick: (_e: unknown, cell: any) => {
         cell.getRow().toggleSelect();
       },
     },
-    // ── Data columns ─────────────────────────────────────────────────────────
-    { title: "Product", field: "productName", minWidth: 176, widthGrow: 3, responsive: 0 },
-    { title: "Variant", field: "variantName", width: 112, minWidth: 104, responsive: 2 },
+    {
+      title: "Product",
+      field: "productName",
+      minWidth: 200,
+      widthGrow: 1,
+      responsive: 0,
+      sorter: "string",
+      headerTooltip: "Product",
+    },
+    {
+      title: "Variant",
+      field: "variantName",
+      width: 132,
+      minWidth: 124,
+      widthGrow: 1,
+      responsive: 2,
+      headerTooltip: "Variant",
+    },
     {
       title: "Category",
       field: "category",
-      width: 128,
-      minWidth: 112,
+      width: 148,
+      minWidth: 132,
+      widthGrow: 1,
       responsive: 4,
+      headerTooltip: "Category",
       formatter: (cell) => {
         const raw = String(cell.getValue() ?? "").trim();
         const span = document.createElement("span");
@@ -83,9 +99,11 @@ const columns = (
     {
       title: "SKU",
       field: "sku",
-      width: 96,
-      minWidth: 88,
+      width: 104,
+      minWidth: 92,
+      widthGrow: 1,
       responsive: 3,
+      headerTooltip: "SKU",
       formatter: (cell) => {
         const raw = String(cell.getValue() ?? "").trim();
         const span = document.createElement("span");
@@ -98,9 +116,10 @@ const columns = (
     {
       title: "Barcode",
       field: "barcode",
-      minWidth: 200,
-      widthGrow: 2,
+      minWidth: 180,
+      widthGrow: 1,
       responsive: 5,
+      headerTooltip: "Barcode",
       formatter: (cell) => {
         const v = String(cell.getValue() ?? "").trim();
         const span = document.createElement("span");
@@ -114,10 +133,11 @@ const columns = (
     {
       title: "Qty",
       field: "quantity",
-      width: 76,
-      minWidth: 72,
+      width: 92,
+      minWidth: 96,
       responsive: 0,
       hozAlign: "right",
+      headerTooltip: "Quantity",
       sorter: "number",
       formatter: (cell) => {
         const row = cell.getRow().getData() as {
@@ -139,10 +159,11 @@ const columns = (
     {
       title: "Min stock",
       field: "minStock",
-      width: 96,
-      minWidth: 88,
+      width: 100,
+      minWidth: 92,
       responsive: 6,
       hozAlign: "right",
+      headerTooltip: "Minimum stock",
       sorter: "number",
       formatter: (cell) => {
         const v = cell.getValue() as number | null;
@@ -160,17 +181,19 @@ const columns = (
     {
       title: "Unit",
       field: "unit",
-      width: 78,
+      width: 80,
       minWidth: 72,
       responsive: 7,
+      headerTooltip: "Unit",
     },
     {
       title: "Price",
       field: "price",
-      width: 92,
-      minWidth: 84,
+      width: 108,
+      minWidth: 108,
       responsive: 0,
       hozAlign: "right",
+      headerTooltip: "Price",
       sorter: "number",
       formatter: (cell) => inr.format(Number(cell.getValue()) || 0),
     },
@@ -445,76 +468,59 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   return (
     <div className={styles.root}>
       <div className={styles.toolbar}>
-        <label className={styles.searchLabel} htmlFor="inventory-search">
-          Find in list
-        </label>
-        <Input
-          id="inventory-search"
-          className={styles.searchInput}
-          allowClear
-          placeholder="Product, variant, barcode, or SKU…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          prefix={
-            <Search
-              className="h-4 w-4 text-[var(--bistre-400)]"
-              aria-hidden
-            />
-          }
-          aria-label="Search inventory"
-        />
+        <div className={styles.searchField}>
+          <label className={styles.searchLabel} htmlFor="inventory-search">
+            Find in list
+          </label>
+          <Input
+            id="inventory-search"
+            className={styles.searchInput}
+            allowClear
+            placeholder="Product, variant, barcode, or SKU…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefix={
+              <Search
+                className="h-4 w-4 text-[var(--bistre-400)]"
+                aria-hidden
+              />
+            }
+            aria-label="Search inventory"
+          />
+        </div>
+        <div className={styles.toolbarActions}>
+          {selectedCount > 0 && (
+            <Button
+              type="primary"
+              className={styles.toolbarBtnPrimary}
+              icon={<Printer className="h-4 w-4" />}
+              onClick={handlePrintBulk}
+            >
+              Print {selectedCount} barcodes
+            </Button>
+          )}
 
-        {selectedCount > 0 && (
-          <Button
-            type="primary"
-            icon={<Printer className="h-4 w-4" />}
-            onClick={handlePrintBulk}
-            style={{
-              height: "48px",
-              borderRadius: "12px",
-              padding: "0 20px",
-              backgroundColor: "var(--ochre-600)",
-              borderColor: "var(--ochre-600)",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-          >
-            Print {selectedCount} barcodes
-          </Button>
-        )}
+          {!shopsLoading && !isFactory && (
+            <Button
+              type="default"
+              className={styles.toolbarBtn}
+              icon={<PackagePlus className="h-4 w-4" />}
+              onClick={() => setRefillModalOpen(true)}
+            >
+              Request Refill
+            </Button>
+          )}
 
-        {!shopsLoading && !isFactory && (
           <Button
             type="default"
-            icon={<PackagePlus className="h-4 w-4" />}
-            onClick={() => setRefillModalOpen(true)}
-            style={{
-              height: "48px",
-              borderRadius: "12px",
-              padding: "0 20px",
-              fontSize: "14px",
-              fontWeight: 500,
-            }}
+            className={styles.toolbarBtn}
+            icon={<Printer className="h-4 w-4" />}
+            onClick={handlePrintAllFiltered}
+            loading={isPrintingAll}
           >
-            Request Refill
+            Print all results
           </Button>
-        )}
-
-        <Button
-          type="default"
-          icon={<Printer className="h-4 w-4" />}
-          onClick={handlePrintAllFiltered}
-          loading={isPrintingAll}
-          style={{
-            height: "48px",
-            borderRadius: "12px",
-            padding: "0 20px",
-            fontSize: "14px",
-            fontWeight: 500,
-          }}
-        >
-          Print all results
-        </Button>
+        </div>
       </div>
 
       <div className={styles.tableSlot} ref={tableSlotRef}>
@@ -531,13 +537,9 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
             tableRef.current = instance;
             tabulatorRef.current = instance;
           }}
-          emptyState={
-            <EmptyState
-              message="No stock found"
-              description="Inventory from the Factory will appear here once products are added or transferred."
-              icon={<PackageSearch size={48} />}
-            />
-          }
+          emptyTitle="No stock found"
+          emptyDescription="Inventory from the Factory will appear here once products are added or transferred."
+          emptyIcon={<PackageSearch size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>
     </div>

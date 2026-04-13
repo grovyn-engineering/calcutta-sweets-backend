@@ -1,0 +1,93 @@
+.emptyRoot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 1.25rem 1rem;
+  pointer-events: none;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.emptyCard {
+  pointer-events: auto;
+  max-width: 22rem;
+  text-align: center;
+  padding: 1.75rem 1.5rem;
+  border-radius: 14px;
+  border: 1px dashed var(--ochre-200);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 254, 249, 0.96) 0%,
+    var(--ochre-2) 100%
+  );
+  box-shadow: 0 6px 24px rgba(44, 24, 16, 0.06);
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 12px;
+  background: rgba(201, 147, 45, 0.12);
+  color: var(--ochre-500);
+}
+
+.emptyIcon :global(svg) {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--bistre-950);
+  line-height: 1.35;
+}
+
+.emptyDesc {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--bistre-500);
+}
+
+.emptyAction {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.loadingRoot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 1.25rem;
+}
+
+.loadingCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 2rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(44, 24, 16, 0.08);
+  box-shadow: 0 8px 28px rgba(44, 24, 16, 0.06);
+}
+
+.loadingLabel {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bistre-400);
+}

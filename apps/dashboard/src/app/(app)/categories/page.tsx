@@ -1,16 +1,15 @@
 "use client";
 
 import { App, Button, Form, Input, Modal } from "antd";
-import { Layers3, Plus } from "lucide-react";
+import { FolderSearch, Layers3, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch } from "@/lib/api";
 import { useShop } from "@/contexts/ShopContext";
-import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { FolderSearch } from "lucide-react";
 
 import styles from "./page.module.css";
 
@@ -86,27 +85,7 @@ export default function CategoriesPage() {
     }
   };
 
-  if (!shopCode || loading) {
-    return <LoadingDots fullScreen />;
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
-        Could not load categories: {String(error)}
-      </div>
-    );
-  }
-
-  if (!isCategoryList(data)) {
-    return (
-      <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
-        Unexpected response from server.
-      </div>
-    );
-  }
-
-  const categories = data;
+  const categories = isCategoryList(data) ? data : null;
 
   return (
     <div className={styles.page}>
@@ -136,9 +115,23 @@ export default function CategoriesPage() {
           </Button>
         </div>
 
-        {categories.length === 0 ? (
-          <EmptyState 
-            message="No categories yet" 
+        {!shopCode ? (
+          <p className={styles.emptyState}>
+            Select a shop in the header to load categories.
+          </p>
+        ) : loading ? (
+          <ContentSkeleton variant="card-grid" gridItems={6} />
+        ) : error ? (
+          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
+            Could not load categories: {String(error)}
+          </div>
+        ) : !categories ? (
+          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
+            Unexpected response from server.
+          </div>
+        ) : categories.length === 0 ? (
+          <EmptyState
+            message="No categories yet"
             description="Create your first category to start organizing your products into groups."
             icon={<FolderSearch size={48} />}
           />

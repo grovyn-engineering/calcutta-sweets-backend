@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
+import { Receipt } from "lucide-react";
 import { DataTable } from "@/components/DataTable/DataTable";
 
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
@@ -183,6 +184,9 @@ export default function ReportsOrdersTabulator() {
           rowClick: events.rowClick
         }), [options, events.rowClick])}
         minHeight={400}
+        emptyTitle="No orders in this report"
+        emptyDescription="Try widening the date range or check another shop."
+        emptyIcon={<Receipt size={28} strokeWidth={1.35} aria-hidden />}
       />
     </div>
   );

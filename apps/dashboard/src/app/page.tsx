@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function HomePage() {
@@ -15,6 +15,19 @@ export default function HomePage() {
   }, [isAuthenticated, isLoading, router]);
 
   return (
-    <LoadingDots fullScreen />
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        boxSizing: "border-box",
+        padding: 24,
+        background: "var(--linen-100)",
+      }}
+      role="status"
+      aria-live="polite"
+      aria-label="Loading"
+    >
+      <ContentSkeleton variant="table" rowCount={8} />
+    </div>
   );
 }

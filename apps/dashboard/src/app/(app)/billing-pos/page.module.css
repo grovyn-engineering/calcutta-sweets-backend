@@ -1,3 +1,106 @@
+/* Two-column layout uses @container so narrow *content* (e.g. docked DevTools) still stacks. */
+.billingPageShell {
+  container-type: inline-size;
+  container-name: billing-pos;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Space for fixed “Current sale” bar on stacked / narrow POS */
+.shellStackedPad {
+  padding-bottom: max(5.25rem, env(safe-area-inset-bottom, 0px));
+}
+
+.mobileBillBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border: none;
+  border-top: 1px solid var(--pearl-bush);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: linear-gradient(180deg,
+      var(--linen-95) 0%,
+      var(--parchment) 100%);
+  box-shadow: 0 -8px 28px -12px rgba(44, 24, 16, 0.2);
+}
+
+.mobileBillBar:focus-visible {
+  outline: 2px solid var(--ochre-400);
+  outline-offset: -2px;
+}
+
+.mobileBillBarInner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  min-height: 3.25rem;
+  max-width: 100%;
+}
+
+.mobileBillBarText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.mobileBillBarKicker {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bistre-500);
+}
+
+.mobileBillBarSummary {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--bistre-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60vw;
+}
+
+.mobileBillBarCta {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ochre-800);
+  background: var(--ochre-100);
+  border: 1px solid var(--ochre-300);
+  padding: 0.45rem 0.85rem;
+  border-radius: 10px;
+}
+
+.billDrawer :global(.ant-drawer-header) {
+  border-bottom: 1px solid var(--pearl-bush);
+  padding: 14px 16px;
+}
+
+.billDrawer :global(.ant-drawer-body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .billingLayout {
   display: flex;
   flex-direction: column;
@@ -7,24 +110,34 @@
   min-height: 0;
   flex: 1 1 auto;
   width: 100%;
+  height: 100%;
 }
 
-@media (min-width: 1024px) {
+@container billing-pos (min-width: 1024px) {
   .billingLayout {
     flex-direction: row;
     overflow-x: hidden;
-    overflow-y: visible;
+    overflow-y: hidden;
+    align-items: stretch;
   }
 }
 
 .billingMain {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   max-width: 100%;
-  padding-right: 0.5rem;
+  padding-right: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+}
+
+@container billing-pos (min-width: 1024px) {
+  .billingMain {
+    padding-right: 0.5rem;
+    gap: 1.5rem;
+  }
 }
 
 .scanSection {
@@ -68,7 +181,8 @@
 }
 
 :global(.ant-input-affix-wrapper).searchInput {
-  height: 38px;
+  min-height: 44px;
+  height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(44, 24, 16, 0.08);
   background: #ffffff !important;
@@ -89,51 +203,14 @@
     0 0 0 4px rgba(201, 147, 45, 0.1) !important;
 }
 
-.filtersRow {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  width: 100%;
-}
-
-@media (min-width: 900px) {
-  .filtersRow {
-    width: auto;
-    justify-content: flex-end;
-    flex: 0 1 auto;
-    max-width: min(100%, 580px);
-  }
-}
-
-.searchInputGrow {
-  flex: 1 1 200px;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-}
-
-@media (min-width: 640px) {
-  .searchInputGrow {
-    max-width: 360px;
-  }
-}
-
 .categorySelect {
-  flex: 0 0 auto;
   width: 100%;
-  max-width: 100%;
-}
-
-@media (min-width: 480px) {
-  .categorySelect {
-    width: 200px;
-    max-width: 220px;
-  }
+  min-width: 0;
 }
 
 :global(.ant-select-selector).categorySelect {
-  height: 48px !important;
+  height: 44px !important;
+  min-height: 44px !important;
   border-radius: 12px !important;
   border: 1px solid rgba(44, 24, 16, 0.08) !important;
   background: #ffffff !important;
@@ -300,26 +377,27 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   width: 100%;
-  min-height: 500px;
-  max-height: 85vh;
+  min-height: min(22rem, 55vh);
+  max-height: none;
   align-self: stretch;
   border-radius: 16px;
   border: 1px solid var(--pearl-bush);
   background: var(--linen-100);
   overflow: hidden;
   box-shadow: 0 8px 28px -12px rgba(44, 24, 16, 0.12);
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
-@media (min-width: 1024px) {
+@container billing-pos (min-width: 1024px) {
   .sidebar {
+    flex: 0 0 auto;
     width: 400px;
-    min-width: 380px;
+    min-width: min(380px, 32vw);
     max-width: 420px;
+    min-height: 500px;
     max-height: calc(100vh - 64px - 3rem);
     margin-bottom: 0;
-    flex-shrink: 0;
   }
 }

@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
+import { LayoutGrid } from "lucide-react";
 import { DataTable } from "@/components/DataTable/DataTable";
 
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
@@ -227,6 +228,8 @@ function CategoryProductsTabulatorInner({
           options={options}
           onRef={onTableRef}
           minHeight={300}
+          emptyTitle="No products here"
+          emptyIcon={<LayoutGrid size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>
     </div>

@@ -16,7 +16,7 @@ import {
   Switch,
   Upload,
 } from "antd";
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { BarcodePrintModal } from "@/components/BarcodePrintModal/BarcodePrintModal";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
@@ -181,12 +181,14 @@ export default function InventoryVariantDetailPage() {
     }
   };
 
-  if (loading && !detail) return <LoadingDots fullScreen />;
-
   const productLabel = detail?.product.name ?? "Product";
 
   return (
     <div className={styles.page}>
+      {loading && !detail ? (
+        <ContentSkeleton variant="detail" rowCount={10} />
+      ) : (
+        <>
       <Breadcrumb
         className={styles.breadcrumb}
         items={[
@@ -449,6 +451,8 @@ export default function InventoryVariantDetailPage() {
             },
           ]}
         />
+      )}
+        </>
       )}
     </div>
   );

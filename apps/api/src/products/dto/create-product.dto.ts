@@ -27,8 +27,6 @@ export class CreateProductDto {
   @IsUUID()
   categoryId?: string;
 
-  // ── Variant fields (all optional) ──────────────────────────────────
-
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

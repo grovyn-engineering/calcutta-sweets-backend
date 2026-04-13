@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Search } from 'lucide-react';
-import { App, Input, Select } from 'antd';
+import { Search, UserPlus } from 'lucide-react';
+import { App, Button, Input, Select, Tooltip } from 'antd';
 import {
   memo,
   useCallback,
@@ -45,7 +45,7 @@ type ApiVariantRow = {
 
 const PAGE_SIZE = 40;
 
-/** Inline clipboard icon for Tabulator cell (no React in formatter) */
+/** Clipboard icon markup for Tabulator cell formatters (string HTML, not React). */
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>`;
 
 const inr = new Intl.NumberFormat('en-IN', {
@@ -69,21 +69,31 @@ function apiRowToBilling(d: ApiVariantRow): BillingVariantRow {
   };
 }
 
+/**
+ * Props for {@link BillingPosManualSection}.
+ */
 export type BillingPosManualSectionProps = {
   shopCode: string;
   onAddProduct: (row: BillingVariantRow) => void;
-  /** Increment after a successful POS sale to reload stock from the server. */
+  /** Bump to remount the grid and refetch variant stock after a completed sale. */
   dataRefreshKey?: number;
+  /** When set, show Add customer beside the category filter (stacked / narrow POS layout). */
+  showToolbarAddCustomer?: boolean;
+  onToolbarAddCustomer?: () => void;
+  /** Short hint: where to open current sale / checkout on narrow POS. */
+  showSaleCheckoutHint?: boolean;
 };
 
 /**
- * Search, category filter, and Tabulator grid with remote pagination
- * (native Tabulator).
+ * Manual billing block: search, category filter, and Tabulator with remote pagination.
  */
 function BillingPosManualSectionInner({
   shopCode,
   onAddProduct,
   dataRefreshKey = 0,
+  showToolbarAddCustomer = false,
+  onToolbarAddCustomer,
+  showSaleCheckoutHint = false,
 }: BillingPosManualSectionProps) {
   const { message: messageApi } = App.useApp();
   const messageApiRef = useRef(messageApi);
@@ -142,8 +152,7 @@ function BillingPosManualSectionInner({
   const filterKey = `${shopCode}|${debouncedSearch}|${activeCategory}`;
 
   /**
-   * Reload from page 1 when shop, debounced search, or category changes.
-   * Skip the first run - Tabulator performs the initial remote load on mount.
+   * Sends `setPage(1)` when filters change. Skips the first run because Tabulator loads page 1 on mount.
    */
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
@@ -343,16 +352,27 @@ function BillingPosManualSectionInner({
   if (!shopCode) return null;
 
   return (
-    <section className="flex min-h-0 min-w-100 flex-1 flex-col gap-3">
-      <div className="min-w-0 shrink-0">
-        <h2 className="mb-1 text-sm font-semibold text-[var(--bistre-800)]">
-          Manual billing
-        </h2>
-      </div>
-      <div className="flex min-w-0 flex-col gap-3 min-[900px]:flex-row min-[900px]:items-end min-[900px]:justify-between">
-        <div className={pageStyles.filtersRow}>
+    <section className={styles.section}>
+      <header className={styles.manualHeader}>
+        <div className={styles.manualTitleRow}>
+          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--bistre-800)]">
+            Manual billing
+          </h2>
+          {showToolbarAddCustomer && onToolbarAddCustomer ? (
+            <Tooltip title="Add customer">
+              <Button
+                type="default"
+                className={styles.customerIconBtn}
+                icon={<UserPlus className="h-4 w-4" aria-hidden />}
+                onClick={onToolbarAddCustomer}
+                aria-label="Add customer"
+              />
+            </Tooltip>
+          ) : null}
+        </div>
+        <div className={styles.manualFilters}>
           <Input
-            className={`${pageStyles.searchInput} ${pageStyles.searchInputGrow}`}
+            className={`${pageStyles.searchInput} ${styles.manualSearch}`}
             allowClear
             placeholder="Search products, variants, barcodes…"
             value={searchQuery}
@@ -360,18 +380,32 @@ function BillingPosManualSectionInner({
             prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" />}
             aria-label="Search products"
           />
-          <Select
-            className={pageStyles.categorySelect}
-            classNames={{
-              popup: { root: pageStyles.categorySelectDropdown },
-            }}
-            value={activeCategory}
-            onChange={(v) => setActiveCategory(v)}
-            options={categorySelectOptions}
-            aria-label="Filter by category"
-          />
+          <div className={styles.manualCategoryWrap}>
+            <Select
+              className={`${pageStyles.categorySelect} w-full min-w-0`}
+              classNames={{
+                popup: { root: pageStyles.categorySelectDropdown },
+              }}
+              value={activeCategory}
+              onChange={(v) => setActiveCategory(v)}
+              options={categorySelectOptions}
+              aria-label="Filter by category"
+              getPopupContainer={(n) => n.parentElement ?? document.body}
+              listHeight={280}
+            />
+          </div>
         </div>
-      </div>
+      </header>
+
+      {showSaleCheckoutHint ? (
+        <p className="rounded-xl border border-dashed border-[var(--ochre-200)] bg-[var(--ochre-2)] px-3 py-2 text-xs leading-snug text-[var(--bistre-700)]">
+          <span className="font-semibold text-[var(--bistre-900)]">
+            Current sale &amp; checkout:
+          </span>{' '}
+          use the <strong>bar fixed at the bottom</strong> of the screen to see
+          added lines, set payment mode, and tap <strong>Generate bill</strong>.
+        </p>
+      ) : null}
 
       <div className={styles.wrap}>
         <div className={styles.tabulatorInner}>
@@ -380,7 +414,8 @@ function BillingPosManualSectionInner({
             columns={columns}
             options={options}
             onRef={onTableRef}
-            minHeight={500}
+            minHeight={0}
+            emptyTitle="No matching products"
           />
         </div>
       </div>
@@ -388,4 +423,5 @@ function BillingPosManualSectionInner({
   );
 }
 
+/** Memoized manual billing section for Billing POS. */
 export const BillingPosManualSection = memo(BillingPosManualSectionInner);

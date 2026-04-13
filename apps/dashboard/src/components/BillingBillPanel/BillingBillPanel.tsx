@@ -41,6 +41,14 @@ export type BillingBillPanelLayout = 'sidebar' | 'drawer';
 
 export type PosPaymentMethod = 'CASH' | 'UPI_CARD';
 
+/** Lift customer + modal open state to a parent (e.g. Billing POS toolbar). */
+export type BillingCustomerBinding = {
+  customer: CustomerFormValues | null;
+  setCustomer: (value: CustomerFormValues | null) => void;
+  detailsOpen: boolean;
+  setDetailsOpen: (open: boolean) => void;
+};
+
 export interface BillingBillPanelProps {
   items: BillItem[];
   onQuantityChange: (variantId: string, delta: number) => void;
@@ -50,6 +58,12 @@ export interface BillingBillPanelProps {
   orderId?: string;
   layout?: BillingBillPanelLayout;
   className?: string;
+  customerBinding?: BillingCustomerBinding;
+  /**
+   * Omit the add-customer control above line items (parent provides it). Customer summary still
+   * shows when a customer is set.
+   */
+  hideAddCustomerInPanel?: boolean;
 }
 
 export function BillingBillPanel({
@@ -60,6 +74,8 @@ export function BillingBillPanel({
   orderId = '-',
   layout = 'sidebar',
   className = '',
+  customerBinding,
+  hideAddCustomerInPanel = false,
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
   const { shops, effectiveShopCode } = useShop();
@@ -94,8 +110,13 @@ export function BillingBillPanel({
   // The base amount (pre-tax) for reporting
   const baseAmount = total - gstAmount;
 
-  const [showCustomerDetails, setShowCustomerDetails] = useState(false);
-  const [customer, setCustomer] = useState<CustomerFormValues | null>(null);
+  const [internalDetailsOpen, setInternalDetailsOpen] = useState(false);
+  const [internalCustomer, setInternalCustomer] =
+    useState<CustomerFormValues | null>(null);
+  const customer = customerBinding?.customer ?? internalCustomer;
+  const setCustomer = customerBinding?.setCustomer ?? setInternalCustomer;
+  const detailsOpen = customerBinding?.detailsOpen ?? internalDetailsOpen;
+  const setDetailsOpen = customerBinding?.setDetailsOpen ?? setInternalDetailsOpen;
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(
     null,
   );
@@ -195,79 +216,81 @@ export function BillingBillPanel({
         </header>
       )}
 
-      <div className="mx-4 mt-4 shrink-0">
-        {customer ? (
-          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
-                  <UserRound className="h-4 w-4" aria-hidden />
+      {!hideAddCustomerInPanel || customer ? (
+        <div className="mx-4 mt-4 shrink-0">
+          {customer ? (
+            <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
+                    <UserRound className="h-4 w-4" aria-hidden />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
+                      Customer
+                    </p>
+                    <p className="truncate font-semibold text-[var(--text-primary)]">
+                      {customer.name}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-                    Customer
-                  </p>
-                  <p className="truncate font-semibold text-[var(--text-primary)]">
-                    {customer.name}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomerDetails(true)}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--ochre-10)] hover:text-[var(--ochre-600)]"
-                  aria-label="Edit customer"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCustomer(null)}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
-                  aria-label="Remove customer from sale"
-                >
-                  <span className="sr-only">Remove customer</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setDetailsOpen(true)}
+                    className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--ochre-10)] hover:text-[var(--ochre-600)]"
+                    aria-label="Edit customer"
                   >
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
-                </button>
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomer(null)}
+                    className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
+                    aria-label="Remove customer from sale"
+                  >
+                    <span className="sr-only">Remove customer</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
+              <p className="pl-11 text-sm text-[var(--text-secondary)]">
+                {customer.phone}
+              </p>
+              {customer.email ? (
+                <p className="mt-0.5 pl-11 text-xs text-[var(--text-muted)]">
+                  {customer.email}
+                </p>
+              ) : null}
+              {customer.address ? (
+                <p className="mt-1 pl-11 text-xs leading-snug text-[var(--text-muted)] line-clamp-2">
+                  {customer.address}
+                </p>
+              ) : null}
             </div>
-            <p className="pl-11 text-sm text-[var(--text-secondary)]">
-              {customer.phone}
-            </p>
-            {customer.email ? (
-              <p className="mt-0.5 pl-11 text-xs text-[var(--text-muted)]">
-                {customer.email}
-              </p>
-            ) : null}
-            {customer.address ? (
-              <p className="mt-1 pl-11 text-xs leading-snug text-[var(--text-muted)] line-clamp-2">
-                {customer.address}
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <Button
-            type="default"
-            className="flex h-11 w-full items-center justify-center gap-2 font-medium text-[var(--text-primary)] border-[var(--pearl-bush)] hover:border-[var(--bistre-200)] hover:text-[var(--bistre-700)]"
-            icon={<UserPlus className="h-4 w-4" />}
-            onClick={() => setShowCustomerDetails(true)}
-          >
-            Add customer
-          </Button>
-        )}
-      </div>
+          ) : (
+            <Button
+              type="default"
+              className="flex h-11 w-full items-center justify-center gap-2 font-medium text-[var(--text-primary)] border-[var(--pearl-bush)] hover:border-[var(--bistre-200)] hover:text-[var(--bistre-700)]"
+              icon={<UserPlus className="h-4 w-4" />}
+              onClick={() => setDetailsOpen(true)}
+            >
+              Add customer
+            </Button>
+          )}
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {items.length === 0 ? (
@@ -469,8 +492,8 @@ export function BillingBillPanel({
       )}
 
       <CustomerDetails
-        open={showCustomerDetails}
-        onCancel={() => setShowCustomerDetails(false)}
+        open={detailsOpen}
+        onCancel={() => setDetailsOpen(false)}
         initialValues={customer ?? undefined}
         onSave={(values) => setCustomer(values)}
       />

@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoadingDots } from '@/components/LoadingDots/LoadingDots';
+import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
 
 import styles from './AuthGuard.module.css';
 
@@ -57,11 +57,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [pathname, isAuthenticated, isLoading, user, router]);
 
   if (isLoading) {
-    return <LoadingDots fullScreen />;
+    return (
+      <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Loading session">
+        <ContentSkeleton variant="table" rowCount={10} />
+      </div>
+    );
   }
 
   if (!isAuthenticated && isProtectedPath(pathname)) {
-    return <LoadingDots fullScreen />;
+    return (
+      <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
+        <ContentSkeleton variant="table" rowCount={6} />
+      </div>
+    );
   }
 
   if (
@@ -70,7 +78,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isSuperAdminOnlyPath(pathname) &&
     user.role !== 'SUPER_ADMIN'
   ) {
-    return <LoadingDots fullScreen />;
+    return (
+      <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
+        <ContentSkeleton variant="table" rowCount={6} />
+      </div>
+    );
   }
 
   return <>{children}</>;

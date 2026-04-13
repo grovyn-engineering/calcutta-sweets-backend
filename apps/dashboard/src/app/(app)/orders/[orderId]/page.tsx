@@ -20,7 +20,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
 
-import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { openPrintableInvoice, orderIdToInvoiceRef } from "@/lib/printInvoice";
@@ -265,8 +265,6 @@ export default function OrderBillDetailPage() {
   };
   const tableSize = lineCount > 14 ? ("small" as const) : ("middle" as const);
 
-  if (loading && !order) return <LoadingDots fullScreen />;
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto pb-2">
       <Breadcrumb
@@ -302,7 +300,9 @@ export default function OrderBillDetailPage() {
         ]}
       />
 
-      {order ? (
+      {loading && !order ? (
+        <ContentSkeleton variant="detail" rowCount={10} />
+      ) : order ? (
         <>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">

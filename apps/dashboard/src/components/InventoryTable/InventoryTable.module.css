@@ -14,26 +14,120 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  align-items: stretch;
+  gap: 0.875rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid rgba(44, 24, 16, 0.07);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 1px 3px rgba(44, 24, 16, 0.05);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .toolbar {
     flex-direction: row;
-    align-items: flex-end;
+    align-items: center;
+    justify-content: flex-start;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: 0.875rem 1rem;
+  }
+}
+
+.searchField {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (min-width: 520px) {
+  .searchField {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    min-width: min(100%, 280px);
+  }
+}
+
+@media (min-width: 768px) {
+  .searchField {
+    flex: 0 1 34rem;
+    max-width: 100%;
+    min-width: min(100%, 17rem);
   }
 }
 
 .searchLabel {
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--bistre-500);
-  display: block;
-  margin-bottom: 0.25rem;
+  margin: 0;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+@media (min-width: 520px) {
+  .searchLabel {
+    padding-top: 0.125rem;
+  }
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .toolbarActions {
+    flex-shrink: 0;
+    justify-content: flex-start;
+  }
+}
+
+.toolbarBtn:global(.ant-btn),
+.toolbarBtnPrimary:global(.ant-btn) {
+  height: 48px !important;
+  padding: 0 18px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  box-shadow: 0 1px 2px rgba(44, 24, 16, 0.06) !important;
+}
+
+.toolbarBtn:global(.ant-btn) {
+  border-color: rgba(44, 24, 16, 0.12) !important;
+  background: linear-gradient(180deg, #fffef9 0%, var(--linen-100) 100%) !important;
+  color: var(--bistre-800) !important;
+}
+
+.toolbarBtn:global(.ant-btn:hover) {
+  border-color: var(--ochre-300) !important;
+  color: var(--ochre-700) !important;
+  background: var(--ochre-10) !important;
+}
+
+.toolbarBtnPrimary:global(.ant-btn) {
+  background: var(--ochre-600) !important;
+  border-color: var(--ochre-600) !important;
+  color: #fff !important;
+}
+
+.toolbarBtnPrimary:global(.ant-btn:hover) {
+  background: var(--ochre-500) !important;
+  border-color: var(--ochre-500) !important;
+  color: #fff !important;
 }
 
 :global(.ant-input-affix-wrapper).searchInput {
@@ -48,12 +142,8 @@
   padding-right: 16px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1 1 auto;
-}
-
-@media (min-width: 768px) {
-  :global(.ant-input-affix-wrapper).searchInput {
-    max-width: 400px;
-  }
+  min-width: 0;
+  width: 100%;
 }
 
 :global(.ant-input-affix-wrapper-focused).searchInput,
@@ -88,6 +178,87 @@
   flex-direction: column;
 }
 
+/* Narrow numeric cols need more usable width: global DataTable header padding is 16px 20px. */
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col) {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+@media (max-width: 500px) {
+  .tableSlot :global(.tabulator .tabulator-header .tabulator-col) {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}
+
+/* Native Tabulator row-selection checkboxes — brand ochre, not default blue */
+.tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1.5px solid var(--bistre-300);
+  background: #fffef9;
+  cursor: pointer;
+  vertical-align: middle;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]:hover) {
+  border-color: var(--ochre-400);
+  box-shadow: 0 0 0 3px rgba(201, 147, 45, 0.12);
+}
+
+.tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]:focus-visible) {
+  outline: none;
+  border-color: var(--ochre-500);
+  box-shadow: 0 0 0 3px rgba(201, 147, 45, 0.22);
+}
+
+.tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]:checked) {
+  background-color: var(--ochre-500);
+  border-color: var(--ochre-600);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3.5 8.5l3 3 6-7' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 0.7rem;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]:checked:hover) {
+  background-color: var(--ochre-600);
+  border-color: var(--ochre-600);
+}
+
+.tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]:indeterminate) {
+  background-color: var(--ochre-400);
+  border-color: var(--ochre-500);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' stroke='%23ffffff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 0.65rem;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Body cells: DataTable already uses flex; only center the checkbox. */
+.tableSlot :global(.tabulator .tabulator-cell.inventory-select-cell) {
+  justify-content: center !important;
+}
+
+/*
+ * Header cols must stay inline-flex + column (Tabulator default). Plain `display: flex`
+ * resets flex-direction to row and breaks width sync with body — headers shift one column.
+ */
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-select-cell) {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
 
 .tableSlot :global(.tabulator .inventory-category-pill) {
   display: inline-block;

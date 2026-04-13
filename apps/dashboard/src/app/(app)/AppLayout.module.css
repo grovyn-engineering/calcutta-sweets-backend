@@ -19,6 +19,11 @@
   border-bottom: 1px solid var(--pearl-bush);
   color: inherit;
   text-decoration: none;
+  overflow: hidden;
+}
+
+.logoImage {
+  display: block;
 }
 
 .logoLink:hover,
@@ -41,16 +46,30 @@
 }
 
 .menu {
+  flex: 1 1 auto;
+  min-height: 0;
   height: calc(100vh - 64px);
   padding-top: 16px;
+  border-inline-end: none !important;
+}
+
+.menu :global(.ant-menu-item) {
+  margin-inline: 0 !important;
+  width: 100% !important;
+  border-radius: 0 !important;
+}
+
+.menu :global(.ant-menu-item::after) {
+  display: none;
 }
 
 .menu :global(.ant-menu-item-selected) {
   background: var(--bistre-100) !important;
   color: var(--ochre-600) !important;
   font-weight: 500;
-  border-right: 3px solid var(--ochre-600) !important;
+  border-right: none !important;
   border-radius: 0;
+  box-shadow: inset 3px 0 0 0 var(--ochre-600);
 }
 
 .menu :global(.ant-menu-item:hover) {
@@ -65,7 +84,6 @@
 
 @media (min-width: 1024px) {
   .mainLayout {
-    /* Flex handles this now as Sider is in the flow */
     margin-left: 0;
   }
 }
@@ -75,6 +93,11 @@
   border-bottom: 1px solid var(--pearl-bush);
   padding: 0 16px !important;
   flex-shrink: 0;
+  display: flex !important;
+  align-items: center !important;
+  min-height: 64px !important;
+  height: 64px !important;
+  line-height: 1.25 !important;
 }
 
 @media (min-width: 640px) {
@@ -83,20 +106,61 @@
   }
 }
 
+.headerTitleCluster {
+  min-height: 40px;
+  align-items: center;
+}
+
+.headerToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 14px;
+  background: var(--linen-100);
+  border: 1px solid var(--pearl-bush);
+  box-shadow: 0 1px 2px rgba(44, 24, 16, 0.05);
+}
+
+@media (min-width: 640px) {
+  .headerToolbar {
+    gap: 12px;
+    padding: 6px 10px 6px 12px;
+  }
+}
+
+.headerToolbarDivider {
+  width: 1px;
+  height: 1.5rem;
+  flex-shrink: 0;
+  background: rgba(44, 24, 16, 0.1);
+}
+
+.headerShopSelect :global(.ant-select-selector) {
+  background: #ffffff !important;
+  border: 1px solid rgba(44, 24, 16, 0.1) !important;
+  box-shadow: none !important;
+}
+
+.headerShopSelect:global(.ant-select-focused) :global(.ant-select-selector),
+.headerShopSelect:global(.ant-select-open) :global(.ant-select-selector) {
+  border-color: var(--ochre-400) !important;
+  box-shadow: 0 0 0 2px rgba(201, 147, 45, 0.12) !important;
+}
+
 .content {
   background: var(--linen-100) !important;
   max-height: calc(100vh - 64px);
   overflow-y: scroll;
 }
 
-/* Single route: list fills the pane; Tabulator owns vertical scroll */
 .contentInventoryList {
   overflow: hidden;
   min-height: 0;
 }
 
 .pageTitle {
-  color: var(--text-secondary);
+  color: var(--bistre-800);
   flex-shrink: 1;
   min-width: 0;
 }
@@ -117,17 +181,6 @@
 
 .mobileDrawer :global(.ant-drawer-body) {
   padding: 0;
-}
-
-.headerActions {
-  align-items: center;
-  gap: 8px !important;
-}
-
-@media (min-width: 640px) {
-  .headerActions {
-    gap: 16px !important;
-  }
 }
 
 .headerShopSwitcher {

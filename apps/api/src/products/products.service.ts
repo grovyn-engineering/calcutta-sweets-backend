@@ -68,23 +68,72 @@ export class ProductsService {
     });
   }
 
-  /** Paginated products; optional name search and category filter. */
+  /**
+   * Paginated products for a shop with optional filters.
+   * @param opts.search - Case-insensitive match on product name, category name, variant name, barcode, or SKU.
+   * @param opts.categoryId - Restrict to this category.
+   * @param opts.status - `active` or `inactive`; omit for both.
+   */
   async findPage(
     shopCode: string,
     page: number,
     size: number,
-    opts?: { search?: string; categoryId?: string },
+    opts?: {
+      search?: string;
+      categoryId?: string;
+      status?: 'active' | 'inactive';
+    },
   ) {
     const search = opts?.search?.trim();
     const where: Prisma.ProductWhereInput = {
       shopCode,
       ...(opts?.categoryId ? { categoryId: opts.categoryId } : {}),
+      ...(opts?.status === 'active' ? { isActive: true } : {}),
+      ...(opts?.status === 'inactive' ? { isActive: false } : {}),
       ...(search
         ? {
-          name: {
-            contains: search,
-            mode: Prisma.QueryMode.insensitive,
-          },
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+            {
+              category: {
+                name: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+            },
+            {
+              variants: {
+                some: {
+                  OR: [
+                    {
+                      name: {
+                        contains: search,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                    {
+                      barcode: {
+                        contains: search,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                    {
+                      sku: {
+                        contains: search,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
         }
         : {}),
     };
@@ -148,7 +197,6 @@ export class ProductsService {
         where: { id: existing.id },
         data: {
           ...productFields,
-          // Ensure booleans are picked up correctly if sent
           ...(updateProductDto.isListedOnWebsite !== undefined ? { isListedOnWebsite: updateProductDto.isListedOnWebsite } : {}),
         },
       });

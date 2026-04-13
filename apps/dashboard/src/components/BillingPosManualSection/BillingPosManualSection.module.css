@@ -1,29 +1,143 @@
-/* Tabulator shell - matches billing-pos manual table frame */
+.section {
+  container-type: inline-size;
+  container-name: billing-manual;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.manualHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+@container billing-pos (min-width: 1024px) {
+  .manualHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+}
+
+.manualTitleRow {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.manualTitleRow h2 {
+  margin: 0;
+  min-width: 0;
+}
+
+@container billing-pos (min-width: 1024px) {
+  .manualTitleRow {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+.manualFilters {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+}
+
+@container billing-manual (min-width: 520px) {
+  .manualFilters {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
+@container billing-pos (min-width: 1024px) {
+  .manualFilters {
+    flex: 0 1 620px;
+    max-width: min(100%, 620px);
+    width: auto;
+  }
+}
+
+.manualSearch {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.manualCategoryWrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+@container billing-manual (min-width: 520px) {
+  .manualCategoryWrap {
+    flex: 0 1 auto;
+    width: min(18rem, 100%);
+    min-width: 11rem;
+    max-width: 20rem;
+  }
+}
+
+.customerIconBtn:global(.ant-btn) {
+  flex-shrink: 0;
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--pearl-bush) !important;
+  color: var(--text-primary) !important;
+  background: var(--linen-100) !important;
+  box-shadow:
+    0 2px 8px rgba(44, 24, 16, 0.03),
+    0 1px 2px rgba(44, 24, 16, 0.02);
+}
+
+.customerIconBtn:global(.ant-btn):hover {
+  border-color: var(--bistre-200) !important;
+  color: var(--bistre-700) !important;
+  background: #fffef9 !important;
+}
+
 .wrap {
   border-radius: 12px;
   border: 1px solid var(--pearl-bush);
   background: var(--linen-100);
-  flex: 1 1 auto;
-  height: min(65vh, 640px);
-  min-height: 300px;
+  flex: 1 1 0%;
+  min-height: 240px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-@media (min-width: 1024px) {
-  .wrap {
-    height: min(58vh, 640px);
-    min-height: clamp(260px, 38vh, 400px);
-  }
-}
-
 .tabulatorInner {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .tabulatorInner :global(.tabulator) {
@@ -51,27 +165,71 @@
   padding: 0.5rem 0;
 }
 
+/* Match header/cell insets; DataTable.module uses !important on the same nodes. */
 .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
+  padding: 0.75rem 0.5rem !important;
   border-right: none;
   background: transparent;
 }
 
-.tabulatorInner :global(.tabulator .tabulator-col .tabulator-col-content) {
-  padding: 0.75rem 0.5rem;
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:first-child) {
+  padding-left: 1.15rem !important;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+  padding-right: 1.15rem !important;
 }
 
 @media (min-width: 640px) {
-  .tabulatorInner :global(.tabulator .tabulator-col .tabulator-col-content) {
-    padding: 0.95rem 1rem;
+  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
+    padding: 0.85rem 0.9rem !important;
+  }
+
+  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:first-child) {
+    padding-left: 1.15rem !important;
+  }
+
+  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+    padding-right: 1.15rem !important;
   }
 }
 
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:first-child .tabulator-col-content) {
-  padding-left: 1.15rem;
+@media (max-width: 500px) {
+  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
+    padding: 10px 8px !important;
+  }
 }
 
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child .tabulator-col-content) {
-  padding-right: 1.15rem;
+.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
+  padding: 0.75rem 0.5rem !important;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:first-child) {
+  padding-left: 1.15rem !important;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
+  padding-right: 1.15rem !important;
+}
+
+@media (min-width: 640px) {
+  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
+    padding: 0.85rem 0.9rem !important;
+  }
+
+  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:first-child) {
+    padding-left: 1.15rem !important;
+  }
+
+  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
+    padding-right: 1.15rem !important;
+  }
+}
+
+@media (max-width: 500px) {
+  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
+    padding: 8px 10px !important;
+  }
 }
 
 .tabulatorInner :global(.tabulator .tabulator-col) {
@@ -90,7 +248,16 @@
   background: var(--linen-95);
   font-size: 0.75rem;
   color: var(--text-muted);
-  padding: 0.5rem 0;
+  padding: 0.65rem 0.75rem !important;
+  justify-content: space-between !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+}
+
+@media (min-width: 640px) {
+  .tabulatorInner :global(.tabulator .tabulator-footer) {
+    padding: 0.65rem 1rem !important;
+  }
 }
 
 .tabulatorInner :global(.tabulator .tabulator-footer .tabulator-page) {

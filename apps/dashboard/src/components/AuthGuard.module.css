@@ -27,3 +27,12 @@
   justify-content: center;
   background: var(--linen-100);
 }
+
+/** Session / redirect wait: shimmer in normal document flow (no fixed blur overlay). */
+.bootstrapShell {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 24px;
+  background: var(--linen-100);
+}
