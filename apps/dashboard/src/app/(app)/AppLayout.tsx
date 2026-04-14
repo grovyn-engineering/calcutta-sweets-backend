@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Menu as MenuIcon, X } from 'lucide-react';
+import { LogOut, Menu as MenuIcon, Settings, X } from 'lucide-react';
 import { Drawer, Button, Dropdown, Layout, Menu, Select, Space, Tag } from 'antd';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -145,9 +145,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Image
           src={logo}
           alt="Calcutta Sweets"
-          width={200}
-          height={80}
-          className={`h-[52px] w-auto max-w-[200px] object-contain object-center ${styles.logoImage}`}
+          width={240}
+          height={95}
+          className={`h-[54px] w-auto max-w-[236px] object-contain object-center ${styles.logoImage}`}
           priority
         />
       </Link>
@@ -187,10 +187,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Image
                 src={logo}
                 alt="Calcutta Sweets"
-                width={80}
-                height={60}
-                className="object-contain"
-                style={{ width: 'auto', height: 'auto' }}
+                width={200}
+                height={80}
+                className={`max-h-11 w-auto object-contain ${styles.drawerLogoImage}`}
               />
             </Link>
           </div>
@@ -223,7 +222,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         >
           <div className={`flex min-w-0 flex-1 items-center gap-3 ${styles.headerTitleCluster}`}>
             <Button
-              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-[var(--linen-100)]`}
+              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-[var(--linen-95)]`}
               onClick={() => setIsMobileMenuOpen(true)}
               icon={<MenuIcon className="size-5 text-[var(--bistre-800)]" />}
             />
@@ -260,7 +259,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {
                     key: 'settings',
                     label: <Link href="/settings" scroll={false}>Account Settings</Link>,
-                    icon: <span className="text-[10px]">⚙️</span>,
+                    icon: (
+                      <Settings
+                        className="size-[15px] text-[var(--bistre-500)]"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ),
                   },
                   {
                     type: 'divider',
@@ -269,7 +274,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     key: 'logout',
                     danger: true,
                     label: <Link href="/logout" scroll={false}>Logout</Link>,
-                    icon: <span className="text-[10px]">🚪</span>,
+                    icon: (
+                      <LogOut
+                        className="size-[15px] text-current"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ),
                   },
                 ],
               }}

@@ -3,10 +3,12 @@
 import { App, Button, Card, Checkbox, Form, Input } from 'antd';
 import styles from './styles.module.css';
 import Link from 'next/link';
-import { ArrowRightIcon, Candy, LockIcon, UserIcon } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRightIcon, LockIcon, UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiBaseUrl } from '@/lib/api';
+import logo from '@/assets/logo.svg';
 
 const LoginPage = () => {
   const { message } = App.useApp();
@@ -35,17 +37,24 @@ const LoginPage = () => {
     <div className={styles.page}>
       <div className={styles.shell}>
         <header className={styles.brand}>
-          <div className={styles.brandMark} aria-hidden>
-            <Candy strokeWidth={1.75} size={28} />
+          <div className={styles.brandMark}>
+            <Image
+              src={logo}
+              alt="Calcutta Sweets"
+              width={209}
+              height={90}
+              className={styles.brandLogoImg}
+              priority
+            />
           </div>
-          <h1 className={styles.title}>CALCUTTA SWEETS</h1>
-          <p className={styles.tagline}>Est. 2000 · Kolkata</p>
+          <p className={styles.tagline}>Crafted in Kolkata</p>
         </header>
 
         <Card className={styles.card} variant="borderless">
           <div className={styles.cardHead}>
-            <h2>Welcome back</h2>
-            <p>Sign in with your staff account to open the dashboard.</p>
+            <p className={styles.cardEyebrow}>Staff sign-in</p>
+            <h1 className={styles.cardTitle}>Welcome back</h1>
+            <p className={styles.cardSub}>Open the dashboard with your account credentials.</p>
           </div>
 
           <Form layout="vertical" requiredMark={false} onFinish={onFinish}>
@@ -97,7 +106,7 @@ const LoginPage = () => {
           </Form>
         </Card>
 
-        <p className={styles.footer}>Traditional sweets · Trusted since 2000</p>
+        <p className={styles.footer}>Traditional sweets · Family recipes</p>
       </div>
     </div>
   );
