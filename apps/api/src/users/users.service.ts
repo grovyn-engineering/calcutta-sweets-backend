@@ -9,6 +9,10 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 import { EmailService } from '../email/email.service';
+import {
+  assertIndianMobile10,
+  normalizeIndianMobile,
+} from '../common/indian-mobile';
 import * as bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
@@ -167,12 +171,22 @@ export class UsersService {
   }
 
   async updateProfile(id: string, dto: { name?: string; avatarUrl?: string; phone?: string }) {
+    const phonePatch =
+      dto.phone === undefined
+        ? {}
+        : (() => {
+            const d = normalizeIndianMobile(dto.phone);
+            if (d === '') return { phone: null as string | null };
+            assertIndianMobile10(d);
+            return { phone: d };
+          })();
+
     return this.prisma.user.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
-        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...phonePatch,
       },
       select: {
         id: true, email: true, name: true, role: true, shopCode: true,

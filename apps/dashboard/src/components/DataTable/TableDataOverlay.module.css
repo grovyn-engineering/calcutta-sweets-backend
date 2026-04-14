@@ -63,6 +63,35 @@
   justify-content: center;
 }
 
+/* Ant Design Table / inline: span the tbody cell, align with column area */
+.emptyRoot_embedded {
+  min-height: 13.5rem;
+  padding: 1.5rem 16px 1.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.emptyCard_embedded {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 1.5rem 1.25rem;
+  box-sizing: border-box;
+}
+
+.emptyCard_embedded .emptyDesc {
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.emptyCard_embedded .emptyTitle {
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .loadingRoot {
   display: flex;
   align-items: center;

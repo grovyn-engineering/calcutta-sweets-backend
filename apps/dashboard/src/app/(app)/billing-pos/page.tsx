@@ -39,7 +39,7 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
     unitPrice: row.price,
     quantity: 1,
     unit: row.unit,
-    imageUrl: null,
+    imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
   };
 }
 
@@ -191,7 +191,7 @@ export default function BillingPOSPage() {
                 </h2>
                 <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
                   <span className="block sm:inline">
-                    Scan the product label—most scanners send Enter automatically.
+                    Scan the product label-most scanners send Enter automatically.
                   </span>{' '}
                   <span className="hidden sm:inline">Or type the code and press Enter.</span>
                 </p>
@@ -226,7 +226,7 @@ export default function BillingPOSPage() {
                 <span className={styles.mobileBillBarKicker}>Current sale</span>
                 <span className={styles.mobileBillBarSummary}>
                   {billItems.length === 0
-                    ? 'No lines yet — tap to add customer & pay'
+                    ? 'No lines yet - tap to add customer & pay'
                     : `${saleLineCount} ${saleLineCount === 1 ? 'item' : 'items'} · ${inrCompact.format(itemsGrossTotal)} (incl. tax)`}
                 </span>
               </div>
@@ -249,7 +249,7 @@ export default function BillingPOSPage() {
           rootClassName={styles.billDrawer}
           title="Current sale"
           placement="bottom"
-          height="90%"
+          size="90%"
           open={billDrawerOpen}
           onClose={() => setBillDrawerOpen(false)}
           destroyOnClose={false}

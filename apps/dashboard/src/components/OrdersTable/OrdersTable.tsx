@@ -8,6 +8,7 @@ import { DataTable } from "@/components/DataTable/DataTable";
 
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
 import { Receipt, Search } from "lucide-react";
@@ -63,6 +64,9 @@ export default function OrdersTable() {
 
   const shopKey = effectiveShopCode || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
+
+  const { loading: tableLoading, onRemoteBusyChange } =
+    useRemoteTabulatorLoading(shopKey);
 
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
@@ -274,6 +278,8 @@ export default function OrdersTable() {
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}
+          loading={tableLoading}
+          onRemoteBusyChange={onRemoteBusyChange}
           minHeight={450}
           emptyTitle="No bills found"
           emptyDescription="Orders from your Billing POS will appear here once you complete a sale."

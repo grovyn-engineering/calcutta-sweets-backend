@@ -4,28 +4,29 @@ import { Inbox } from "lucide-react";
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import styles from "./TableDataOverlay.module.css";
 
-/**
- * Props for {@link TableEmptyState}.
- */
 export type TableEmptyStateProps = {
   title: string;
   description?: string;
   icon?: React.ReactNode;
   action?: React.ReactNode;
+  embedded?: boolean;
 };
 
-/**
- * Centered empty-state card for table body overlays.
- */
 export function TableEmptyState({
   title,
   description,
   icon,
   action,
+  embedded = false,
 }: TableEmptyStateProps) {
   return (
-    <div className={styles.emptyRoot} role="status">
-      <div className={styles.emptyCard}>
+    <div
+      className={`${styles.emptyRoot} ${embedded ? styles.emptyRoot_embedded : ""}`.trim()}
+      role="status"
+    >
+      <div
+        className={`${styles.emptyCard} ${embedded ? styles.emptyCard_embedded : ""}`.trim()}
+      >
         <div className={styles.emptyIcon} aria-hidden>
           {icon ?? <Inbox strokeWidth={1.35} />}
         </div>
@@ -39,9 +40,6 @@ export function TableEmptyState({
   );
 }
 
-/**
- * Centered loading card for table body overlays.
- */
 export function TableLoadingOverlay() {
   return (
     <div

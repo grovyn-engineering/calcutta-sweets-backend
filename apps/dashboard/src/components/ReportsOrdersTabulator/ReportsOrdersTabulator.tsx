@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 import { Receipt } from "lucide-react";
 import { DataTable } from "@/components/DataTable/DataTable";
@@ -42,6 +43,7 @@ function paymentPill(raw: string) {
 
 export default function ReportsOrdersTabulator() {
   const router = useRouter();
+  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading();
 
   const columns = useMemo<ColumnDefinition[]>(
     () => [
@@ -183,6 +185,8 @@ export default function ReportsOrdersTabulator() {
           ...options,
           rowClick: events.rowClick
         }), [options, events.rowClick])}
+        loading={tableLoading}
+        onRemoteBusyChange={onRemoteBusyChange}
         minHeight={400}
         emptyTitle="No orders in this report"
         emptyDescription="Try widening the date range or check another shop."

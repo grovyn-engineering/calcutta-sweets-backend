@@ -17,22 +17,58 @@ export type VariantListFilters = {
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) { }
 
+  /**
+   * Prefix relative `/uploads/...` (and similar) paths with the public API origin so clients
+   * can load them without guessing the Nest host (e.g. when the dashboard proxies `/api` only).
+   */
+  private absoluteAssetUrl(url: string): string {
+    const u = url.trim();
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    const base =
+      process.env.PUBLIC_ASSET_ORIGIN?.trim().replace(/\/+$/, '') ||
+      process.env.API_UPSTREAM_URL?.trim().replace(/\/+$/, '') ||
+      'http://127.0.0.1:3000';
+    if (u.startsWith('/')) return `${base}${u}`;
+    return `${base}/${u}`;
+  }
+
   async findVariantByBarcode(barcode: string, shopCode: string) {
-    const row = await this.prisma.productVariant.findFirst({
-      where: {
-        barcode,
-        product: { shopCode },
-      },
-      include: {
-        product: { include: { category: true } },
+    // `barcode` is @unique: use findUnique (single index seek) then scope in app.
+    const row = await this.prisma.productVariant.findUnique({
+      where: { barcode },
+      select: {
+        id: true,
+        productId: true,
+        name: true,
+        barcode: true,
+        price: true,
+        unit: true,
+        quantity: true,
+        product: {
+          select: {
+            name: true,
+            isActive: true,
+            shopCode: true,
+            category: { select: { name: true } },
+            images: {
+              orderBy: { createdAt: 'asc' },
+              take: 48,
+              select: { id: true, url: true },
+            },
+          },
+        },
       },
     });
     if (!row) {
       throw new NotFoundException(`No product found for barcode ${barcode}`);
     }
-    if (!row.product.isActive) {
+    if (row.product.shopCode !== shopCode || !row.product.isActive) {
       throw new NotFoundException(`No product found for barcode ${barcode}`);
     }
+    const images = row.product.images.map((img) => ({
+      id: img.id,
+      url: this.absoluteAssetUrl(img.url),
+    }));
     return {
       id: row.id,
       productId: row.productId,
@@ -42,6 +78,9 @@ export class InventoryService {
       price: row.price,
       unit: row.unit ?? 'PC',
       stock: row.quantity,
+      category: row.product.category?.name ?? null,
+      images,
+      imageUrl: images[0]?.url ?? null,
     };
   }
 
@@ -154,7 +193,12 @@ export class InventoryService {
         take: size,
         orderBy: [{ product: { name: 'asc' } }, { name: 'asc' }],
         include: {
-          product: { include: { category: true } },
+          product: {
+            include: {
+              category: true,
+              images: { orderBy: { createdAt: 'asc' }, take: 1 },
+            },
+          },
         },
       }),
     ]);
@@ -175,6 +219,9 @@ export class InventoryService {
       unit: v.unit ?? 'PC',
       price: v.price,
       costPrice: v.costPrice,
+      imageUrl: v.product.images[0]?.url
+        ? this.absoluteAssetUrl(v.product.images[0].url)
+        : null,
     }));
 
     return {

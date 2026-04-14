@@ -6,9 +6,6 @@ import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./DataTable.module.css";
 import { TableEmptyState, TableLoadingOverlay } from "./TableDataOverlay";
 
-/**
- * Minimal Tabulator instance surface used for row counts and event wiring.
- */
 type TabulatorLike = {
   getDataCount?: () => number;
   on?: (ev: string, fn: (...args: unknown[]) => void) => void;
@@ -35,50 +32,27 @@ const ReactTabulator = dynamic(
   { ssr: false, loading: () => <TableSkeleton /> },
 );
 
-/**
- * Props for {@link DataTable}.
- */
 export type DataTableProps = {
-  /** Tabulator column definitions. */
   columns: ColumnDefinition[];
-  /** Spread after internal defaults (`layout`, `dataLoader`). */
   options?: ReactTabulatorOptions;
-  /** When set, syncs loading/empty state from this array instead of only remote events. */
   data?: unknown[];
-  /**
-   * When boolean, controls the table-body loading overlay (e.g. client-side fetch).
-   * Omit to use Tabulator ajax / internal loading only.
-   */
   loading?: boolean;
-  /** Invoked with Tabulator’s ref object when the instance is ready. */
+  onRemoteBusyChange?: (busy: boolean) => void;
   onRef?: (instanceRef: { current?: any }) => void;
-  /** Overrides built-in empty UI; `null` disables the empty overlay. */
   emptyState?: React.ReactNode | null;
-  /** Default empty title when `emptyState` is omitted. */
   emptyTitle?: string;
-  /** Default empty description when `emptyState` is omitted. */
   emptyDescription?: string;
-  /** Icon node for the default empty state. */
   emptyIcon?: React.ReactNode;
-  /** Optional action area below the default empty copy. */
   emptyAction?: React.ReactNode;
-  /**
-   * Shell `min-height` (px or CSS length). Use `0` with flex layouts so the grid can shrink.
-   * @default 400
-   */
   minHeight?: number | string;
 };
 
-/**
- * Tabulator wrapper with shared loading/empty overlays.
- * Subscribes to Tabulator events in the `onRef` callback so the first `dataProcessed` is not
- * missed. Sets `--dt-header-reserve` / `--dt-footer-reserve` for overlay insets when pagination is enabled.
- */
 export function DataTable({
   columns,
   options,
   data,
   loading: loadingProp,
+  onRemoteBusyChange,
   onRef,
   emptyState,
   emptyTitle,
@@ -89,16 +63,34 @@ export function DataTable({
 }: DataTableProps) {
   const [internalLoading, setInternalLoading] = useState(true);
   const [isEmpty, setIsEmpty] = useState(false);
+  const [remoteAjaxInFlight, setRemoteAjaxInFlight] = useState(
+    () => typeof options?.ajaxRequestFunc === "function",
+  );
   const wrapperRef = useRef<HTMLDivElement>(null);
   const detachTableListenersRef = useRef<(() => void) | null>(null);
   const chromeObserverRef = useRef<ResizeObserver | null>(null);
   const loadingPropRef = useRef(loadingProp);
   loadingPropRef.current = loadingProp;
+  const onRemoteBusyChangeRef = useRef(onRemoteBusyChange);
+  onRemoteBusyChangeRef.current = onRemoteBusyChange;
+  const sawRemoteDataLoadingRef = useRef(false);
+  const remoteLoadGenRef = useRef(0);
+  const remoteAppliedGenRef = useRef(0);
 
   const controlledLoading = typeof loadingProp === "boolean";
-  const showLoadingOverlay = controlledLoading
-    ? loadingProp
-    : internalLoading;
+  const usesRemoteData = useMemo(
+    () =>
+      Boolean(
+        options?.ajaxURL ||
+          options?.ajaxURLGenerator ||
+          typeof options?.ajaxRequestFunc === "function",
+      ),
+    [options?.ajaxURL, options?.ajaxURLGenerator, options?.ajaxRequestFunc],
+  );
+
+  const displayLoading =
+    (usesRemoteData && remoteAjaxInFlight) ||
+    (controlledLoading ? loadingProp : internalLoading);
 
   const minHeightStyle =
     typeof minHeight === "number"
@@ -107,14 +99,45 @@ export function DataTable({
         : `${minHeight}px`
       : minHeight;
 
-  const internalOptions = useMemo(
-    () => ({
+  const internalOptions = useMemo(() => {
+    const base: ReactTabulatorOptions = {
       layout: "fitDataFill",
       dataLoader: false,
       ...options,
-    }),
-    [options],
-  );
+    };
+    const orig = base.ajaxRequestFunc;
+    const remote = Boolean(
+      base.ajaxURL ||
+        base.ajaxURLGenerator ||
+        typeof orig === "function",
+    );
+    if (remote && typeof orig === "function") {
+      base.ajaxRequestFunc = (async (
+        url: string,
+        config: unknown,
+        params: unknown,
+      ) => {
+        const gen = ++remoteLoadGenRef.current;
+        remoteAppliedGenRef.current = 0;
+        sawRemoteDataLoadingRef.current = true;
+        setRemoteAjaxInFlight(true);
+        setIsEmpty(false);
+        onRemoteBusyChangeRef.current?.(true);
+        try {
+          const result = await orig(url, config, params);
+          remoteAppliedGenRef.current = gen;
+          return result;
+        } catch (e) {
+          if (remoteLoadGenRef.current === gen) {
+            setRemoteAjaxInFlight(false);
+            onRemoteBusyChangeRef.current?.(false);
+          }
+          throw e;
+        }
+      }) as typeof orig;
+    }
+    return base;
+  }, [options]);
 
   const reserveFooterSpace = options?.pagination === true;
 
@@ -150,20 +173,6 @@ export function DataTable({
     emptyAction,
   ]);
 
-  const syncFromTable = useCallback((table: TabulatorLike) => {
-    let n = 0;
-    try {
-      n =
-        typeof table.getDataCount === "function" ? table.getDataCount() : 0;
-    } catch {
-      n = 0;
-    }
-    setIsEmpty(n === 0);
-    if (typeof loadingPropRef.current !== "boolean") {
-      setInternalLoading(false);
-    }
-  }, []);
-
   const measureChrome = useCallback(() => {
     const root = wrapperRef.current;
     if (!root) return;
@@ -187,6 +196,34 @@ export function DataTable({
     }
   }, [reserveFooterSpace]);
 
+  const syncFromTable = useCallback(
+    (table: TabulatorLike) => {
+      let n = 0;
+      try {
+        n =
+          typeof table.getDataCount === "function" ? table.getDataCount() : 0;
+      } catch {
+        n = 0;
+      }
+
+      const controlled = typeof loadingPropRef.current === "boolean";
+      if (
+        !controlled &&
+        usesRemoteData &&
+        !sawRemoteDataLoadingRef.current &&
+        n === 0
+      ) {
+        return;
+      }
+
+      setIsEmpty(n === 0);
+      if (!controlled) {
+        setInternalLoading(false);
+      }
+    },
+    [usesRemoteData],
+  );
+
   const handleRef = useCallback(
     (instanceRef: { current?: any }) => {
       const table = instanceRef.current as TabulatorLike | null;
@@ -195,12 +232,20 @@ export function DataTable({
       detachTableListenersRef.current = null;
       chromeObserverRef.current?.disconnect();
       chromeObserverRef.current = null;
+      sawRemoteDataLoadingRef.current = false;
+      remoteLoadGenRef.current = 0;
+      remoteAppliedGenRef.current = 0;
+      if (usesRemoteData && typeof options?.ajaxRequestFunc === "function") {
+        setRemoteAjaxInFlight(true);
+      }
 
       onRef?.(instanceRef);
 
       if (!table || typeof table.on !== "function") return;
 
-      const onRequest = () => {
+      const onDataLoading = () => {
+        sawRemoteDataLoadingRef.current = true;
+        onRemoteBusyChangeRef.current?.(true);
         if (typeof loadingPropRef.current !== "boolean") {
           setInternalLoading(true);
         }
@@ -208,9 +253,28 @@ export function DataTable({
       };
       const onProcessed = () => {
         syncFromTable(table);
+        if (!usesRemoteData) {
+          setRemoteAjaxInFlight(false);
+          onRemoteBusyChangeRef.current?.(false);
+          requestAnimationFrame(measureChrome);
+          return;
+        }
+        const applied = remoteAppliedGenRef.current;
+        const current = remoteLoadGenRef.current;
+        if (applied === 0 || applied !== current) {
+          requestAnimationFrame(measureChrome);
+          return;
+        }
+        remoteAppliedGenRef.current = 0;
+        setRemoteAjaxInFlight(false);
+        onRemoteBusyChangeRef.current?.(false);
         requestAnimationFrame(measureChrome);
       };
       const onErr = () => {
+        sawRemoteDataLoadingRef.current = true;
+        remoteAppliedGenRef.current = 0;
+        setRemoteAjaxInFlight(false);
+        onRemoteBusyChangeRef.current?.(false);
         if (typeof loadingPropRef.current !== "boolean") {
           setInternalLoading(false);
         }
@@ -218,23 +282,42 @@ export function DataTable({
         requestAnimationFrame(measureChrome);
       };
 
-      table.on("ajaxRequesting", onRequest);
+      table.on("dataLoading", onDataLoading);
       table.on("dataProcessed", onProcessed);
-      table.on("dataLoaded", onProcessed);
-      table.on("ajaxError", onErr);
+      table.on("dataLoadError", onErr);
 
       const safetyId = window.setTimeout(() => {
+        sawRemoteDataLoadingRef.current = true;
         syncFromTable(table);
         measureChrome();
       }, 4500);
 
       detachTableListenersRef.current = () => {
         window.clearTimeout(safetyId);
-        table.off?.("ajaxRequesting", onRequest);
+        table.off?.("dataLoading", onDataLoading);
         table.off?.("dataProcessed", onProcessed);
-        table.off?.("dataLoaded", onProcessed);
-        table.off?.("ajaxError", onErr);
+        table.off?.("dataLoadError", onErr);
       };
+
+      if (usesRemoteData) {
+        const catchUpIfRowsAlreadyPresent = () => {
+          try {
+            const n =
+              typeof table.getDataCount === "function"
+                ? table.getDataCount()
+                : 0;
+            if (n > 0 && !sawRemoteDataLoadingRef.current) {
+              sawRemoteDataLoadingRef.current = true;
+              syncFromTable(table);
+              requestAnimationFrame(measureChrome);
+            }
+          } catch {
+            /* ignore */
+          }
+        };
+        queueMicrotask(catchUpIfRowsAlreadyPresent);
+        requestAnimationFrame(catchUpIfRowsAlreadyPresent);
+      }
 
       requestAnimationFrame(() => {
         measureChrome();
@@ -246,16 +329,18 @@ export function DataTable({
         if (tab) obs.observe(tab);
       });
     },
-    [onRef, syncFromTable, measureChrome],
+    [onRef, syncFromTable, measureChrome, usesRemoteData, options?.ajaxRequestFunc],
   );
 
   useEffect(() => {
-    if (Array.isArray(data)) {
-      if (typeof loadingProp !== "boolean") {
-        setInternalLoading(false);
-      }
-      setIsEmpty(data.length === 0);
+    if (!Array.isArray(data)) return;
+    const controlled = typeof loadingProp === "boolean";
+    if (!controlled) {
+      setInternalLoading(false);
+    } else if (loadingProp === true) {
+      return;
     }
+    setIsEmpty(data.length === 0);
   }, [data, loadingProp]);
 
   useEffect(
@@ -271,7 +356,7 @@ export function DataTable({
   const overlayClasses = [
     styles.bodyOverlay,
     reserveFooterSpace ? styles.bodyOverlay_footerPad : "",
-    showLoadingOverlay ? styles.bodyOverlay_loading : "",
+    displayLoading ? styles.bodyOverlay_loading : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -295,13 +380,13 @@ export function DataTable({
         onRef={handleRef}
       />
 
-      {showLoadingOverlay ? (
+      {displayLoading ? (
         <div className={overlayClasses} aria-busy="true">
           <TableLoadingOverlay />
         </div>
       ) : null}
 
-      {!showLoadingOverlay && isEmpty && resolvedEmpty ? (
+      {!displayLoading && isEmpty && resolvedEmpty ? (
         <div className={overlayClasses}>{resolvedEmpty}</div>
       ) : null}
     </div>

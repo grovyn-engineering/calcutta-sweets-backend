@@ -1,7 +1,6 @@
 'use client';
 
 import { App, Button, Modal, InputNumber } from 'antd';
-import Image from 'next/image';
 import {
   UserPlus,
   Receipt,
@@ -304,13 +303,14 @@ export function BillingBillPanel({
                 key={item.variantId}
                 className="flex gap-3 border-b border-[var(--pearl-bush)] pb-4 last:border-0 last:pb-0"
               >
-                <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 self-center rounded-lg bg-[var(--linen-95)]">
-                  <Image
+                <div className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 self-center overflow-hidden rounded-lg bg-[var(--linen-95)]">
+                  {/* Native img: POS lines may use any external URL (Wikimedia, Cloudinary, etc.). */}
+                  <img
                     src={item.imageUrl || placeholderImage}
                     alt={item.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 48px, 64px"
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center">

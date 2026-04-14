@@ -1,4 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  assertIndianMobile10,
+  normalizeIndianMobile,
+} from '../common/indian-mobile';
 import { PrismaService } from '../prisma.service';
 import { OrderSource, OrderStatus } from '@calcutta/database';
 
@@ -63,6 +71,12 @@ export class PublicService {
             throw new NotFoundException('Shop not found');
         }
 
+        const customerPhone = normalizeIndianMobile(dto.customerPhone);
+        if (!customerPhone) {
+            throw new BadRequestException('customerPhone is required');
+        }
+        assertIndianMobile10(customerPhone, 'customerPhone');
+
         // Calculate total
         let totalAmount = 0;
         const orderItems: any[] = [];
@@ -96,7 +110,7 @@ export class PublicService {
                 shopCode: dto.shopCode,
                 totalAmount,
                 customerName: dto.customerName,
-                customerPhone: dto.customerPhone,
+                customerPhone,
                 customerEmail: dto.customerEmail,
                 pickupTime: new Date(dto.pickupTime),
                 orderSource: OrderSource.WEBSITE,

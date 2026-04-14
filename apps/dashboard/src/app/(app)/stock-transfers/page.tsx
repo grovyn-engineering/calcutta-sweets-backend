@@ -2,7 +2,7 @@
 
 import { App, Select } from "antd";
 import { Truck } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 import { DataTable } from "@/components/DataTable/DataTable";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
@@ -166,7 +166,7 @@ function makeColumns(
         const t = String(raw ?? "").trim();
         if (!t) {
           span.className = "st-note st-note-empty";
-          span.textContent = "—";
+          span.textContent = "-";
         } else {
           span.className = "st-note";
           span.textContent = t;
@@ -230,7 +230,7 @@ function makeColumns(
 
         const muted = document.createElement("span");
         muted.className = "st-actions-muted";
-        muted.textContent = "—";
+        muted.textContent = "-";
         wrap.appendChild(muted);
         return wrap;
       },
@@ -246,23 +246,29 @@ export default function StockTransfersPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const fetchGenRef = useRef(0);
 
   const currentShop = shops.find((s) => s.shopCode === effectiveShopCode);
 
   const fetchRequests = useCallback(async () => {
     if (!effectiveShopCode) return;
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     try {
       const qs = statusFilter !== "all" ? `?status=${statusFilter}` : "";
       const res = await apiFetch(`/stock-transfers${qs}`);
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
+      if (gen !== fetchGenRef.current) return;
       setRequests(Array.isArray(data) ? data : []);
     } catch {
+      if (gen !== fetchGenRef.current) return;
       message.error("Failed to load transfer requests");
       setRequests([]);
     } finally {
-      setTimeout(() => setLoading(false), 300);
+      if (gen === fetchGenRef.current) {
+        setLoading(false);
+      }
     }
   }, [effectiveShopCode, statusFilter, message]);
 

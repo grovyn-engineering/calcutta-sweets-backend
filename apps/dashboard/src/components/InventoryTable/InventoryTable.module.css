@@ -191,7 +191,7 @@
   }
 }
 
-/* Native Tabulator row-selection checkboxes — brand ochre, not default blue */
+/* Native Tabulator row-selection checkboxes - brand ochre, not default blue */
 .tableSlot :global(.tabulator .inventory-select-cell input[type="checkbox"]) {
   appearance: none;
   -webkit-appearance: none;
@@ -251,9 +251,21 @@
 
 /*
  * Header cols must stay inline-flex + column (Tabulator default). Plain `display: flex`
- * resets flex-direction to row and breaks width sync with body — headers shift one column.
+ * resets flex-direction to row and breaks width sync with body - headers shift one column.
  */
 .tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-select-cell) {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.tableSlot :global(.tabulator .tabulator-cell.inventory-thumb-cell) {
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-thumb-cell) {
   display: inline-flex !important;
   flex-direction: column !important;
   align-items: center !important;
