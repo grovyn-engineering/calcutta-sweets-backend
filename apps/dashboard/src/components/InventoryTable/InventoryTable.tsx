@@ -21,7 +21,9 @@ import { RefillRequestModal } from "@/components/RefillRequestModal/RefillReques
 import { getApiBaseUrl, getAuthHeaders, getEffectiveShopCodeForHeader } from "@/lib/api";
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
 import { useShop } from "@/contexts/ShopContext";
+import { createTabulatorVariantThumb } from "@/lib/tabulatorVariantThumb";
 import { Printer, PackagePlus, PackageSearch } from "lucide-react";
 import styles from "./InventoryTable.module.css";
 
@@ -60,6 +62,29 @@ const columns = (
       minWidth: 52,
       cellClick: (_e: unknown, cell: any) => {
         cell.getRow().toggleSelect();
+      },
+    },
+    {
+      title: "",
+      field: "imageUrl",
+      width: 56,
+      minWidth: 52,
+      hozAlign: "center",
+      headerHozAlign: "center",
+      responsive: 0,
+      headerSort: false,
+      resizable: false,
+      cssClass: "inventory-thumb-cell",
+      formatter: (cell) => {
+        const row = cell.getRow().getData() as {
+          imageUrl?: string | null;
+          productName?: string;
+          variantName?: string;
+        };
+        const label =
+          [row.productName, row.variantName].filter(Boolean).join(" · ") ||
+          "Product";
+        return createTabulatorVariantThumb(row.imageUrl, label);
       },
     },
     {
@@ -304,6 +329,9 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
 
+  const { loading: tableLoading, onRemoteBusyChange } =
+    useRemoteTabulatorLoading(shopKey);
+
   // Reset to page 1 when search or shop changes
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
@@ -537,6 +565,8 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
             tableRef.current = instance;
             tabulatorRef.current = instance;
           }}
+          loading={tableLoading}
+          onRemoteBusyChange={onRemoteBusyChange}
           emptyTitle="No stock found"
           emptyDescription="Inventory from the Factory will appear here once products are added or transferred."
           emptyIcon={<PackageSearch size={28} strokeWidth={1.35} aria-hidden />}

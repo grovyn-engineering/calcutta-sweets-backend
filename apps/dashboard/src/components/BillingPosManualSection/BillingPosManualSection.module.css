@@ -331,6 +331,18 @@
   text-overflow: clip;
 }
 
+.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell.billing-pos-thumb-cell) {
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col.billing-pos-thumb-cell) {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
   border-right: none;
 }

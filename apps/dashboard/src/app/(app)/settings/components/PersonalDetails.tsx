@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { Form, Input, Button, message, Upload } from "antd";
-import { UserOutlined, PhoneOutlined, LinkOutlined, LoadingOutlined, PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
+import { Link2, Loader2, Smartphone, User } from "lucide-react";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiFetch } from "../../../../lib/api";
+import {
+  indianMobileOptionalRules,
+  normalizeMobileFormValue,
+} from "../../../../lib/mobileNumber";
+import styles from "./PersonalDetails.module.css";
 
 export function PersonalDetails() {
     const { user, setAuth, token } = useAuth();
@@ -61,9 +67,13 @@ export function PersonalDetails() {
     };
 
     const uploadButton = (
-        <div className="flex flex-col items-center justify-center text-[var(--bistre-500)]">
-            {uploadingAvatar ? <LoadingOutlined /> : <PlusOutlined />}
-            <div className="mt-2 text-xs">Upload</div>
+        <div className={styles.uploadTrigger}>
+            {uploadingAvatar ? (
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--ochre-600)]" aria-hidden />
+            ) : (
+                <PlusOutlined className="text-lg text-[var(--ochre-600)]" />
+            )}
+            <span className={styles.uploadLabel}>Upload</span>
         </div>
     );
 
@@ -88,43 +98,92 @@ export function PersonalDetails() {
     };
 
     return (
-        <Form form={form} layout="vertical" onFinish={onFinish} className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+        <Form form={form} layout="vertical" onFinish={onFinish} className={styles.form}>
+            <div className={styles.grid}>
                 <Form.Item label="Name" name="name" rules={[{ required: true }]}>
-                    <Input prefix={<UserOutlined />} placeholder="Your full name" size="large" className="!bg-white" />
+                    <Input
+                        prefix={
+                            <span className={styles.inputIcon} aria-hidden>
+                                <User className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+                            </span>
+                        }
+                        placeholder="Your full name"
+                        size="large"
+                        className="!bg-white"
+                        autoComplete="name"
+                    />
                 </Form.Item>
 
-                <Form.Item label="Mobile Number" name="phone">
-                    <Input prefix={<PhoneOutlined />} placeholder="Your mobile number" size="large" className="!bg-white" />
+                <Form.Item
+                    label="Mobile number"
+                    name="phone"
+                    rules={indianMobileOptionalRules}
+                    normalize={normalizeMobileFormValue}
+                >
+                    <Input
+                        prefix={
+                            <span className={styles.inputIcon} aria-hidden>
+                                <Smartphone className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+                            </span>
+                        }
+                        placeholder="10 digits, e.g. 9876543210"
+                        size="large"
+                        className="!bg-white"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        maxLength={10}
+                    />
                 </Form.Item>
             </div>
 
-            <Form.Item label="Avatar" extra="Upload a picture or provide a direct link">
-                <div className="flex items-center gap-6">
+            <Form.Item
+                label="Profile photo"
+                className={styles.avatarBlock}
+            >
+                <div className={styles.avatarRow}>
                     <Upload
                         name="avatar"
                         listType="picture-circle"
-                        className="flex-shrink-0"
+                        className={styles.avatarUpload}
                         showUploadList={false}
                         customRequest={customRequest}
                         accept="image/*"
                     >
                         {avatarUrl && !uploadingAvatar ? (
-                            <img src={avatarUrl} alt="avatar" className="w-full h-[100px] object-cover rounded-full select-none pointer-events-none" />
+                            <img src={avatarUrl} alt="" className={styles.avatarPreview} />
                         ) : (
                             uploadButton
                         )}
                     </Upload>
-                    <div className="flex-1 max-w-sm">
+                    <div className={styles.avatarUrlField}>
                         <Form.Item name="avatarUrl" noStyle>
-                            <Input prefix={<LinkOutlined />} placeholder="https://example.com/avatar.png" size="large" className="!bg-white" />
+                            <Input
+                                prefix={
+                                    <span className={styles.inputIcon} aria-hidden>
+                                        <Link2 className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+                                    </span>
+                                }
+                                placeholder="https://example.com/avatar.png"
+                                size="large"
+                                className="!bg-white"
+                                autoComplete="off"
+                            />
                         </Form.Item>
+                        <p className={styles.avatarHint}>
+                            Upload an image or paste a direct HTTPS link to a square photo (JPG or PNG).
+                        </p>
                     </div>
                 </div>
             </Form.Item>
 
-            <Button type="primary" htmlType="submit" loading={loading} size="large" className="mt-2 w-full md:w-auto px-8">
-                Save Changes
+            <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                size="large"
+                className={`${styles.submit} w-full md:w-auto`}
+            >
+                Save changes
             </Button>
         </Form>
     );

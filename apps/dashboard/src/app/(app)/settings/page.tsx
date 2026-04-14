@@ -1,7 +1,7 @@
 "use client";
 
 import { Collapse } from "antd";
-import { UserOutlined, SafetyCertificateOutlined, IdcardOutlined, CrownOutlined } from "@ant-design/icons";
+import { ChevronDown, Crown, IdCard, Percent, Shield, User } from "lucide-react";
 import { PersonalDetails } from "./components/PersonalDetails";
 import { SecuritySection } from "./components/SecuritySection";
 import { RolesSection } from "./components/RolesSection";
@@ -19,7 +19,7 @@ export default function SettingsPage() {
       key: '1',
       label: (
         <span className={styles.panelLabel}>
-          <UserOutlined className="text-gray-400" />
+          <User className={`h-[1.125rem] w-[1.125rem] ${styles.panelIcon}`} strokeWidth={1.75} aria-hidden />
           <span className={styles.panelTitle}>Personal Details</span>
         </span>
       ),
@@ -29,7 +29,7 @@ export default function SettingsPage() {
       key: '2',
       label: (
         <span className={styles.panelLabel}>
-          <SafetyCertificateOutlined className="text-gray-400" />
+          <Shield className={`h-[1.125rem] w-[1.125rem] ${styles.panelIcon}`} strokeWidth={1.75} aria-hidden />
           <span className={styles.panelTitle}>Security</span>
         </span>
       ),
@@ -39,7 +39,7 @@ export default function SettingsPage() {
       key: '3',
       label: (
         <span className={styles.panelLabel}>
-          <IdcardOutlined className="text-gray-400" />
+          <IdCard className={`h-[1.125rem] w-[1.125rem] ${styles.panelIcon}`} strokeWidth={1.75} aria-hidden />
           <span className={styles.panelTitle}>Roles & Scopes</span>
         </span>
       ),
@@ -52,7 +52,7 @@ export default function SettingsPage() {
       key: '5',
       label: (
         <span className={styles.panelLabel}>
-          <IdcardOutlined className="text-amber-400" />
+          <Percent className={`h-[1.125rem] w-[1.125rem] ${styles.panelIconTax}`} strokeWidth={1.75} aria-hidden />
           <span className={styles.panelTitle}>Tax Configuration</span>
         </span>
       ),
@@ -65,7 +65,7 @@ export default function SettingsPage() {
       key: '4',
       label: (
         <span className={styles.panelLabel}>
-          <CrownOutlined className="text-indigo-400" />
+          <Crown className={`h-[1.125rem] w-[1.125rem] ${styles.panelIconAdmin}`} strokeWidth={1.75} aria-hidden />
           <span className={styles.panelTitle}>Role Requests Management</span>
         </span>
       ),
@@ -91,6 +91,17 @@ export default function SettingsPage() {
           className={styles.collapse}
           bordered={false}
           expandIconPlacement="end"
+          expandIcon={({ isActive }) => (
+            <ChevronDown
+              className={styles.collapseChevron}
+              size={18}
+              strokeWidth={2}
+              aria-hidden
+              style={{
+                transform: isActive ? "rotate(180deg)" : "rotate(0deg)",
+              }}
+            />
+          )}
         />
       </div>
     </div>

@@ -108,9 +108,17 @@
   align-items: center !important;
 }
 
+.collapse :global(.ant-collapse-content) {
+  border-top: 1px solid var(--pearl-bush);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 254, 249, 0.55) 0%,
+    var(--linen-100) 100%
+  );
+}
+
 .collapse :global(.ant-collapse-content-box) {
-  padding: 16px 24px !important;
-  background: rgba(255, 254, 249, 0.4);
+  padding: 18px 22px 22px !important;
 }
 
 .panelLabel {
@@ -120,9 +128,42 @@
   flex-wrap: wrap;
 }
 
+.panelIcon {
+  flex-shrink: 0;
+  color: var(--bistre-500);
+}
+
+.panelIconTax {
+  flex-shrink: 0;
+  color: var(--ochre-600);
+}
+
+.panelIconAdmin {
+  flex-shrink: 0;
+  color: #6366f1;
+}
+
 .panelTitle {
   font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--bistre-950);
+}
+
+/* Chevron: collapsed → down, expanded → up (clearer than “down when open”) */
+.collapseChevron {
+  flex-shrink: 0;
+  color: var(--bistre-500);
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.collapse :global(.ant-collapse-header:hover) .collapseChevron {
+  color: var(--ochre-700);
+}
+
+.collapse :global(.ant-collapse-expand-icon) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 8px !important;
 }

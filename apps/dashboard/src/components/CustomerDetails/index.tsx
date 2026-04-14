@@ -4,6 +4,10 @@ import { App, Button, Form, Input, Modal } from 'antd';
 import { UserPlus } from 'lucide-react';
 import { useEffect } from 'react';
 import styles from './styles.module.css';
+import {
+  indianMobileRequiredRules,
+  normalizeMobileFormValue,
+} from '@/lib/mobileNumber';
 
 export type CustomerFormValues = {
   name: string;
@@ -19,14 +23,6 @@ export type CustomerDetailsProps = {
   onSave?: (values: CustomerFormValues) => void;
   initialValues?: Partial<CustomerFormValues> | null;
 };
-
-const phoneRules = [
-  { required: true, message: 'Enter a mobile number' },
-  {
-    pattern: /^[6-9]\d{9}$/,
-    message: 'Enter a valid 10-digit Indian mobile number',
-  },
-];
 
 /** Mounted only while the modal is open so `useForm` is always tied to a mounted `Form`. */
 function CustomerDetailsForm({
@@ -88,15 +84,17 @@ function CustomerDetailsForm({
           <Form.Item
             label={<span className={styles.fieldLabel}>Mobile</span>}
             name="phone"
-            rules={phoneRules}
+            rules={indianMobileRequiredRules}
+            normalize={normalizeMobileFormValue}
             className={styles.formItemPhone}
           >
             <Input
               type="tel"
-              placeholder="10-digit number"
+              placeholder="10 digits (6–9…)"
               className={styles.input}
               maxLength={10}
               inputMode="numeric"
+              autoComplete="tel"
             />
           </Form.Item>
         </div>

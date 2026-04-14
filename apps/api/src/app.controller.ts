@@ -15,7 +15,7 @@ export class AppController {
   }
 
   /**
-   * Liveness probe — no DB I/O. Use for Render health checks and uptime pings.
+   * Liveness probe - no DB I/O. Use for Render health checks and uptime pings.
    * Path is `/health` (not under `/api`) so platforms can use a standard URL.
    */
   @Get('health')

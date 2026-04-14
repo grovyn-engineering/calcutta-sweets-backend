@@ -75,6 +75,8 @@ export function BarcodeScannerInput({
         unit?: string;
         stock: number;
         category?: string | null;
+        imageUrl?: string | null;
+        images?: { id: string; url: string }[];
       } = await res.json();
 
       onAddProduct({
@@ -87,6 +89,8 @@ export function BarcodeScannerInput({
         unit: v.unit ?? 'PC',
         stock: v.stock,
         category: v.category ?? null,
+        imageUrl: v.imageUrl ?? null,
+        images: v.images ?? [],
       });
 
       setValue('');

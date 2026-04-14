@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { OrderStatus, Prisma } from '@calcutta/database';
+import { optionalIndianMobileOrNull } from '../common/indian-mobile';
 
 
 @Injectable()
@@ -58,6 +59,8 @@ export class OrdersService {
     const totalTaxRate = ((shop?.cgstRate ?? 2.5) + (shop?.sgstRate ?? 2.5)) / 100;
     const tax = totalAmount * (totalTaxRate / (1 + totalTaxRate));
 
+       const customerPhone = optionalIndianMobileOrNull(dto.customerPhone);
+
     const order = await this.prisma.$transaction(async (tx) => {
       const o = await tx.order.create({
         data: {
@@ -69,7 +72,7 @@ export class OrdersService {
           paymentMethod: dto.paymentMethod,
           createdById: userId ?? null,
           customerName: dto.customerName?.trim() || null,
-          customerPhone: dto.customerPhone?.trim() || null,
+          customerPhone,
           customerEmail: dto.customerEmail?.trim() || null,
         },
       });

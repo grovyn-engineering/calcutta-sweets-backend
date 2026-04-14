@@ -10,6 +10,7 @@ import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 /** Minimal Tabulator surface used here (avoids importing untyped tabulator-tables). */
 type TabulatorPageable = { setPage: (page: number) => void };
 
+import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { ShieldAlert } from "lucide-react";
@@ -82,6 +83,12 @@ export default function UsersManagement() {
     !shopsLoading && effectiveShopCode.length > 0;
 
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading(
+    effectiveShopCode,
+    refreshKey,
+    readyForTable,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<UserRow | null>(null);
@@ -426,6 +433,8 @@ export default function UsersManagement() {
           onRef={(instanceRef: { current?: TabulatorPageable }) => {
             tableRef.current = instanceRef.current ?? null;
           }}
+          loading={tableLoading}
+          onRemoteBusyChange={onRemoteBusyChange}
           emptyTitle="No users found"
           emptyDescription="Add your team members and assign them roles to start managing your shop."
           emptyIcon={<ShieldAlert size={28} strokeWidth={1.35} aria-hidden />}

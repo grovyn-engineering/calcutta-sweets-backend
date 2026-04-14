@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { Search, UserPlus } from 'lucide-react';
 import { App, Button, Input, Select, Tooltip } from 'antd';
 import {
@@ -20,7 +19,9 @@ import {
   getApiBaseUrl,
   getAuthHeaders,
 } from '@/lib/api';
+import { createTabulatorVariantThumb } from '@/lib/tabulatorVariantThumb';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useRemoteTabulatorLoading } from '@/hooks/useRemoteTabulatorLoading';
 import type { BillingVariantRow } from '@/hooks/useBillingPosVariants';
 import pageStyles from '@/app/(app)/billing-pos/page.module.css';
 import styles from './BillingPosManualSection.module.css';
@@ -41,11 +42,11 @@ type ApiVariantRow = {
   quantity: number;
   unit: string;
   price: number;
+  imageUrl?: string | null;
 };
 
 const PAGE_SIZE = 40;
 
-/** Clipboard icon markup for Tabulator cell formatters (string HTML, not React). */
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>`;
 
 const inr = new Intl.NumberFormat('en-IN', {
@@ -66,27 +67,19 @@ function apiRowToBilling(d: ApiVariantRow): BillingVariantRow {
     unit: d.unit ?? 'PC',
     stock: d.quantity,
     category: cat && cat !== '-' ? cat : null,
+    imageUrl: d.imageUrl ?? null,
   };
 }
 
-/**
- * Props for {@link BillingPosManualSection}.
- */
 export type BillingPosManualSectionProps = {
   shopCode: string;
   onAddProduct: (row: BillingVariantRow) => void;
-  /** Bump to remount the grid and refetch variant stock after a completed sale. */
   dataRefreshKey?: number;
-  /** When set, show Add customer beside the category filter (stacked / narrow POS layout). */
   showToolbarAddCustomer?: boolean;
   onToolbarAddCustomer?: () => void;
-  /** Short hint: where to open current sale / checkout on narrow POS. */
   showSaleCheckoutHint?: boolean;
 };
 
-/**
- * Manual billing block: search, category filter, and Tabulator with remote pagination.
- */
 function BillingPosManualSectionInner({
   shopCode,
   onAddProduct,
@@ -151,9 +144,12 @@ function BillingPosManualSectionInner({
 
   const filterKey = `${shopCode}|${debouncedSearch}|${activeCategory}`;
 
-  /**
-   * Sends `setPage(1)` when filters change. Skips the first run because Tabulator loads page 1 on mount.
-   */
+  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading(
+    shopCode,
+    dataRefreshKey,
+    activeCategory,
+  );
+
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
     prevFilterKeyRef.current = filterKey;
@@ -174,6 +170,25 @@ function BillingPosManualSectionInner({
         hozAlign: 'center',
         resizable: false,
         headerSort: false,
+      },
+      {
+        title: '',
+        field: 'imageUrl',
+        width: 56,
+        minWidth: 52,
+        hozAlign: 'center',
+        headerHozAlign: 'center',
+        headerSort: false,
+        resizable: false,
+        responsive: 0,
+        cssClass: 'billing-pos-thumb-cell',
+        formatter: (cell) => {
+          const row = cell.getRow().getData() as ApiVariantRow;
+          const label =
+            [row.productName, row.variantName].filter(Boolean).join(' · ') ||
+            'Product';
+          return createTabulatorVariantThumb(row.imageUrl, label);
+        },
       },
       {
         title: 'Product',
@@ -415,6 +430,8 @@ function BillingPosManualSectionInner({
             options={options}
             onRef={onTableRef}
             minHeight={0}
+            loading={tableLoading}
+            onRemoteBusyChange={onRemoteBusyChange}
             emptyTitle="No matching products"
           />
         </div>
@@ -423,5 +440,4 @@ function BillingPosManualSectionInner({
   );
 }
 
-/** Memoized manual billing section for Billing POS. */
 export const BillingPosManualSection = memo(BillingPosManualSectionInner);

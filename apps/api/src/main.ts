@@ -1,12 +1,26 @@
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import compression from 'compression';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Smaller JSON payloads over the wire (helps dashboard + mobile). Does not reduce DB time.
+  app.use(
+    compression({
+      threshold: 1024,
+      level: 6,
+    }),
+  );
+
+  if (process.env.TRUST_PROXY === '1') {
+    app.set('trust proxy', 1);
+  }
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
