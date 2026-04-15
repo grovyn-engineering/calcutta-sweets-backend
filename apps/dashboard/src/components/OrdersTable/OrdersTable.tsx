@@ -275,8 +275,8 @@ export default function OrdersTable() {
             ...options,
             rowClick: events.rowClick
           }), [options, events.rowClick])}
-          onRef={(instanceRef: { current?: TabulatorPageable }) => {
-            tableRef.current = instanceRef.current ?? null;
+          onRef={(instanceRef: { current?: unknown }) => {
+            tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
           }}
           loading={tableLoading}
           onRemoteBusyChange={onRemoteBusyChange}

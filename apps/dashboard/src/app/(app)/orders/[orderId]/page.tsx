@@ -20,6 +20,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
 
+import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
@@ -464,6 +465,7 @@ export default function OrderBillDetailPage() {
                 <Table<OrderDetailItem & { key: number }>
                   size={tableSize}
                   pagination={false}
+                  components={antTableOverflowComponents}
                   columns={lineColumns}
                   dataSource={tableData}
                   scroll={tableScroll}

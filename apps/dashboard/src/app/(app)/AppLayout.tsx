@@ -19,18 +19,23 @@ type SidebarItem = {
   key: string;
   label: React.ReactNode;
   permissionKey?: keyof import('@/contexts/AuthContext').RolePermissions;
+  /** Show when any of these permissions is true (used for merged Dashboard + Analytics). */
+  anyPermissionKey?: (keyof import('@/contexts/AuthContext').RolePermissions)[];
   superAdminOnly?: boolean;
 };
 
 const sidebarItemsDef: SidebarItem[] = [
-  { key: '/dashboard', label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link>, permissionKey: 'canAccessDashboard' },
+  {
+    key: '/dashboard',
+    label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link>,
+    anyPermissionKey: ['canAccessDashboard', 'canAccessReports'],
+  },
   { key: '/billing-pos', label: <Link href="/billing-pos" className={styles.menuLink} scroll={false}>Billing POS</Link>, permissionKey: 'canAccessBilling' },
   { key: '/orders', label: <Link href="/orders" className={styles.menuLink} scroll={false}>Orders</Link>, permissionKey: 'canAccessOrders' },
   { key: '/products', label: <Link href="/products" className={styles.menuLink} scroll={false}>Products</Link>, permissionKey: 'canAccessProducts' },
   { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link>, permissionKey: 'canAccessInventory' },
   { key: '/stock-transfers', label: <Link href="/stock-transfers" className={styles.menuLink} scroll={false}>Stock Transfers</Link>, permissionKey: 'canAccessInventory' },
   { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link>, permissionKey: 'canAccessCategories' },
-  { key: '/reports', label: <Link href="/reports" className={styles.menuLink} scroll={false}>Reports</Link>, permissionKey: 'canAccessReports' },
   { key: '/users', label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>, superAdminOnly: true },
   { key: '/shops', label: <Link href="/shops" className={styles.menuLink} scroll={false}>Shops</Link>, superAdminOnly: true },
   { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link>, permissionKey: 'canAccessSettings' },
@@ -45,7 +50,6 @@ const SIDEBAR_ROUTE_PREFIXES = [
   '/inventory',
   '/stock-transfers',
   '/categories',
-  '/reports',
   '/users',
   '/shops',
   '/settings',
@@ -66,7 +70,6 @@ const pageTitles: Record<string, string> = {
   '/inventory': 'Inventory',
   '/stock-transfers': 'Stock Transfers',
   '/categories': 'Categories',
-  '/reports': 'Reports',
   '/users': 'Users',
   '/settings': 'Settings',
   '/logout': 'Logout',
@@ -89,7 +92,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return sidebarItemsDef
       .filter((item) => {
         if (item.superAdminOnly && !isSuper) return false;
-        if (item.permissionKey && permissions && !permissions[item.permissionKey]) return false;
+        if (item.anyPermissionKey?.length && permissions) {
+          const ok = item.anyPermissionKey.some((k) => permissions[k]);
+          if (!ok) return false;
+        } else if (item.permissionKey && permissions && !permissions[item.permissionKey]) {
+          return false;
+        }
 
         const factoryOnlyKeys = ["/stock-transfers", "/shops"];
         if (!isFactory && factoryOnlyKeys.includes(item.key)) return false;

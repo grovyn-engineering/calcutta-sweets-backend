@@ -100,15 +100,8 @@ export default function UsersManagement() {
 
   const openEdit = useCallback((row: UserRow) => {
     setEditRow(row);
-    editForm.setFieldsValue({
-      name: row.name ?? "",
-      role: row.role,
-      shopCode: row.shopCode,
-      isActive: row.isActive,
-      password: "",
-    });
     setEditOpen(true);
-  }, [editForm]);
+  }, []);
 
   const generateStrongPassword = useCallback(() => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -150,15 +143,17 @@ export default function UsersManagement() {
       {
         title: "Name",
         field: "name",
-        width: 130,
+        minWidth: 120,
+        widthGrow: 1,
         formatter: (cell) => {
-          const v = cell.getValue() as string | null;
+          const row = cell.getRow().getData() as UserRow;
+          const v = row.name ?? (cell.getValue() as string | null | undefined);
           const span = document.createElement("span");
-          if (!v) {
+          if (v == null || String(v).trim() === "") {
             span.className = "users-name-muted";
             span.textContent = "-";
           } else {
-            span.textContent = v;
+            span.textContent = String(v);
           }
           return span;
         },
@@ -179,19 +174,23 @@ export default function UsersManagement() {
       {
         title: "Shop",
         field: "shopCode",
-        width: 108,
+        minWidth: 120,
+        width: 120,
         hozAlign: "center",
         formatter: (cell) => {
+          const row = cell.getRow().getData() as UserRow;
+          const code = row.shopCode ?? String(cell.getValue() ?? "");
           const span = document.createElement("span");
+          span.setAttribute("data-skip-overflow-tooltip", "1");
           span.className = "users-pill users-pill--shop";
-          span.textContent = String(cell.getValue() ?? "");
+          span.textContent = code;
           return span;
         },
       },
       {
         title: "Status",
         field: "isActive",
-        width: 96,
+        width: 120,
         hozAlign: "center",
         formatter: (cell) => {
           const active = cell.getValue() as boolean;
@@ -212,7 +211,7 @@ export default function UsersManagement() {
         },
       },
       {
-        title: "",
+        title: "Actions",
         field: "_actions",
         width: 100,
         hozAlign: "center",
@@ -312,6 +311,17 @@ export default function UsersManagement() {
       role: "STAFF",
     });
   }, [createOpen, effectiveShopCode, createForm]);
+
+  useEffect(() => {
+    if (!editOpen || !editRow) return;
+    editForm.setFieldsValue({
+      name: editRow.name ?? "",
+      role: editRow.role,
+      shopCode: editRow.shopCode,
+      isActive: editRow.isActive,
+      password: "",
+    });
+  }, [editOpen, editRow, editForm]);
 
   const onCreateSubmit = async (values: {
     email: string;
@@ -426,12 +436,12 @@ export default function UsersManagement() {
         </Button>
       </div>
 
-      <div className={styles.tableSlot}>
+      <div className={`${styles.tableSlot} ${styles.wrap}`}>
         <DataTable
           columns={columns}
           options={options}
-          onRef={(instanceRef: { current?: TabulatorPageable }) => {
-            tableRef.current = instanceRef.current ?? null;
+          onRef={(instanceRef: { current?: unknown }) => {
+            tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
           }}
           loading={tableLoading}
           onRemoteBusyChange={onRemoteBusyChange}

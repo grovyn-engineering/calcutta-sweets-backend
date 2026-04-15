@@ -65,7 +65,7 @@ const columns = (
       },
     },
     {
-      title: "",
+      title: "Image",
       field: "imageUrl",
       width: 56,
       minWidth: 52,
@@ -381,39 +381,62 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     setIsPrintingAll(true);
     try {
       const baseUrl = getApiBaseUrl();
-      const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-      const u = new URL(`${baseUrl}/inventory/variants`, origin);
-      u.searchParams.set("shopCode", shopKey);
-      u.searchParams.set("page", "1");
-      u.searchParams.set("size", "500");
-      if (debouncedSearch.trim()) {
-        u.searchParams.set("q", debouncedSearch.trim());
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "http://localhost";
+      /** API caps size at 100 (`inventory.controller`); fetch every page for the scoped shop (`X-Shop`). */
+      const pageSize = 100;
+      const maxPages = 500;
+      const allRows: {
+        id: string;
+        productName?: string;
+        variantName?: string;
+        barcode?: string;
+        price?: number;
+      }[] = [];
+
+      for (let page = 1; page <= maxPages; page += 1) {
+        const u = new URL(`${baseUrl}/inventory/variants`, origin);
+        u.searchParams.set("page", String(page));
+        u.searchParams.set("size", String(pageSize));
+
+        const res = await fetch(u.toString(), {
+          headers: { ...getAuthHeaders(), Accept: "application/json" },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch products for printing");
+        const json = (await res.json()) as {
+          data?: typeof allRows;
+          last_page?: number;
+        };
+        const chunk = Array.isArray(json.data) ? json.data : [];
+        if (chunk.length === 0 && page === 1) {
+          message.warning("No products found to print.");
+          return;
+        }
+        allRows.push(...chunk);
+
+        const lastPage = Math.max(1, json.last_page ?? page);
+        if (page >= lastPage) break;
       }
 
-      const res = await fetch(u.toString(), {
-        headers: { ...getAuthHeaders(), Accept: "application/json" },
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch products for printing");
-      const { data } = (await res.json()) as { data: any[] };
-
-      if (data.length === 0) {
+      if (allRows.length === 0) {
         message.warning("No products found to print.");
         return;
       }
 
-      const items = data
+      const items = allRows
         .filter((r) => !!r.barcode)
         .map((r) => ({
-          id: r.id,
-          productName: r.productName,
+          productName: r.productName ?? "",
           variantName: r.variantName,
-          barcode: r.barcode,
-          price: r.price,
+          barcode: r.barcode as string,
+          price: Number(r.price) || 0,
         }));
 
       if (items.length === 0) {
-        message.warning("None of the filtered products have barcodes.");
+        message.warning("No variants in this shop have barcodes to print.");
         return;
       }
 
@@ -428,7 +451,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     } finally {
       setIsPrintingAll(false);
     }
-  }, [shopKey, debouncedSearch, message]);
+  }, [shopKey, message]);
 
   const memoizedColumns = useMemo(() =>
     columns(routerRef, handlePrintSingle),
@@ -546,7 +569,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
             onClick={handlePrintAllFiltered}
             loading={isPrintingAll}
           >
-            Print all results
+            Print all shop barcodes
           </Button>
         </div>
       </div>

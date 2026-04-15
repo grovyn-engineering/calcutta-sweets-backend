@@ -2,7 +2,8 @@ import { Cormorant_Garamond } from "next/font/google";
 
 const loginDisplay = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
   variable: "--font-login-display",
   display: "swap",
 });

@@ -204,3 +204,13 @@ a:where(:any-link):active {
 *::-webkit-scrollbar-thumb:active {
   background: var(--ochre-400);
 }
+
+/* Ant Design Table — header column separators (match Tabulator / Orders) */
+.ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell {
+  border-inline-end: none;
+  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell:last-child {
+  box-shadow: none;
+}

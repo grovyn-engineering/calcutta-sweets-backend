@@ -6,7 +6,7 @@ import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 import { LayoutGrid } from "lucide-react";
 import { DataTable } from "@/components/DataTable/DataTable";
 
-import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
+import { dedupeInFlight, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import styles from "./CategoryProductsTabulator.module.css";
 
 type TabulatorPageable = { setPage: (page: number) => void };
@@ -175,11 +175,9 @@ function CategoryProductsTabulatorInner({
       height: "100%",
       placeholder:
         "No products in this category for the current shop.",
-      pagination: false,
+      pagination: true,
       paginationMode: "remote",
       paginationSize: PAGE_SIZE,
-      progressiveLoad: "scroll",
-      progressiveLoadScrollMargin: 100,
       ajaxURL: `${baseUrl}/category/00000000-0000-0000-0000-000000000000/products`,
       ajaxRequestFunc: (_url, _config, params) => {
         const id = categoryIdRef.current;
@@ -197,12 +195,19 @@ function CategoryProductsTabulatorInner({
             u.searchParams.set(k, String(v));
           }
         });
-        return fetch(u.toString(), {
-          headers: {
-            ...getAuthHeaders(),
-            Accept: "application/json",
-          },
-        }).then(async (r) => {
+        const page = Math.max(1, parseInt(String(merged.page ?? "1"), 10) || 1);
+        const size = Math.max(
+          1,
+          parseInt(String(merged.size ?? PAGE_SIZE), 10) || PAGE_SIZE,
+        );
+        const dedupeKey = `GET:/category/${id}/products:p${page}:s${size}`;
+        return dedupeInFlight(dedupeKey, async () => {
+          const r = await fetch(u.toString(), {
+            headers: {
+              ...getAuthHeaders(),
+              Accept: "application/json",
+            },
+          });
           if (!r.ok) {
             const t = await r.text();
             throw new Error(t || r.statusText);
@@ -220,8 +225,8 @@ function CategoryProductsTabulatorInner({
   }, [baseUrl]);
 
   const onTableRef = useCallback(
-    (instanceRef: { current?: TabulatorPageable }) => {
-      tableRef.current = instanceRef.current ?? null;
+    (instanceRef: { current?: unknown }) => {
+      tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
     },
     [],
   );
