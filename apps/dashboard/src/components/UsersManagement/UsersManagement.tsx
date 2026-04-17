@@ -1,8 +1,8 @@
 "use client";
 
 import { App, Button, Form, Input, Modal, Select, Switch } from "antd";
-import dynamic from "next/dynamic";
 import { Building2, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DataTable } from "@/components/DataTable/DataTable";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
@@ -11,22 +11,16 @@ import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 type TabulatorPageable = { setPage: (page: number) => void };
 
 import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
+import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
+import { ROLE_FORM_OPTIONS } from "@/lib/rolePermissions";
 import { ShieldAlert } from "lucide-react";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./UsersManagement.module.css";
 
 
-
-const ROLE_OPTIONS = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "MANAGER", label: "Manager" },
-  { value: "CASHIER", label: "Cashier" },
-  { value: "STAFF", label: "Staff" },
-  { value: "SUPER_ADMIN", label: "Super Admin" },
-];
 
 export type UserRow = {
   id: string;
@@ -74,10 +68,15 @@ function rolePillModifier(role: string): string {
 
 export default function UsersManagement() {
   const { message } = App.useApp();
+  const router = useRouter();
+  const { user: authUser } = useAuth();
   const baseUrl = getApiBaseUrl();
   const { effectiveShopCode, shops, shopsLoading } = useShop();
   const tableRef = useRef<TabulatorPageable | null>(null);
   const prevShopForTableRef = useRef<string | null>(null);
+
+  const canManageUserRows =
+    authUser?.role === "SUPER_ADMIN" || authUser?.role === "ADMIN";
 
   const readyForTable =
     !shopsLoading && effectiveShopCode.length > 0;
@@ -90,25 +89,15 @@ export default function UsersManagement() {
     readyForTable,
   );
   const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editRow, setEditRow] = useState<UserRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createForm] = Form.useForm();
-  const [editForm] = Form.useForm();
 
-  const editHandlerRef = useRef<(row: UserRow) => void>(() => { });
-
-  const openEdit = useCallback((row: UserRow) => {
-    setEditRow(row);
-    editForm.setFieldsValue({
-      name: row.name ?? "",
-      role: row.role,
-      shopCode: row.shopCode,
-      isActive: row.isActive,
-      password: "",
-    });
-    setEditOpen(true);
-  }, [editForm]);
+  const navigateToEditRef = useRef<(row: UserRow) => void>(() => {});
+  useEffect(() => {
+    navigateToEditRef.current = (row: UserRow) => {
+      router.push(`/users/${row.id}`);
+    };
+  }, [router]);
 
   const generateStrongPassword = useCallback(() => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -120,22 +109,15 @@ export default function UsersManagement() {
     return pwd;
   }, []);
 
-  const handleSuggestPassword = useCallback((formType: 'create' | 'edit') => {
+  const handleSuggestPassword = useCallback(() => {
     const pwd = generateStrongPassword();
-    if (formType === 'create') {
-      createForm.setFieldsValue({ password: pwd });
-    } else {
-      editForm.setFieldsValue({ password: pwd });
-    }
+    createForm.setFieldsValue({ password: pwd });
     message.success("Strong password suggested and auto-filled");
-  }, [createForm, editForm, generateStrongPassword, message]);
-
-  useEffect(() => {
-    editHandlerRef.current = openEdit;
-  }, [openEdit]);
+  }, [createForm, generateStrongPassword, message]);
 
   const columns = useMemo<ColumnDefinition[]>(
-    () => [
+    () => {
+      const base: ColumnDefinition[] = [
       {
         title: "Email",
         field: "email",
@@ -150,15 +132,17 @@ export default function UsersManagement() {
       {
         title: "Name",
         field: "name",
-        width: 130,
+        minWidth: 120,
+        widthGrow: 1,
         formatter: (cell) => {
-          const v = cell.getValue() as string | null;
+          const row = cell.getRow().getData() as UserRow;
+          const v = row.name ?? (cell.getValue() as string | null | undefined);
           const span = document.createElement("span");
-          if (!v) {
+          if (v == null || String(v).trim() === "") {
             span.className = "users-name-muted";
             span.textContent = "-";
           } else {
-            span.textContent = v;
+            span.textContent = String(v);
           }
           return span;
         },
@@ -179,19 +163,23 @@ export default function UsersManagement() {
       {
         title: "Shop",
         field: "shopCode",
-        width: 108,
+        minWidth: 120,
+        width: 120,
         hozAlign: "center",
         formatter: (cell) => {
+          const row = cell.getRow().getData() as UserRow;
+          const code = row.shopCode ?? String(cell.getValue() ?? "");
           const span = document.createElement("span");
+          span.setAttribute("data-skip-overflow-tooltip", "1");
           span.className = "users-pill users-pill--shop";
-          span.textContent = String(cell.getValue() ?? "");
+          span.textContent = code;
           return span;
         },
       },
       {
         title: "Status",
         field: "isActive",
-        width: 96,
+        width: 120,
         hozAlign: "center",
         formatter: (cell) => {
           const active = cell.getValue() as boolean;
@@ -211,29 +199,33 @@ export default function UsersManagement() {
           return span;
         },
       },
-      {
-        title: "",
-        field: "_actions",
-        width: 100,
-        hozAlign: "center",
-        headerSort: false,
-        resizable: false,
-        formatter: (cell) => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "users-edit-btn";
-          btn.textContent = "Edit";
-          btn.setAttribute("aria-label", "Edit user");
-          btn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            editHandlerRef.current(cell.getRow().getData() as UserRow);
-          });
-          return btn;
-        },
-      },
-    ],
-    [],
+    ];
+      if (canManageUserRows) {
+        base.push({
+          title: "Actions",
+          field: "_actions",
+          width: 100,
+          hozAlign: "center",
+          headerSort: false,
+          resizable: false,
+          formatter: (cell) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "users-edit-btn";
+            btn.textContent = "Edit";
+            btn.setAttribute("aria-label", "Edit user");
+            btn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigateToEditRef.current(cell.getRow().getData() as UserRow);
+            });
+            return btn;
+          },
+        });
+      }
+      return base;
+    },
+    [canManageUserRows],
   );
 
   const options = useMemo<ReactTabulatorOptions>(() => {
@@ -352,49 +344,6 @@ export default function UsersManagement() {
     }
   };
 
-  const onEditSubmit = async (values: {
-    name?: string;
-    password?: string;
-    role: string;
-    shopCode: string;
-    isActive: boolean;
-  }) => {
-    if (!editRow) return;
-    setSubmitting(true);
-    try {
-      const body: Record<string, unknown> = {
-        name: values.name || null,
-        role: values.role,
-        shopCode: values.shopCode,
-        isActive: values.isActive,
-      };
-      if (values.password && values.password.length >= 6) {
-        body.password = values.password;
-      }
-      const res = await apiFetch(`/users/${editRow.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        message.error(
-          typeof data?.message === "string"
-            ? data.message
-            : Array.isArray(data?.message)
-              ? data.message.join(", ")
-              : "Could not update user",
-        );
-        return;
-      }
-      message.success("User updated");
-      setEditOpen(false);
-      setEditRow(null);
-      setRefreshKey((k) => k + 1);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const currentShop = useMemo(() => {
     const s = shops.find((x) => x.shopCode === effectiveShopCode);
     return {
@@ -426,12 +375,13 @@ export default function UsersManagement() {
         </Button>
       </div>
 
-      <div className={styles.tableSlot}>
+      <div className={`${styles.tableSlot} ${styles.wrap}`}>
         <DataTable
+          key={`${effectiveShopCode}-${canManageUserRows ? "e" : "v"}-${refreshKey}`}
           columns={columns}
           options={options}
-          onRef={(instanceRef: { current?: TabulatorPageable }) => {
-            tableRef.current = instanceRef.current ?? null;
+          onRef={(instanceRef: { current?: unknown }) => {
+            tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
           }}
           loading={tableLoading}
           onRemoteBusyChange={onRemoteBusyChange}
@@ -469,7 +419,7 @@ export default function UsersManagement() {
                   type="link"
                   size="small"
                   className="h-auto p-0 text-[11px] font-semibold text-[var(--ochre-600)]"
-                  onClick={() => handleSuggestPassword("create")}
+                  onClick={() => handleSuggestPassword()}
                 >
                   Suggest strong password
                 </Button>
@@ -483,7 +433,7 @@ export default function UsersManagement() {
             <Input />
           </Form.Item>
           <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-            <Select options={ROLE_OPTIONS} />
+            <Select options={[...ROLE_FORM_OPTIONS]} />
           </Form.Item>
           <Form.Item
             name="shopCode"
@@ -498,68 +448,6 @@ export default function UsersManagement() {
             </Button>
           </Form.Item>
         </Form>
-      </Modal>
-
-      <Modal
-        title={<span className={styles.modalTitle}>Edit user</span>}
-        open={editOpen}
-        onCancel={() => {
-          setEditOpen(false);
-          setEditRow(null);
-        }}
-        footer={null}
-        destroyOnHidden
-      >
-        {editRow && (
-          <Form
-            form={editForm}
-            layout="vertical"
-            onFinish={onEditSubmit}
-            key={editRow.id}
-          >
-            <Form.Item label="Email">
-              <Input value={editRow.email} disabled />
-            </Form.Item>
-            <Form.Item name="name" label="Name">
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="password"
-              label={
-                <div className="flex items-center justify-between w-full">
-                  <span>New password (optional)</span>
-                  <Button
-                    type="link"
-                    size="small"
-                    className="h-auto p-0 text-[11px] font-semibold text-[var(--ochre-600)]"
-                    onClick={() => handleSuggestPassword("edit")}
-                  >
-                    Suggest strong password
-                  </Button>
-                </div>
-              }
-            >
-              <Input.Password
-                autoComplete="new-password"
-                placeholder="Leave blank to keep current"
-              />
-            </Form.Item>
-            <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-              <Select options={ROLE_OPTIONS} />
-            </Form.Item>
-            <Form.Item name="shopCode" label="Shop" rules={[{ required: true }]}>
-              <Select options={shopOptions} showSearch optionFilterProp="label" />
-            </Form.Item>
-            <Form.Item name="isActive" label="Active" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" loading={submitting} block>
-                Save changes
-              </Button>
-            </Form.Item>
-          </Form>
-        )}
       </Modal>
     </div>
   );

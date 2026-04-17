@@ -31,6 +31,7 @@ import { BarChart3, PieChart as PieChartIcon } from "lucide-react";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
+import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
 import ReportsOrdersTabulator from "@/components/ReportsOrdersTabulator/ReportsOrdersTabulator";
 
 const { Text, Title } = Typography;
@@ -56,7 +57,15 @@ function paymentLabel(raw: string) {
 
 const PIE_COLORS = ["#c9932d", "#6b4a30", "#8b7355", "#a67c23", "#4e3420"];
 
-export default function ReportsHome() {
+export type ReportsHomeProps = {
+  /** When embedded under Dashboard, use a tighter header (no duplicate page chrome). */
+  variant?: "full" | "embedded";
+};
+
+export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
+  const embedded = variant === "embedded";
+  const showSummaryCards = !embedded;
+  const showDailyRevenueChart = !embedded;
   const { effectiveShopCode } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
   const shopKey = effectiveShopCode || defaultShop;
@@ -109,15 +118,19 @@ export default function ReportsHome() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
+    <div className={`flex min-h-0 flex-1 flex-col gap-6 ${embedded ? "pb-6" : ""}`}>
       <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <Title level={2} className="!mb-1 !text-[var(--text-primary)]">
-            Reports
+          <Title
+            level={embedded ? 4 : 2}
+            className={`!mb-1 !text-[var(--text-primary)] ${embedded ? "!text-lg sm:!text-xl" : ""}`}
+          >
+            {embedded ? "Analytics & reports" : "Reports"}
           </Title>
-          <Text className="text-[var(--text-secondary)]">
-            Sales trends, payment mix, top products, and searchable order history.
-            Daily buckets use UTC dates.
+          <Text className="text-[var(--text-secondary)] text-xs sm:text-sm">
+            {embedded
+              ? "Deep-dive analytics: payment behavior, top products, and searchable order history."
+              : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use UTC dates."}
           </Text>
         </div>
         <Segmented
@@ -141,130 +154,134 @@ export default function ReportsHome() {
         </Card>
       ) : (
         <>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={8}>
-              <Card
-                variant="borderless"
-                className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
-              >
-                <Statistic
-                  title={`Revenue (${data.days}d)`}
-                  value={data.totals.revenue}
-                  formatter={(v) => formatInrFull(Number(v))}
-                  styles={{
-                    content: { color: "var(--bistre-800)", fontWeight: 700 },
-                  }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Card
-                variant="borderless"
-                className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
-              >
-                <Statistic
-                  title="Bills"
-                  value={data.totals.orderCount}
-                  styles={{
-                    content: { color: "var(--bistre-800)", fontWeight: 700 },
-                  }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Card
-                variant="borderless"
-                className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
-              >
-                <Statistic
-                  title="Avg. bill value"
-                  value={
-                    data.totals.orderCount > 0
-                      ? data.totals.revenue / data.totals.orderCount
-                      : 0
-                  }
-                  formatter={(v) => formatInrFull(Number(v))}
-                  styles={{
-                    content: { color: "var(--bistre-800)", fontWeight: 700 },
-                  }}
-                />
-              </Card>
-            </Col>
-          </Row>
+          {showSummaryCards ? (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={8}>
+                <Card
+                  variant="borderless"
+                  className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
+                >
+                  <Statistic
+                    title={`Revenue (${data.days}d)`}
+                    value={data.totals.revenue}
+                    formatter={(v) => formatInrFull(Number(v))}
+                    styles={{
+                      content: { color: "var(--bistre-800)", fontWeight: 700 },
+                    }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Card
+                  variant="borderless"
+                  className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
+                >
+                  <Statistic
+                    title="Bills"
+                    value={data.totals.orderCount}
+                    styles={{
+                      content: { color: "var(--bistre-800)", fontWeight: 700 },
+                    }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Card
+                  variant="borderless"
+                  className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
+                >
+                  <Statistic
+                    title="Avg. bill value"
+                    value={
+                      data.totals.orderCount > 0
+                        ? data.totals.revenue / data.totals.orderCount
+                        : 0
+                    }
+                    formatter={(v) => formatInrFull(Number(v))}
+                    styles={{
+                      content: { color: "var(--bistre-800)", fontWeight: 700 },
+                    }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          ) : null}
 
           <Row gutter={[16, 16]} className="items-stretch">
-            <Col xs={24} xl={14} className="flex flex-col">
-              <Card
-                title={
-                  <span className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-[var(--ochre-600)]" />
-                    Daily revenue
-                  </span>
-                }
-                variant="borderless"
-                className="flex flex-col h-full rounded-xl border border-[var(--pearl-bush)] shadow-sm"
-                styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-              >
-                <div className="flex-1 w-full min-w-0 min-h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={barData}
-                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--pearl-bush)" />
-                      <XAxis
-                        dataKey="label"
-                        interval="preserveStartEnd"
-                        tick={{ fontSize: 10, fill: "var(--bistre-500)" }}
-                        axisLine={{ stroke: "var(--bistre-200)" }}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 11, fill: "var(--bistre-500)" }}
-                        axisLine={false}
-                        width={48}
-                        tickFormatter={(v) =>
-                          Number(v) >= 1000
-                            ? `₹${(Number(v) / 1000).toFixed(1)}k`
-                            : `₹${v}`
-                        }
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: 10,
-                          borderColor: "var(--pearl-bush)",
-                          background: "#fffef9",
-                        }}
-                        formatter={(value, name) => {
-                          if (name === "revenue")
-                            return [
-                              formatInrFull(Number(value ?? 0)),
-                              "Revenue",
-                            ];
-                          return [value ?? "", String(name)];
-                        }}
-                        labelFormatter={(_, payload) =>
-                          payload?.[0]?.payload?.date
-                            ? chartDayLabel(String(payload[0].payload.date))
-                            : ""
-                        }
-                      />
-                      <Bar
-                        dataKey="revenue"
-                        name="revenue"
-                        fill="var(--ochre-500)"
-                        radius={[6, 6, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} xl={10} className="flex flex-col">
+            {showDailyRevenueChart ? (
+              <Col xs={24} xl={14} className="flex flex-col">
+                <Card
+                  title={
+                    <span className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-[var(--ochre-600)]" />
+                      Daily revenue
+                    </span>
+                  }
+                  variant="borderless"
+                  className="flex flex-col h-full rounded-xl border border-[var(--pearl-bush)] shadow-sm"
+                  styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
+                >
+                  <div className="flex-1 w-full min-w-0 min-h-[320px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={barData}
+                        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--pearl-bush)" />
+                        <XAxis
+                          dataKey="label"
+                          interval="preserveStartEnd"
+                          tick={{ fontSize: 10, fill: "var(--bistre-500)" }}
+                          axisLine={{ stroke: "var(--bistre-200)" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 11, fill: "var(--bistre-500)" }}
+                          axisLine={false}
+                          width={48}
+                          tickFormatter={(v) =>
+                            Number(v) >= 1000
+                              ? `₹${(Number(v) / 1000).toFixed(1)}k`
+                              : `₹${v}`
+                          }
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: 10,
+                            borderColor: "var(--pearl-bush)",
+                            background: "#fffef9",
+                          }}
+                          formatter={(value, name) => {
+                            if (name === "revenue")
+                              return [
+                                formatInrFull(Number(value ?? 0)),
+                                "Revenue",
+                              ];
+                            return [value ?? "", String(name)];
+                          }}
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.date
+                              ? chartDayLabel(String(payload[0].payload.date))
+                              : ""
+                          }
+                        />
+                        <Bar
+                          dataKey="revenue"
+                          name="revenue"
+                          fill="var(--ochre-500)"
+                          radius={[6, 6, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              </Col>
+            ) : null}
+            <Col xs={24} xl={showDailyRevenueChart ? 10 : 24} className="flex flex-col">
               <Card
                 title={
                   <span className="flex items-center gap-2">
                     <PieChartIcon className="h-4 w-4 text-[var(--ochre-600)]" />
-                    Revenue by payment mode
+                    {embedded ? "Payment mix (selected range)" : "Revenue by payment mode"}
                   </span>
                 }
                 variant="borderless"
@@ -346,6 +363,7 @@ export default function ReportsHome() {
                 size="small"
                 pagination={{ pageSize: 10, showSizeChanger: false }}
                 rowKey="productName"
+                components={antTableOverflowComponents}
                 dataSource={data.topProducts}
                 columns={[
                   {

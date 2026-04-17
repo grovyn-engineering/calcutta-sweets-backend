@@ -13,13 +13,15 @@ import {
   Switch,
 } from "antd";
 import Link from "next/link";
+import { Printer } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import { CategoryProductsTabulator } from "@/components/CategoryProductsTabulator/CategoryProductsTabulator";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import useFetch from "@/hooks/useFetch";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
+import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useShop } from "@/contexts/ShopContext";
 
 import styles from "./page.module.css";
@@ -63,6 +65,7 @@ export default function CategoryDetailPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [categoryPrintLoading, setCategoryPrintLoading] = useState(false);
   const [editForm] = Form.useForm();
   const [addForm] = Form.useForm();
 
@@ -186,6 +189,76 @@ export default function CategoryDetailPage() {
 
   const cat = isCategoryDetail(data) ? data : null;
 
+  const onPrintCategoryBarcodes = useCallback(async () => {
+    if (!shopCode || !cat) return;
+    setCategoryPrintLoading(true);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "http://localhost";
+      const pageSize = 100;
+      const maxPages = 500;
+      const allRows: {
+        id: string;
+        productName?: string;
+        variantName?: string;
+        barcode?: string;
+        price?: number;
+      }[] = [];
+
+      for (let page = 1; page <= maxPages; page += 1) {
+        const u = new URL(`${baseUrl}/inventory/variants`, origin);
+        u.searchParams.set("page", String(page));
+        u.searchParams.set("size", String(pageSize));
+        u.searchParams.set("category", cat.name);
+
+        const res = await fetch(u.toString(), {
+          headers: { ...getAuthHeaders(), Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error("Failed to load variants for printing");
+        const json = (await res.json()) as {
+          data?: typeof allRows;
+          last_page?: number;
+        };
+        const chunk = Array.isArray(json.data) ? json.data : [];
+        if (chunk.length === 0 && page === 1) {
+          message.warning("No variants in this category to print.");
+          return;
+        }
+        allRows.push(...chunk);
+        const lastPage = Math.max(1, json.last_page ?? page);
+        if (page >= lastPage) break;
+      }
+
+      const items = allRows
+        .filter((r) => !!r.barcode)
+        .map((r) => ({
+          productName: r.productName ?? "",
+          variantName: r.variantName,
+          barcode: r.barcode as string,
+          price: Number(r.price) || 0,
+        }));
+
+      if (items.length === 0) {
+        message.warning(
+          "No barcodes in this category — add barcodes on each variant in Inventory.",
+        );
+        return;
+      }
+
+      const ok = openPrintableBarcodes(items);
+      if (!ok) {
+        message.error("The print window was blocked. Allow pop-ups to print.");
+      }
+    } catch (e) {
+      message.error(String(e));
+    } finally {
+      setCategoryPrintLoading(false);
+    }
+  }, [shopCode, cat, message]);
+
   return (
     <div className={styles.page}>
       <Link href="/categories" className={styles.back} scroll={false}>
@@ -220,6 +293,14 @@ export default function CategoryDetailPage() {
           </p>
         </div>
         <div className={styles.actions}>
+          <Button
+            type="default"
+            icon={<Printer className="h-4 w-4" aria-hidden />}
+            loading={categoryPrintLoading}
+            onClick={() => void onPrintCategoryBarcodes()}
+          >
+            Print barcodes
+          </Button>
           <Button onClick={openEdit}>Rename</Button>
           <Popconfirm
             title="Delete this category?"

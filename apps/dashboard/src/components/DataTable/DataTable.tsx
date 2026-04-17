@@ -1,8 +1,14 @@
+"use client";
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
+import {
+  attachTabulatorOverflowTooltips,
+  detachTabulatorOverflowTooltips,
+} from "@/lib/tabulatorOverflowTooltips";
 import styles from "./DataTable.module.css";
 import { TableEmptyState, TableLoadingOverlay } from "./TableDataOverlay";
 
@@ -35,10 +41,17 @@ const ReactTabulator = dynamic(
 export type DataTableProps = {
   columns: ColumnDefinition[];
   options?: ReactTabulatorOptions;
+  /**
+   * Tabulator event handlers (e.g. rowClick). Prefer this over putting the same keys on
+   * `options` — react-tabulator wires `events` via `instance.on()` and does not reliably
+   * apply callbacks that only live on `options`.
+   */
+  // Tabulator passes typed row/cell args; a single index signature cannot model every event.
+  events?: Record<string, (...args: any[]) => void>;
   data?: unknown[];
   loading?: boolean;
   onRemoteBusyChange?: (busy: boolean) => void;
-  onRef?: (instanceRef: { current?: any }) => void;
+  onRef?: (instanceRef: { current?: unknown }) => void;
   emptyState?: React.ReactNode | null;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -50,6 +63,7 @@ export type DataTableProps = {
 export function DataTable({
   columns,
   options,
+  events,
   data,
   loading: loadingProp,
   onRemoteBusyChange,
@@ -74,8 +88,19 @@ export function DataTable({
   const onRemoteBusyChangeRef = useRef(onRemoteBusyChange);
   onRemoteBusyChangeRef.current = onRemoteBusyChange;
   const sawRemoteDataLoadingRef = useRef(false);
-  const remoteLoadGenRef = useRef(0);
-  const remoteAppliedGenRef = useRef(0);
+  /** Concurrent remote ajax calls (progressive load, overlapping pages). Overlay clears when this hits 0 after dataProcessed. */
+  const remoteInFlightRef = useRef(0);
+  const overflowTipsRafRef = useRef<number | null>(null);
+
+  const scheduleOverflowTips = useCallback(() => {
+    if (overflowTipsRafRef.current != null) {
+      cancelAnimationFrame(overflowTipsRafRef.current);
+    }
+    overflowTipsRafRef.current = requestAnimationFrame(() => {
+      overflowTipsRafRef.current = null;
+      attachTabulatorOverflowTooltips(wrapperRef.current);
+    });
+  }, []);
 
   const controlledLoading = typeof loadingProp === "boolean";
   const usesRemoteData = useMemo(
@@ -117,22 +142,21 @@ export function DataTable({
         config: unknown,
         params: unknown,
       ) => {
-        const gen = ++remoteLoadGenRef.current;
-        remoteAppliedGenRef.current = 0;
+        remoteInFlightRef.current += 1;
         sawRemoteDataLoadingRef.current = true;
         setRemoteAjaxInFlight(true);
         setIsEmpty(false);
         onRemoteBusyChangeRef.current?.(true);
         try {
-          const result = await orig(url, config, params);
-          remoteAppliedGenRef.current = gen;
-          return result;
-        } catch (e) {
-          if (remoteLoadGenRef.current === gen) {
-            setRemoteAjaxInFlight(false);
-            onRemoteBusyChangeRef.current?.(false);
-          }
-          throw e;
+          return await orig(url, config, params);
+        } finally {
+          remoteInFlightRef.current = Math.max(0, remoteInFlightRef.current - 1);
+          queueMicrotask(() => {
+            if (remoteInFlightRef.current === 0) {
+              setRemoteAjaxInFlight(false);
+              onRemoteBusyChangeRef.current?.(false);
+            }
+          });
         }
       }) as typeof orig;
     }
@@ -225,7 +249,7 @@ export function DataTable({
   );
 
   const handleRef = useCallback(
-    (instanceRef: { current?: any }) => {
+    (instanceRef: { current?: unknown }) => {
       const table = instanceRef.current as TabulatorLike | null;
 
       detachTableListenersRef.current?.();
@@ -233,15 +257,17 @@ export function DataTable({
       chromeObserverRef.current?.disconnect();
       chromeObserverRef.current = null;
       sawRemoteDataLoadingRef.current = false;
-      remoteLoadGenRef.current = 0;
-      remoteAppliedGenRef.current = 0;
+      remoteInFlightRef.current = 0;
       if (usesRemoteData && typeof options?.ajaxRequestFunc === "function") {
         setRemoteAjaxInFlight(true);
       }
 
       onRef?.(instanceRef);
 
-      if (!table || typeof table.on !== "function") return;
+      if (!table || typeof table.on !== "function") {
+        detachTabulatorOverflowTooltips(wrapperRef.current);
+        return;
+      }
 
       const onDataLoading = () => {
         sawRemoteDataLoadingRef.current = true;
@@ -256,40 +282,48 @@ export function DataTable({
         if (!usesRemoteData) {
           setRemoteAjaxInFlight(false);
           onRemoteBusyChangeRef.current?.(false);
-          requestAnimationFrame(measureChrome);
-          return;
         }
-        const applied = remoteAppliedGenRef.current;
-        const current = remoteLoadGenRef.current;
-        if (applied === 0 || applied !== current) {
-          requestAnimationFrame(measureChrome);
-          return;
-        }
-        remoteAppliedGenRef.current = 0;
-        setRemoteAjaxInFlight(false);
-        onRemoteBusyChangeRef.current?.(false);
-        requestAnimationFrame(measureChrome);
+        requestAnimationFrame(() => {
+          measureChrome();
+          scheduleOverflowTips();
+        });
       };
       const onErr = () => {
         sawRemoteDataLoadingRef.current = true;
-        remoteAppliedGenRef.current = 0;
+        remoteInFlightRef.current = 0;
         setRemoteAjaxInFlight(false);
         onRemoteBusyChangeRef.current?.(false);
         if (typeof loadingPropRef.current !== "boolean") {
           setInternalLoading(false);
         }
         setIsEmpty(true);
-        requestAnimationFrame(measureChrome);
+        requestAnimationFrame(() => {
+          measureChrome();
+          scheduleOverflowTips();
+        });
+      };
+
+      const onRenderComplete = () => {
+        scheduleOverflowTips();
+      };
+
+      const onColumnResized = () => {
+        scheduleOverflowTips();
       };
 
       table.on("dataLoading", onDataLoading);
       table.on("dataProcessed", onProcessed);
       table.on("dataLoadError", onErr);
+      table.on("renderComplete", onRenderComplete);
+      table.on("columnResized", onColumnResized);
 
       const safetyId = window.setTimeout(() => {
         sawRemoteDataLoadingRef.current = true;
         syncFromTable(table);
-        measureChrome();
+        requestAnimationFrame(() => {
+          measureChrome();
+          scheduleOverflowTips();
+        });
       }, 4500);
 
       detachTableListenersRef.current = () => {
@@ -297,6 +331,9 @@ export function DataTable({
         table.off?.("dataLoading", onDataLoading);
         table.off?.("dataProcessed", onProcessed);
         table.off?.("dataLoadError", onErr);
+        table.off?.("renderComplete", onRenderComplete);
+        table.off?.("columnResized", onColumnResized);
+        detachTabulatorOverflowTooltips(wrapperRef.current);
       };
 
       if (usesRemoteData) {
@@ -309,7 +346,10 @@ export function DataTable({
             if (n > 0 && !sawRemoteDataLoadingRef.current) {
               sawRemoteDataLoadingRef.current = true;
               syncFromTable(table);
-              requestAnimationFrame(measureChrome);
+              requestAnimationFrame(() => {
+                measureChrome();
+                scheduleOverflowTips();
+              });
             }
           } catch {
             /* ignore */
@@ -321,15 +361,19 @@ export function DataTable({
 
       requestAnimationFrame(() => {
         measureChrome();
+        scheduleOverflowTips();
         const root = wrapperRef.current;
         if (!root || typeof ResizeObserver === "undefined") return;
-        const obs = new ResizeObserver(() => measureChrome());
+        const obs = new ResizeObserver(() => {
+          measureChrome();
+          scheduleOverflowTips();
+        });
         chromeObserverRef.current = obs;
         const tab = root.querySelector(".tabulator");
         if (tab) obs.observe(tab);
       });
     },
-    [onRef, syncFromTable, measureChrome, usesRemoteData, options?.ajaxRequestFunc],
+    [onRef, syncFromTable, measureChrome, usesRemoteData, options?.ajaxRequestFunc, scheduleOverflowTips],
   );
 
   useEffect(() => {
@@ -345,6 +389,11 @@ export function DataTable({
 
   useEffect(
     () => () => {
+      if (overflowTipsRafRef.current != null) {
+        cancelAnimationFrame(overflowTipsRafRef.current);
+        overflowTipsRafRef.current = null;
+      }
+      detachTabulatorOverflowTooltips(wrapperRef.current);
       detachTableListenersRef.current?.();
       detachTableListenersRef.current = null;
       chromeObserverRef.current?.disconnect();
@@ -377,6 +426,7 @@ export function DataTable({
         columns={columns}
         options={internalOptions}
         data={data}
+        events={events}
         onRef={handleRef}
       />
 

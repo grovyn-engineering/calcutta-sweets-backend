@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Button, Table, InputNumber, message, Steps, Divider, Space } from 'antd';
 import { Search } from 'lucide-react';
+import { antTableOverflowComponents } from '@/components/AntTableOverflowCell/AntTableOverflowCell';
 import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
 
 interface Variant {
@@ -218,6 +219,7 @@ export default function CreateShopWizard({ open, onCancel, onSuccess }: CreateSh
           <Table
             dataSource={filteredVariants}
             columns={columns}
+            components={antTableOverflowComponents}
             rowKey="id"
             pagination={{ pageSize: 5 }}
             loading={tableLoading}

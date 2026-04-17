@@ -1,12 +1,14 @@
 'use client';
 
-import { App, Button, Card, Checkbox, Form, Input } from 'antd';
+import { App, Button, Checkbox, Form, Input } from 'antd';
 import styles from './styles.module.css';
 import Link from 'next/link';
-import { ArrowRightIcon, Candy, LockIcon, UserIcon } from 'lucide-react';
+import Image from 'next/image';
+import { LockIcon, UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiBaseUrl } from '@/lib/api';
+import logo from '@/assets/logo.svg';
 
 const LoginPage = () => {
   const { message } = App.useApp();
@@ -33,71 +35,120 @@ const LoginPage = () => {
 
   return (
     <div className={styles.page}>
-      <div className={styles.shell}>
-        <header className={styles.brand}>
-          <div className={styles.brandMark} aria-hidden>
-            <Candy strokeWidth={1.75} size={28} />
-          </div>
-          <h1 className={styles.title}>CALCUTTA SWEETS</h1>
-          <p className={styles.tagline}>Est. 2000 · Kolkata</p>
+      <div className={styles.layout}>
+        <header className={styles.topBar}>
+          <Link href="/" className={styles.topLogoWrap} aria-label="Calcutta Sweets home">
+            <Image
+              src={logo}
+              alt="Calcutta Sweets"
+              width={209}
+              height={90}
+              className={styles.topLogo}
+              priority
+              unoptimized
+            />
+          </Link>
+          <p className={styles.topTagline}>Return to Heritage</p>
         </header>
 
-        <Card className={styles.card} variant="borderless">
-          <div className={styles.cardHead}>
-            <h2>Welcome back</h2>
-            <p>Sign in with your staff account to open the dashboard.</p>
+        <div className={styles.splitCard}>
+          <div className={styles.visualPane}>
+            <Image
+              src="/login-heritage-hero.png"
+              alt=""
+              fill
+              className={styles.heroImage}
+              sizes="(max-width: 900px) 100vw, 50vw"
+              priority
+            />
+            <div className={styles.visualGradient} aria-hidden />
+            <div className={styles.visualCopy}>
+              <p className={styles.visualQuote}>
+                The sweetness of a thousand years, crafted for today.
+              </p>
+              <p className={styles.visualKicker}>Heritage collection since 1924</p>
+            </div>
           </div>
 
-          <Form layout="vertical" requiredMark={false} onFinish={onFinish}>
-            <label className={styles.label} htmlFor="login-email">
-              Username or email
-            </label>
-            <Form.Item
-              className={styles.form_item}
-              name="email"
-              rules={[{ required: true, message: 'Please enter your email or username.' }]}
-            >
-              <Input
-                id="login-email"
-                autoComplete="username"
-                placeholder="you@example.com"
-                className={styles.input}
-                prefix={<UserIcon className="text-[var(--bistre-500)]" height={16} width={16} />}
-              />
-            </Form.Item>
+          <div className={styles.formPane}>
+            <div className={styles.formInner}>
+              <h1 className={styles.formTitle}>Welcome Back</h1>
+              <p className={styles.formSub}>Sign in to your heritage account</p>
 
-            <label className={styles.label} htmlFor="login-password">
-              Password
-            </label>
-            <Form.Item
-              className={styles.form_item}
-              name="password"
-              rules={[{ required: true, message: 'Please enter your password.' }]}
-            >
-              <Input.Password
-                id="login-password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className={styles.input}
-                prefix={<LockIcon className="text-[var(--bistre-500)]" height={16} width={16} />}
-              />
-            </Form.Item>
+              <Form layout="vertical" requiredMark={false} onFinish={onFinish} className={styles.form}>
+                <label className={styles.label} htmlFor="login-email">
+                  Username or Email
+                </label>
+                <Form.Item
+                  className={styles.formItem}
+                  name="email"
+                  rules={[{ required: true, message: 'Please enter your email or username.' }]}
+                >
+                  <Input
+                    id="login-email"
+                    autoComplete="username"
+                    placeholder="Enter your email"
+                    className={styles.input}
+                    suffix={<UserIcon className={styles.inputIcon} height={18} width={18} aria-hidden />}
+                  />
+                </Form.Item>
 
-            <div className={styles.row}>
-              <Checkbox className={styles.checkbox}>Remember me</Checkbox>
-              <Link href="/forgot-password" className={styles.forgotLink}>
-                Forgot password?
-              </Link>
+                <label className={styles.label} htmlFor="login-password">
+                  Password
+                </label>
+                <Form.Item
+                  className={styles.formItem}
+                  name="password"
+                  rules={[{ required: true, message: 'Please enter your password.' }]}
+                >
+                  <Input.Password
+                    id="login-password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className={styles.input}
+                    visibilityToggle={false}
+                    suffix={<LockIcon className={styles.inputIcon} height={18} width={18} aria-hidden />}
+                  />
+                </Form.Item>
+
+                <div className={styles.row}>
+                  <Checkbox className={styles.checkbox}>Remember me</Checkbox>
+                  <Link href="/forgot-password" className={styles.forgotLink}>
+                    Forgot password?
+                  </Link>
+                </div>
+
+                <Button type="primary" htmlType="submit" className={styles.loginButton}>
+                  Sign In
+                </Button>
+
+                <p className={styles.joinRow}>
+                  Don&apos;t have an account?{' '}
+                  <Link href="#" className={styles.joinLink} prefetch={false}>
+                    Join the Heritage
+                  </Link>
+                </p>
+              </Form>
             </div>
+          </div>
+        </div>
 
-            <Button type="primary" htmlType="submit" className={styles.login_button}>
-              Sign in
-              <ArrowRightIcon className="w-4 h-4" aria-hidden />
-            </Button>
-          </Form>
-        </Card>
-
-        <p className={styles.footer}>Traditional sweets · Trusted since 2000</p>
+        <footer className={styles.footer}>
+          <nav className={styles.footerNav} aria-label="Legal">
+            <a href="#" className={styles.footerLink}>
+              Privacy Policy
+            </a>
+            <a href="#" className={styles.footerLink}>
+              Terms of Service
+            </a>
+            <a href="#" className={styles.footerLink}>
+              Contact Us
+            </a>
+          </nav>
+          <p className={styles.copyright}>
+            © 2026 Calcutta Sweets Heritage Editorial. All Rights Reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );

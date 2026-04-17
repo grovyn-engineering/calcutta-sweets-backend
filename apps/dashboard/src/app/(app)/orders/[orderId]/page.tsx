@@ -20,6 +20,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
 
+import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
@@ -306,24 +307,36 @@ export default function OrderBillDetailPage() {
         <>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <Space align="center" size="middle" wrap className="mb-2">
-                <Title level={2} className="!mb-0 !text-[var(--text-primary)]">
+              <div className="mb-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-4">
+                <Title
+                  level={2}
+                  className="!mb-0 !mt-0 !leading-tight !text-[var(--text-primary)]"
+                >
                   Bill {invoiceRef}
                 </Title>
-                <Tag color={statusTagColor(order.status)} className="m-0 uppercase">
+                <Tag
+                  color={statusTagColor(order.status)}
+                  className="m-0 shrink-0 uppercase"
+                >
                   {order.status}
                 </Tag>
-              </Space>
-              <Space size="small" wrap className="text-sm text-[var(--text-secondary)]">
-                <span className="inline-flex items-center gap-1.5">
-                  <Receipt className="h-3.5 w-3.5 shrink-0 text-[var(--bistre-400)]" aria-hidden />
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-[var(--text-secondary)]">
+                  <Receipt
+                    className="h-3.5 w-3.5 shrink-0 text-[var(--bistre-400)]"
+                    aria-hidden
+                  />
                   {formatWhen(order.createdAt)}
                 </span>
-                <span className="text-[var(--bistre-200)]">·</span>
-                <Tag color={paymentTagColor(order.paymentMethod)} className="m-0">
+                <span className="shrink-0 text-[var(--bistre-200)]" aria-hidden>
+                  ·
+                </span>
+                <Tag
+                  color={paymentTagColor(order.paymentMethod)}
+                  className="m-0 shrink-0"
+                >
                   {paymentLabel(order.paymentMethod)}
                 </Tag>
-              </Space>
+              </div>
             </div>
             <Space wrap className="shrink-0">
               <Button onClick={() => router.push("/orders")}>
@@ -464,6 +477,7 @@ export default function OrderBillDetailPage() {
                 <Table<OrderDetailItem & { key: number }>
                   size={tableSize}
                   pagination={false}
+                  components={antTableOverflowComponents}
                   columns={lineColumns}
                   dataSource={tableData}
                   scroll={tableScroll}

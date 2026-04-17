@@ -92,8 +92,13 @@
 .tableWrapper :global(.tabulator .tabulator-header .tabulator-col) {
   background: transparent !important;
   border-right: none !important;
+  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
   padding: 16px 20px !important;
   transition: background 0.2s ease;
+}
+
+.tableWrapper :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+  box-shadow: none;
 }
 
 @media (max-width: 500px) {

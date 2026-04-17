@@ -31,6 +31,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
+import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
@@ -287,10 +288,10 @@ export default function DashboardHome() {
           styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
           extra={
             <Link
-              href="/reports"
+              href="/dashboard?tab=analytics"
               className="inline-flex items-center gap-1 text-sm font-medium text-[var(--ochre-600)] hover:underline"
             >
-              Reports <ArrowRight className="h-3.5 w-3.5" />
+              Analytics <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           }
         >
@@ -427,6 +428,7 @@ export default function DashboardHome() {
             size="small"
             pagination={false}
             rowKey="id"
+            components={antTableOverflowComponents}
             dataSource={data.recentOrders}
             scroll={{ x: 'max-content' }}
             onRow={(record) => ({

@@ -240,8 +240,7 @@ export default function OrdersTable() {
     };
   }, []);
 
-  /** Row clicks: use `events` - this wrapper doesn’t pick up `rowClick` from `options`. */
-  const events = useMemo(
+  const tableEvents = useMemo(
     () => ({
       rowClick: (_e: unknown, row: { getData: () => OrderRow }) => {
         const data = row.getData();
@@ -271,12 +270,10 @@ export default function OrdersTable() {
       <div className={styles.tableSlot}>
         <DataTable
           columns={columns}
-          options={useMemo(() => ({
-            ...options,
-            rowClick: events.rowClick
-          }), [options, events.rowClick])}
-          onRef={(instanceRef: { current?: TabulatorPageable }) => {
-            tableRef.current = instanceRef.current ?? null;
+          options={options}
+          events={tableEvents}
+          onRef={(instanceRef: { current?: unknown }) => {
+            tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
           }}
           loading={tableLoading}
           onRemoteBusyChange={onRemoteBusyChange}

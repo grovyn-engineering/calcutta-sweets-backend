@@ -29,10 +29,13 @@ const theme = {
       colorBgContainer: '#ffffff',
     },
     Menu: {
-      itemColor: '#1a110c',
-      itemSelectedBg: 'rgba(201, 147, 45, 0.2)',
+      itemBg: 'transparent',
+      subMenuItemBg: 'transparent',
+      itemColor: '#4e3420',
+      itemSelectedBg: 'rgba(201, 147, 45, 0.14)',
       itemSelectedColor: '#a67c23',
       itemHoverColor: '#c9932d',
+      itemHoverBg: 'rgba(44, 24, 16, 0.04)',
     },
   },
 };

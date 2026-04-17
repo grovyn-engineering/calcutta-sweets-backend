@@ -59,6 +59,11 @@
 .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
   border-right: none;
   background: transparent;
+  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
+}
+
+.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+  box-shadow: none;
 }
 
 .tabulatorInner :global(.tabulator .tabulator-col .tabulator-col-content) {

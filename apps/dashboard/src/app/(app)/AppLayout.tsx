@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Menu as MenuIcon, X } from 'lucide-react';
+import { LogOut, Menu as MenuIcon, Settings, X } from 'lucide-react';
 import { Drawer, Button, Dropdown, Layout, Menu, Select, Space, Tag } from 'antd';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -19,19 +19,30 @@ type SidebarItem = {
   key: string;
   label: React.ReactNode;
   permissionKey?: keyof import('@/contexts/AuthContext').RolePermissions;
+  /** Show when any of these permissions is true (used for merged Dashboard + Analytics). */
+  anyPermissionKey?: (keyof import('@/contexts/AuthContext').RolePermissions)[];
   superAdminOnly?: boolean;
+  /** If set, sidebar item is shown only when `user.role` is one of these (e.g. Users for Admin + Super Admin). */
+  allowedRoles?: string[];
 };
 
 const sidebarItemsDef: SidebarItem[] = [
-  { key: '/dashboard', label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link>, permissionKey: 'canAccessDashboard' },
+  {
+    key: '/dashboard',
+    label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link>,
+    anyPermissionKey: ['canAccessDashboard', 'canAccessReports'],
+  },
   { key: '/billing-pos', label: <Link href="/billing-pos" className={styles.menuLink} scroll={false}>Billing POS</Link>, permissionKey: 'canAccessBilling' },
   { key: '/orders', label: <Link href="/orders" className={styles.menuLink} scroll={false}>Orders</Link>, permissionKey: 'canAccessOrders' },
   { key: '/products', label: <Link href="/products" className={styles.menuLink} scroll={false}>Products</Link>, permissionKey: 'canAccessProducts' },
   { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link>, permissionKey: 'canAccessInventory' },
   { key: '/stock-transfers', label: <Link href="/stock-transfers" className={styles.menuLink} scroll={false}>Stock Transfers</Link>, permissionKey: 'canAccessInventory' },
   { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link>, permissionKey: 'canAccessCategories' },
-  { key: '/reports', label: <Link href="/reports" className={styles.menuLink} scroll={false}>Reports</Link>, permissionKey: 'canAccessReports' },
-  { key: '/users', label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>, superAdminOnly: true },
+  {
+    key: '/users',
+    label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+  },
   { key: '/shops', label: <Link href="/shops" className={styles.menuLink} scroll={false}>Shops</Link>, superAdminOnly: true },
   { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link>, permissionKey: 'canAccessSettings' },
 ];
@@ -45,7 +56,6 @@ const SIDEBAR_ROUTE_PREFIXES = [
   '/inventory',
   '/stock-transfers',
   '/categories',
-  '/reports',
   '/users',
   '/shops',
   '/settings',
@@ -66,7 +76,6 @@ const pageTitles: Record<string, string> = {
   '/inventory': 'Inventory',
   '/stock-transfers': 'Stock Transfers',
   '/categories': 'Categories',
-  '/reports': 'Reports',
   '/users': 'Users',
   '/settings': 'Settings',
   '/logout': 'Logout',
@@ -88,8 +97,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const isSuper = user?.role === 'SUPER_ADMIN';
     return sidebarItemsDef
       .filter((item) => {
+        if (
+          item.allowedRoles?.length &&
+          (!user?.role || !item.allowedRoles.includes(user.role))
+        ) {
+          return false;
+        }
         if (item.superAdminOnly && !isSuper) return false;
-        if (item.permissionKey && permissions && !permissions[item.permissionKey]) return false;
+        if (item.anyPermissionKey?.length && permissions) {
+          const ok = item.anyPermissionKey.some((k) => permissions[k]);
+          if (!ok) return false;
+        } else if (item.permissionKey && permissions && !permissions[item.permissionKey]) {
+          return false;
+        }
 
         const factoryOnlyKeys = ["/stock-transfers", "/shops"];
         if (!isFactory && factoryOnlyKeys.includes(item.key)) return false;
@@ -107,9 +127,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         ? 'Categories'
         : pathname.startsWith('/orders/')
           ? 'Bill detail'
-          : pathname.startsWith('/shops/')
-            ? 'Shop details'
-            : 'Dashboard');
+          : pathname.startsWith('/users/')
+            ? 'Edit user'
+            : pathname.startsWith('/shops/')
+              ? 'Shop details'
+              : 'Dashboard');
 
   const showShopSwitcher = user?.role === 'SUPER_ADMIN' && shops.length > 0;
 
@@ -145,9 +167,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Image
           src={logo}
           alt="Calcutta Sweets"
-          width={200}
-          height={80}
-          className={`h-[52px] w-auto max-w-[200px] object-contain object-center ${styles.logoImage}`}
+          width={240}
+          height={95}
+          className={`h-[54px] w-auto max-w-[236px] object-contain object-center ${styles.logoImage}`}
           priority
         />
       </Link>
@@ -187,10 +209,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Image
                 src={logo}
                 alt="Calcutta Sweets"
-                width={80}
-                height={60}
-                className="object-contain"
-                style={{ width: 'auto', height: 'auto' }}
+                width={200}
+                height={80}
+                className={`max-h-11 w-auto object-contain ${styles.drawerLogoImage}`}
               />
             </Link>
           </div>
@@ -223,7 +244,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         >
           <div className={`flex min-w-0 flex-1 items-center gap-3 ${styles.headerTitleCluster}`}>
             <Button
-              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-[var(--linen-100)]`}
+              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-[var(--linen-95)]`}
               onClick={() => setIsMobileMenuOpen(true)}
               icon={<MenuIcon className="size-5 text-[var(--bistre-800)]" />}
             />
@@ -260,7 +281,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {
                     key: 'settings',
                     label: <Link href="/settings" scroll={false}>Account Settings</Link>,
-                    icon: <span className="text-[10px]">⚙️</span>,
+                    icon: (
+                      <Settings
+                        className="size-[15px] text-[var(--bistre-500)]"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ),
                   },
                   {
                     type: 'divider',
@@ -269,7 +296,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     key: 'logout',
                     danger: true,
                     label: <Link href="/logout" scroll={false}>Logout</Link>,
-                    icon: <span className="text-[10px]">🚪</span>,
+                    icon: (
+                      <LogOut
+                        className="size-[15px] text-current"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ),
                   },
                 ],
               }}

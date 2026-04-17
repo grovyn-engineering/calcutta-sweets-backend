@@ -1,9 +1,6 @@
-import ReportsHome from "@/components/ReportsHome/ReportsHome";
+import { redirect } from "next/navigation";
 
+/** Reports merged into Dashboard → Analytics tab; keep URL for bookmarks. */
 export default function ReportsPage() {
-  return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      <ReportsHome />
-    </div>
-  );
+  redirect("/dashboard?tab=analytics");
 }

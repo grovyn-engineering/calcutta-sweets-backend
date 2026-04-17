@@ -9,6 +9,9 @@ export class SettingsController {
     @UseGuards(JwtAuthGuard)
     @Get('role-permissions')
     getRolePermissions(@Request() req) {
-        return this.settingsService.getPermissionsForRole(req.user.role);
+        return this.settingsService.mergeEffectivePermissions(
+            req.user.role,
+            (req.user as { permissionOverrides?: unknown }).permissionOverrides,
+        );
     }
 }

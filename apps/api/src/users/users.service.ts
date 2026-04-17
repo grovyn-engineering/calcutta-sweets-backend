@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { invalidateJwtUserCache } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
+import { ROLE_PERMISSION_FIELD_KEYS } from '../settings/settings.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -119,8 +121,26 @@ export class UsersService {
     if (dto.shopCode !== undefined) data.shopCode = dto.shopCode;
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.permissionOverrides !== undefined) {
+      if (dto.permissionOverrides === null) {
+        data.permissionOverrides = null;
+      } else if (
+        typeof dto.permissionOverrides === 'object' &&
+        !Array.isArray(dto.permissionOverrides)
+      ) {
+        const cleaned: Record<string, boolean> = {};
+        for (const k of ROLE_PERMISSION_FIELD_KEYS) {
+          const v = (dto.permissionOverrides as Record<string, unknown>)[k];
+          if (typeof v === 'boolean') cleaned[k] = v;
+        }
+        data.permissionOverrides =
+          Object.keys(cleaned).length > 0 ? cleaned : null;
+      } else {
+        throw new BadRequestException('permissionOverrides must be an object or null');
+      }
+    }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: data as any,
       select: {
@@ -130,10 +150,13 @@ export class UsersService {
         role: true,
         shopCode: true,
         isActive: true,
+        permissionOverrides: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+    invalidateJwtUserCache(id);
+    return updated;
   }
 
   async findOneForShop(id: string, shopCode: string) {
@@ -146,6 +169,7 @@ export class UsersService {
         role: true,
         shopCode: true,
         isActive: true,
+        permissionOverrides: true,
         createdAt: true,
         updatedAt: true,
       },

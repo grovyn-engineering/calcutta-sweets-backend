@@ -1,0 +1,254 @@
+.pageShell {
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 2rem;
+  text-align: left;
+}
+
+.breadcrumb {
+  margin-bottom: 0.25rem;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(44, 24, 16, 0.08);
+}
+
+.headerCopy {
+  min-width: 0;
+}
+
+.headerTitle {
+  margin: 0 0 0.25rem !important;
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: var(--bistre-900) !important;
+  letter-spacing: -0.02em;
+  line-height: 1.25 !important;
+}
+
+.headerEmail {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.collapse:global(.ant-collapse) {
+  width: 100%;
+  background: transparent !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.collapse :global(.ant-collapse-item) {
+  width: 100%;
+  border-radius: 14px !important;
+  border: 1px solid rgba(44, 24, 16, 0.08) !important;
+  background: rgba(255, 254, 249, 0.92) !important;
+  box-shadow:
+    0 1px 2px rgba(44, 24, 16, 0.04),
+    0 6px 20px rgba(44, 24, 16, 0.05) !important;
+  overflow: hidden;
+}
+
+.collapse :global(.ant-collapse-item:not(:last-child)) {
+  margin-bottom: 0.75rem !important;
+}
+
+.collapse :global(.ant-collapse-header) {
+  width: 100%;
+  padding: 14px 1.25rem !important;
+  font-size: 0.8125rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  color: var(--bistre-700) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 245, 0.98) 0%,
+    rgba(255, 254, 249, 0.88) 100%
+  ) !important;
+}
+
+.collapse :global(.ant-collapse-content) {
+  width: 100%;
+}
+
+.collapse :global(.ant-collapse-content-box) {
+  width: 100%;
+  padding: 0 1.25rem 1.25rem !important;
+}
+
+.collapse :global(.ant-collapse-expand-icon) {
+  color: var(--ochre-600) !important;
+}
+
+.formBlock :global(.ant-form-item-label > label) {
+  font-weight: 600;
+  color: var(--bistre-800);
+  font-size: 13px;
+}
+
+.formBlock :global(.ant-input),
+.formBlock :global(.ant-input-affix-wrapper),
+.formBlock :global(.ant-select-selector) {
+  border-radius: 10px !important;
+  border-color: rgba(44, 24, 16, 0.12) !important;
+}
+
+.formBlock :global(.ant-input-affix-wrapper:hover),
+.formBlock :global(.ant-input:hover),
+.formBlock :global(.ant-select:not(.ant-select-disabled):hover .ant-select-selector) {
+  border-color: var(--ochre-400) !important;
+}
+
+.permHint {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: rgba(250, 235, 205, 0.22);
+  border: 1px solid rgba(166, 124, 35, 0.15);
+  border-radius: 10px;
+}
+
+.permHint strong {
+  color: var(--bistre-800);
+  font-weight: 700;
+}
+
+.permToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.permToolbar :global(.ant-btn) {
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* Table sits in a rounded inset */
+.permTableWrap {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 226, 217, 0.95);
+  overflow: hidden;
+  background: #fffef9;
+}
+
+.permTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  table-layout: fixed;
+}
+
+.permTable th,
+.permTable td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(232, 226, 217, 0.85);
+  vertical-align: middle;
+}
+
+.permTable tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.permTable tbody tr:hover {
+  background: rgba(201, 147, 45, 0.06);
+}
+
+.permTable th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bistre-700);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 214, 0.75) 0%,
+    rgba(250, 235, 205, 0.45) 100%
+  );
+}
+
+.permTable th:first-child,
+.permTable td.permAreaCell {
+  width: 58%;
+}
+
+.permTable th:nth-child(2),
+.permTable th:nth-child(3) {
+  width: 21%;
+  text-align: center;
+}
+
+.permCheckCell {
+  text-align: center;
+  width: 21%;
+}
+
+.permAreaCell {
+  padding-right: 1rem;
+  font-weight: 500;
+  color: var(--bistre-900);
+}
+
+.permCheckCell :global(.ant-checkbox-disabled .ant-checkbox-inner) {
+  background-color: #fffef9 !important;
+  border-color: var(--bistre-300) !important;
+  opacity: 1 !important;
+}
+
+.permCheckCell
+  :global(.ant-checkbox-disabled.ant-checkbox-checked .ant-checkbox-inner) {
+  background-color: rgba(201, 147, 45, 0.35) !important;
+  border-color: var(--ochre-500) !important;
+}
+
+.permCheckCell
+  :global(.ant-checkbox-disabled.ant-checkbox-checked .ant-checkbox-inner::after) {
+  border-color: var(--bistre-800) !important;
+}
+
+.permTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sectionSaveRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(232, 226, 217, 0.9);
+}
+
+.sectionSaveRow :global(.ant-btn-primary) {
+  min-width: 7.5rem;
+  height: 40px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(201, 147, 45, 0.2);
+}
+
+.backBtn {
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+}

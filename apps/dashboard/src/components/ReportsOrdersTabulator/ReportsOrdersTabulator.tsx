@@ -167,7 +167,7 @@ export default function ReportsOrdersTabulator() {
     };
   }, []);
 
-  const events = useMemo(
+  const tableEvents = useMemo(
     () => ({
       rowClick: (_e: unknown, row: { getData: () => OrderRow }) => {
         const data = row.getData();
@@ -181,10 +181,8 @@ export default function ReportsOrdersTabulator() {
     <div>
       <DataTable
         columns={columns}
-        options={useMemo(() => ({
-          ...options,
-          rowClick: events.rowClick
-        }), [options, events.rowClick])}
+        options={options}
+        events={tableEvents}
         loading={tableLoading}
         onRemoteBusyChange={onRemoteBusyChange}
         minHeight={400}

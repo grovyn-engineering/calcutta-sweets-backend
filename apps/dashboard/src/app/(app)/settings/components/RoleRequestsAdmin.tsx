@@ -6,6 +6,7 @@ import { CheckOutlined, CloseOutlined } from "@ant-design/icons";
 import { Crown } from "lucide-react";
 import { apiFetch } from "../../../../lib/api";
 import { TableEmptyState } from "@/components/DataTable/TableDataOverlay";
+import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
 import styles from "./RoleRequestsAdmin.module.css";
 
 type RoleRequestRow = {
@@ -180,6 +181,7 @@ export function RoleRequestsAdmin() {
     <div className={styles.root}>
       <Table<RoleRequestRow>
         className={`${styles.table} ${hasRows ? "" : styles.tableNoScroll}`.trim()}
+        components={antTableOverflowComponents}
         dataSource={requests}
         columns={columns}
         rowKey="id"

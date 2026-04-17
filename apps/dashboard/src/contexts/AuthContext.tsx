@@ -83,32 +83,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  /** Auto-fetch permissions if they are missing but user is logged in. */
-  useEffect(() => {
-    if (state.token && state.user && !state.permissions) {
-      apiFetch('/settings/role-permissions', {
-        headers: { Authorization: `Bearer ${state.token}` },
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch");
-          return res.json();
-        })
-        .then((data) => {
-          if (data && typeof data.canAccessDashboard === 'boolean') {
-            setState((prev) => {
-              const newState = { ...prev, permissions: data };
-              localStorage.setItem(
-                AUTH_STORAGE_KEY,
-                JSON.stringify({ token: newState.token, user: newState.user, permissions: data }),
-              );
-              return newState;
-            });
-          }
-        })
-        .catch(console.error);
-    }
-  }, [state.token, state.user, state.permissions]);
-
   const setAuth = useCallback((token: string, user: AuthUser | null, permissions: RolePermissions | null = null) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user, permissions }));
     setState({
@@ -130,6 +104,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading: false,
     });
   }, []);
+
+  /**
+   * After hydration, revalidate user + permissions from the API so role / overrides /
+   * deactivation changes apply on reload (localStorage alone would stay stale).
+   */
+  useEffect(() => {
+    if (!state.token) return;
+    const token = state.token;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [meRes, permRes] = await Promise.all([
+          apiFetch('/users/profile/me'),
+          apiFetch('/settings/role-permissions'),
+        ]);
+        if (cancelled) return;
+
+        if (meRes.status === 401 || permRes.status === 401) {
+          logout();
+          return;
+        }
+        if (!meRes.ok || !permRes.ok) return;
+
+        const me = (await meRes.json()) as AuthUser & { isActive?: boolean };
+        const perms = (await permRes.json()) as RolePermissions;
+        if (cancelled) return;
+
+        if (typeof perms.canAccessDashboard !== 'boolean') return;
+
+        const user: AuthUser = {
+          id: me.id,
+          email: me.email,
+          name: me.name,
+          role: me.role,
+          shopCode: me.shopCode,
+          phone: me.phone ?? null,
+          avatarUrl: me.avatarUrl ?? null,
+        };
+
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user, permissions: perms }));
+        setState((prev) => ({
+          ...prev,
+          user,
+          permissions: perms,
+          isAuthenticated: true,
+          isLoading: false,
+        }));
+      } catch {
+        // Offline / transient errors: keep restored session from storage.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state.token, logout]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

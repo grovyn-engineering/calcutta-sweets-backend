@@ -172,7 +172,7 @@ function BillingPosManualSectionInner({
         headerSort: false,
       },
       {
-        title: '',
+        title: 'Image',
         field: 'imageUrl',
         width: 56,
         minWidth: 52,
@@ -199,19 +199,41 @@ function BillingPosManualSectionInner({
         formatter: (cell) => {
           const row = cell.getRow().getData() as ApiVariantRow;
           const wrap = document.createElement('div');
+          wrap.className = 'billing-pos-product-stack';
+          wrap.setAttribute('data-skip-overflow-tooltip', '1');
+
+          const product = (row.productName ?? '').trim();
+          const variant = (row.variantName ?? '').trim();
+          const titleText =
+            product || variant || '—';
+
           const titleEl = document.createElement('div');
           titleEl.className = 'billing-pos-product-title';
-          titleEl.textContent = row.productName ?? '';
+          titleEl.textContent = titleText;
+
           const sub = document.createElement('div');
           sub.className = 'billing-pos-product-sub';
           const cat = (row.category ?? '').trim();
-          const parts = [
-            row.variantName,
-            cat && cat !== '-' ? cat.replace(/_/g, ' ') : null,
-          ].filter(Boolean);
-          sub.textContent = parts.join(' · ');
-          wrap.appendChild(titleEl);
-          wrap.appendChild(sub);
+          const subParts: string[] = [];
+          if (product && variant && variant !== product) {
+            subParts.push(variant);
+          }
+          if (cat && cat !== '-') {
+            subParts.push(cat.replace(/_/g, ' '));
+          }
+          const subText = subParts.join(' · ');
+          sub.textContent = subText;
+
+          const tipParts = [titleText];
+          if (subText) tipParts.push(subText);
+          const fullTip = tipParts.join(' — ');
+          wrap.dataset.fullTip = fullTip;
+
+          const inner = document.createElement('div');
+          inner.className = 'billing-pos-product-stack-content';
+          inner.appendChild(titleEl);
+          inner.appendChild(sub);
+          wrap.appendChild(inner);
           return wrap;
         },
       },
@@ -277,10 +299,10 @@ function BillingPosManualSectionInner({
           inr.format(Number(cell.getValue()) || 0),
       },
       {
-        title: '',
+        title: 'Actions',
         field: '_add',
-        width: 85,
-        minWidth: 80,
+        width: 96,
+        minWidth: 96,
         hozAlign: 'right',
         headerSort: false,
         resizable: false,
@@ -358,8 +380,8 @@ function BillingPosManualSectionInner({
   }, [baseUrl, shopCode]);
 
   const onTableRef = useCallback(
-    (instanceRef: { current?: TabulatorPageable }) => {
-      tableRef.current = instanceRef.current ?? null;
+    (instanceRef: { current?: unknown }) => {
+      tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
     },
     [],
   );

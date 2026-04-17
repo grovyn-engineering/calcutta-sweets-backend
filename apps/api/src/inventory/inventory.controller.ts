@@ -112,8 +112,9 @@ export class InventoryController {
     if (!file) {
       throw new BadRequestException('File is required');
     }
+    const relative = `/uploads/${file.filename}`;
     return {
-      url: `/uploads/${file.filename}`,
+      url: this.inventoryService.absoluteAssetUrl(relative),
     };
   }
 }

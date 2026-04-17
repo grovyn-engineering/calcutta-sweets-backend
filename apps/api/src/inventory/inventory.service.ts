@@ -7,6 +7,12 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { UpdateVariantDto } from './dto/update-variant.dto';
 
+type VariantDetailRow = Prisma.ProductVariantGetPayload<{
+  include: {
+    product: { include: { category: true; shop: true; images: true } };
+  };
+}>;
+
 export type VariantListFilters = {
   search?: string;
   category?: string;
@@ -21,7 +27,7 @@ export class InventoryService {
    * Prefix relative `/uploads/...` (and similar) paths with the public API origin so clients
    * can load them without guessing the Nest host (e.g. when the dashboard proxies `/api` only).
    */
-  private absoluteAssetUrl(url: string): string {
+  absoluteAssetUrl(url: string): string {
     const u = url.trim();
     if (u.startsWith('http://') || u.startsWith('https://')) return u;
     const base =
@@ -30,6 +36,19 @@ export class InventoryService {
       'http://127.0.0.1:3000';
     if (u.startsWith('/')) return `${base}${u}`;
     return `${base}/${u}`;
+  }
+
+  private mapVariantDetailAbsoluteUrls(row: VariantDetailRow): VariantDetailRow {
+    return {
+      ...row,
+      product: {
+        ...row.product,
+        images: row.product.images.map((img) => ({
+          ...img,
+          url: this.absoluteAssetUrl(img.url),
+        })),
+      },
+    };
   }
 
   async findVariantByBarcode(barcode: string, shopCode: string) {
@@ -97,12 +116,12 @@ export class InventoryService {
     if (row.product.shopCode !== shopCode) {
       throw new ForbiddenException('Variant is not in the active shop scope');
     }
-    return row;
+    return this.mapVariantDetailAbsoluteUrls(row);
   }
 
   async updateVariant(id: string, dto: UpdateVariantDto, shopCode: string) {
-    const variant = await this.findVariantById(id, shopCode);
-    return this.prisma.productVariant.update({
+    await this.findVariantById(id, shopCode);
+    const updated = await this.prisma.productVariant.update({
       where: { id },
       data: {
         ...(dto.quantity !== undefined ? { quantity: dto.quantity } : {}),
@@ -129,6 +148,7 @@ export class InventoryService {
         product: { include: { category: true, shop: true, images: true } },
       },
     });
+    return this.mapVariantDetailAbsoluteUrls(updated);
   }
 
   /** Paginated SKUs for inventory and POS; optional search, category, active-only. */
