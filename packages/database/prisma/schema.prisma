@@ -64,6 +64,9 @@ model User {
   role     UserRole @default(STAFF)
   isActive Boolean  @default(true)
 
+  /// Optional per-user permission toggles; merged with defaults for `role` (see SettingsService).
+  permissionOverrides Json?
+
   shopCode String
   shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 

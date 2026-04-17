@@ -39,6 +39,11 @@ function setCachedUser(id: string, user: UserWithShop) {
   jwtUserCache.set(id, { user, storedAt: Date.now() });
 }
 
+/** Call after mutating a user so the next request reloads role / permissionOverrides. */
+export function invalidateJwtUserCache(userId: string) {
+  jwtUserCache.delete(userId);
+}
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
