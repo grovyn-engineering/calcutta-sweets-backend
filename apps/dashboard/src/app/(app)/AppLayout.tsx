@@ -22,6 +22,8 @@ type SidebarItem = {
   /** Show when any of these permissions is true (used for merged Dashboard + Analytics). */
   anyPermissionKey?: (keyof import('@/contexts/AuthContext').RolePermissions)[];
   superAdminOnly?: boolean;
+  /** If set, sidebar item is shown only when `user.role` is one of these (e.g. Users for Admin + Super Admin). */
+  allowedRoles?: string[];
 };
 
 const sidebarItemsDef: SidebarItem[] = [
@@ -36,7 +38,11 @@ const sidebarItemsDef: SidebarItem[] = [
   { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link>, permissionKey: 'canAccessInventory' },
   { key: '/stock-transfers', label: <Link href="/stock-transfers" className={styles.menuLink} scroll={false}>Stock Transfers</Link>, permissionKey: 'canAccessInventory' },
   { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link>, permissionKey: 'canAccessCategories' },
-  { key: '/users', label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>, superAdminOnly: true },
+  {
+    key: '/users',
+    label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+  },
   { key: '/shops', label: <Link href="/shops" className={styles.menuLink} scroll={false}>Shops</Link>, superAdminOnly: true },
   { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link>, permissionKey: 'canAccessSettings' },
 ];
@@ -91,6 +97,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const isSuper = user?.role === 'SUPER_ADMIN';
     return sidebarItemsDef
       .filter((item) => {
+        if (
+          item.allowedRoles?.length &&
+          (!user?.role || !item.allowedRoles.includes(user.role))
+        ) {
+          return false;
+        }
         if (item.superAdminOnly && !isSuper) return false;
         if (item.anyPermissionKey?.length && permissions) {
           const ok = item.anyPermissionKey.some((k) => permissions[k]);
@@ -115,9 +127,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         ? 'Categories'
         : pathname.startsWith('/orders/')
           ? 'Bill detail'
-          : pathname.startsWith('/shops/')
-            ? 'Shop details'
-            : 'Dashboard');
+          : pathname.startsWith('/users/')
+            ? 'Edit user'
+            : pathname.startsWith('/shops/')
+              ? 'Shop details'
+              : 'Dashboard');
 
   const showShopSwitcher = user?.role === 'SUPER_ADMIN' && shops.length > 0;
 

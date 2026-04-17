@@ -43,6 +43,7 @@ function nestOriginFromEnv(): string {
   if (origin.startsWith("http://") || origin.startsWith("https://")) {
     return origin;
   }
+  /** Default Nest host when env is unset; keep in sync with `next.config.ts` `resolveApiUpstream`. */
   return "http://127.0.0.1:3001";
 }
 

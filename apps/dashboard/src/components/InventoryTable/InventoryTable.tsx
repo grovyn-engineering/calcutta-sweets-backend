@@ -49,22 +49,6 @@ const columns = (
   onPrint: (item: BarcodePrintItem) => void
 ): ColumnDefinition[] => [
     {
-      title: '',
-      formatter: "rowSelection",
-      titleFormatter: "rowSelection",
-      hozAlign: "center",
-      headerHozAlign: "center",
-      cssClass: "inventory-select-cell",
-      responsive: 0,
-      width: 44,
-      headerSort: false,
-      resizable: false,
-      minWidth: 52,
-      cellClick: (_e: unknown, cell: any) => {
-        cell.getRow().toggleSelect();
-      },
-    },
-    {
       title: "Image",
       field: "imageUrl",
       width: 56,
@@ -319,12 +303,8 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
 
   const [printItems, setPrintItems] = useState<BarcodePrintItem[]>([]);
   const [printModalOpen, setPrintModalOpen] = useState(false);
-  const [selectedCount, setSelectedCount] = useState(0);
   const [isPrintingAll, setIsPrintingAll] = useState(false);
   const [refillModalOpen, setRefillModalOpen] = useState(false);
-
-  // Single ref for the raw Tabulator instance
-  const tabulatorRef = useRef<any>(null);
 
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
@@ -347,34 +327,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     setPrintItems([item]);
     setPrintModalOpen(true);
   }, []);
-
-  const handlePrintBulk = useCallback(() => {
-    const t = tabulatorRef.current;
-    if (!t) return;
-
-    const selectedRows: any[] =
-      typeof t.getSelectedData === "function" ? t.getSelectedData() : [];
-
-    if (selectedRows.length === 0) return;
-
-    const items = selectedRows
-      .filter((r) => !!r.barcode)
-      .map((r) => ({
-        id: r.id,
-        productName: r.productName,
-        variantName: r.variantName,
-        barcode: r.barcode,
-        price: r.price,
-      }));
-
-    if (items.length === 0) {
-      message.warning("None of the selected rows have barcodes.");
-      return;
-    }
-
-    setPrintItems(items);
-    setPrintModalOpen(true);
-  }, [message]);
 
   const handlePrintAllFiltered = useCallback(async () => {
     if (!shopKey) return;
@@ -469,8 +421,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
       placeholder:
         "No rows match your search or this shop has no inventory yet.",
 
-      selectable: true,
-
       rowDblClick: (e: any, row: any) => {
         if ((e.target as HTMLElement).closest("button")) return;
         const id = row.getData().id as string | undefined;
@@ -540,17 +490,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           />
         </div>
         <div className={styles.toolbarActions}>
-          {selectedCount > 0 && (
-            <Button
-              type="primary"
-              className={styles.toolbarBtnPrimary}
-              icon={<Printer className="h-4 w-4" />}
-              onClick={handlePrintBulk}
-            >
-              Print {selectedCount} barcodes
-            </Button>
-          )}
-
           {!shopsLoading && !isFactory && (
             <Button
               type="default"
@@ -577,16 +516,9 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
       <div className={styles.tableSlot} ref={tableSlotRef}>
         <DataTable
           columns={memoizedColumns}
-          options={useMemo(() => ({
-            ...options,
-            rowSelectionChanged: (_data: unknown[], rows: unknown[]) => {
-              setSelectedCount(rows.length);
-            },
-          }), [options])}
+          options={options}
           onRef={(instanceRef: { current?: any }) => {
-            const instance = instanceRef.current ?? null;
-            tableRef.current = instance;
-            tabulatorRef.current = instance;
+            tableRef.current = instanceRef.current ?? null;
           }}
           loading={tableLoading}
           onRemoteBusyChange={onRemoteBusyChange}

@@ -41,6 +41,13 @@ const ReactTabulator = dynamic(
 export type DataTableProps = {
   columns: ColumnDefinition[];
   options?: ReactTabulatorOptions;
+  /**
+   * Tabulator event handlers (e.g. rowClick). Prefer this over putting the same keys on
+   * `options` — react-tabulator wires `events` via `instance.on()` and does not reliably
+   * apply callbacks that only live on `options`.
+   */
+  // Tabulator passes typed row/cell args; a single index signature cannot model every event.
+  events?: Record<string, (...args: any[]) => void>;
   data?: unknown[];
   loading?: boolean;
   onRemoteBusyChange?: (busy: boolean) => void;
@@ -56,6 +63,7 @@ export type DataTableProps = {
 export function DataTable({
   columns,
   options,
+  events,
   data,
   loading: loadingProp,
   onRemoteBusyChange,
@@ -418,6 +426,7 @@ export function DataTable({
         columns={columns}
         options={internalOptions}
         data={data}
+        events={events}
         onRef={handleRef}
       />
 
