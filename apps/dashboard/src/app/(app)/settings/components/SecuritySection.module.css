@@ -3,7 +3,7 @@
   width: 100%;
 }
 
-/* Step 1 — full-width inner surface (fills the accordion, not a narrow strip) */
+/* Step 1 - full-width inner surface (fills the accordion, not a narrow strip) */
 .step1Shell {
   position: relative;
   width: 100%;
@@ -162,7 +162,7 @@
   }
 }
 
-/* Step 2 — OTP */
+/* Step 2 - OTP */
 .step2 {
   max-width: 24rem;
   margin: 0 auto;
@@ -229,7 +229,7 @@
   border-color: var(--ochre-600) !important;
 }
 
-/* Step 3 — success */
+/* Step 3 - success */
 .step3 {
   max-width: 22rem;
   margin: 0 auto;

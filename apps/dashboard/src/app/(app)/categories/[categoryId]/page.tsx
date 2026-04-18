@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import { Printer } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { CategoryProductsTabulator } from "@/components/CategoryProductsTabulator/CategoryProductsTabulator";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
@@ -68,8 +68,28 @@ export default function CategoryDetailPage() {
   const [categoryPrintLoading, setCategoryPrintLoading] = useState(false);
   const [editForm] = Form.useForm();
   const [addForm] = Form.useForm();
+  const [categoryOptions, setCategoryOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   const refresh = () => setDetailVersion((v) => v + 1);
+
+  useEffect(() => {
+    if (!shopCode) return;
+    void apiFetch("/category")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (Array.isArray(data)) {
+          setCategoryOptions(
+            data.map((c: { id: string; name: string }) => ({
+              label: c.name,
+              value: c.id,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+  }, [shopCode]);
 
   const onOpenVariant = useCallback(
     (variantId: string) => {
@@ -136,6 +156,8 @@ export default function CategoryDetailPage() {
   const onAddProduct = async (values: {
     name: string;
     price: number;
+    categoryId?: string;
+    variantName?: string;
     quantity?: number;
     costPrice?: number;
     sku?: string;
@@ -152,9 +174,11 @@ export default function CategoryDetailPage() {
       const body: Record<string, unknown> = {
         name: values.name.trim(),
         price: values.price,
-        categoryId,
         isListedOnWebsite: !!values.isListedOnWebsite,
       };
+      const chosenCat = values.categoryId?.trim();
+      if (chosenCat) body.categoryId = chosenCat;
+      if (values.variantName?.trim()) body.variantName = values.variantName.trim();
       if (values.quantity !== undefined && values.quantity !== null) body.quantity = values.quantity;
       if (values.costPrice !== undefined && values.costPrice !== null) body.costPrice = values.costPrice;
       if (values.sku?.trim()) body.sku = values.sku.trim();
@@ -181,6 +205,7 @@ export default function CategoryDetailPage() {
       }
       message.success("Product added");
       addForm.resetFields();
+      addForm.setFieldValue("categoryId", categoryId);
       refresh();
     } finally {
       setAddSubmitting(false);
@@ -188,6 +213,12 @@ export default function CategoryDetailPage() {
   };
 
   const cat = isCategoryDetail(data) ? data : null;
+
+  useEffect(() => {
+    if (categoryId && cat) {
+      addForm.setFieldValue("categoryId", categoryId);
+    }
+  }, [categoryId, cat, addForm]);
 
   const onPrintCategoryBarcodes = useCallback(async () => {
     if (!shopCode || !cat) return;
@@ -243,7 +274,7 @@ export default function CategoryDetailPage() {
 
       if (items.length === 0) {
         message.warning(
-          "No barcodes in this category — add barcodes on each variant in Inventory.",
+          "No barcodes in this category - add barcodes on each variant in Inventory.",
         );
         return;
       }
@@ -318,7 +349,7 @@ export default function CategoryDetailPage() {
       </header>
 
       <section className={styles.panel} aria-label="Add product">
-        <p className={styles.sectionLabel}>Add product to this category</p>
+        <p className={styles.sectionLabel}>Add product</p>
         <Form
           form={addForm}
           layout="vertical"
@@ -332,6 +363,21 @@ export default function CategoryDetailPage() {
               rules={[{ required: true, message: "Required" }]}
             >
               <Input placeholder="e.g. Kaju Katli" autoComplete="off" />
+            </Form.Item>
+            <Form.Item name="categoryId" label="Category">
+              <Select
+                placeholder="Uncategorized"
+                options={categoryOptions}
+                allowClear
+                showSearch
+                optionFilterProp="label"
+              />
+            </Form.Item>
+            <Form.Item name="variantName" label="Variant label">
+              <Input
+                placeholder="e.g. Regular, 500g (optional)"
+                autoComplete="off"
+              />
             </Form.Item>
             <Form.Item
               name="price"

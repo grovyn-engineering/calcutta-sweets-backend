@@ -127,7 +127,7 @@ export default function OrdersTable() {
       {
         title: "Payment",
         field: "paymentMethod",
-        width: 108,
+        minWidth: 140,
         headerSort: false,
         formatter: (cell) => {
           const raw = String(cell.getValue() ?? "");

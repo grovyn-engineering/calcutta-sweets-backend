@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Button, Modal, InputNumber, Tooltip } from 'antd';
+import { App, Button, Modal, InputNumber, Select, Tooltip } from 'antd';
 import {
   UserPlus,
   Receipt,
@@ -18,26 +18,35 @@ import { apiFetch } from '@/lib/api';
 import {
   openPrintableInvoice,
   orderIdToInvoiceRef,
+  type PrintInvoiceInput,
 } from '@/lib/printInvoice';
+import {
+  allowedInstantDisplayUnits,
+  billDisplayUnitPrice,
+  billLineSubtotal,
+} from '@/lib/billingInstantPricing';
 import { ProductLineThumb } from '@/components/ProductLineThumb/ProductLineThumb';
 
 export interface BillItem {
+  lineId: string;
   variantId: string;
   productId: string;
   name: string;
   variantLabel: string;
   barcode: string;
-  unitPrice: number;
-  quantity: number;
-  unit: string;
+  catalogUnitPrice: number;
+  stockUnitsToDeduct: number;
+  displayQuantity: number;
+  displayUnit: string;
+  inventoryUnit: string;
   imageUrl?: string | null;
+  isInstant?: boolean;
 }
 
 export type BillingBillPanelLayout = 'sidebar' | 'drawer';
 
 export type PosPaymentMethod = 'CASH' | 'UPI_CARD';
 
-/** Lift customer + modal open state to a parent (e.g. Billing POS toolbar). */
 export type BillingCustomerBinding = {
   customer: CustomerFormValues | null;
   setCustomer: (value: CustomerFormValues | null) => void;
@@ -47,18 +56,17 @@ export type BillingCustomerBinding = {
 
 export interface BillingBillPanelProps {
   items: BillItem[];
-  onQuantityChange: (variantId: string, delta: number) => void;
-  onRemove: (variantId: string) => void;
-  /** Called after the order is saved and the invoice print flow runs. */
+  onQuantityChange: (lineId: string, delta: number) => void;
+  onRemove: (lineId: string) => void;
+  onInstantLineUpdate?: (
+    lineId: string,
+    next: { displayQuantity: number; displayUnit: string },
+  ) => void;
   onSaleComplete?: () => void;
   orderId?: string;
   layout?: BillingBillPanelLayout;
   className?: string;
   customerBinding?: BillingCustomerBinding;
-  /**
-   * Omit the add-customer control above line items (parent provides it). Customer summary still
-   * shows when a customer is set.
-   */
   hideAddCustomerInPanel?: boolean;
 }
 
@@ -66,6 +74,7 @@ export function BillingBillPanel({
   items,
   onQuantityChange,
   onRemove,
+  onInstantLineUpdate,
   onSaleComplete,
   orderId = '-',
   layout = 'sidebar',
@@ -85,25 +94,22 @@ export function BillingBillPanel({
   const sgstRate = currentShop?.sgstRate ?? 2.5;
   const totalTaxRate = (cgstRate + sgstRate) / 100;
 
-  // With inclusive tax, "subtotal" here is the items gross total (sum of inclusive prices)
   const itemsGrossTotal = items.reduce(
-    (sum, i) => sum + i.unitPrice * i.quantity,
+    (sum, i) =>
+      sum + billLineSubtotal(i.stockUnitsToDeduct, i.catalogUnitPrice),
     0,
   );
   
   const [discount, setDiscount] = useState(0);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [tempDiscount, setTempDiscount] = useState(0);
-  
-  // Total payable matches the gross minus discount
+
   const total = itemsGrossTotal - discount;
 
-  // Calculate taxes backward from the total
   const gstAmount = total * (totalTaxRate / (1 + totalTaxRate));
   const cgstAmount = total * ((cgstRate / 100) / (1 + totalTaxRate));
   const sgstAmount = total * ((sgstRate / 100) / (1 + totalTaxRate));
-  
-  // The base amount (pre-tax) for reporting
+
   const baseAmount = total - gstAmount;
 
   const [internalDetailsOpen, setInternalDetailsOpen] = useState(false);
@@ -117,7 +123,7 @@ export function BillingBillPanel({
     null,
   );
   const [checkoutBusy, setCheckoutBusy] = useState(false);
-  const lineCount = items.reduce((s, i) => s + i.quantity, 0);
+  const lineCount = items.length;
 
   const handleGenerateBill = async () => {
     if (items.length === 0) {
@@ -141,8 +147,14 @@ export function BillingBillPanel({
           customerEmail: customer?.email,
           items: items.map((i) => ({
             variantId: i.variantId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
+            quantity: i.stockUnitsToDeduct,
+            unitPrice: i.catalogUnitPrice,
+            ...(i.isInstant
+              ? {
+                  displayQuantity: i.displayQuantity,
+                  displayUnit: i.displayUnit,
+                }
+              : {}),
           })),
         }),
       });
@@ -159,7 +171,7 @@ export function BillingBillPanel({
       }
       const saved = payload as { id: string };
       const invoiceNo = orderIdToInvoiceRef(saved.id);
-      const ok = openPrintableInvoice({
+      const printPayload: PrintInvoiceInput = {
         shopName,
         shopCode: effectiveShopCode || '-',
         invoiceNo,
@@ -168,22 +180,46 @@ export function BillingBillPanel({
           name: i.name,
           variantLabel: i.variantLabel,
           barcode: i.barcode,
-          quantity: i.quantity,
-          unit: i.unit,
-          unitPrice: i.unitPrice,
+          quantity: i.displayQuantity,
+          unit: i.displayUnit,
+          unitPrice: billDisplayUnitPrice(
+            i.stockUnitsToDeduct,
+            i.catalogUnitPrice,
+            i.displayQuantity,
+          ),
         })),
-        subtotal: baseAmount, // Base amount for invoice
+        subtotal: baseAmount,
         gstRate: totalTaxRate,
         gstAmount: gstAmount,
         discount,
         total,
-      });
-      if (!ok) {
+      };
+      const receiptOk = openPrintableInvoice(printPayload, 'receipt');
+      if (!receiptOk) {
         message.error(
-          'Sale saved, but the print window was blocked. Allow pop-ups to print the invoice.',
+          'Sale saved, but the print window was blocked. Allow pop-ups to print the receipt.',
         );
       } else {
-        message.success('Bill saved and sent to print.');
+        message.success({
+          content: (
+            <span className="flex flex-col items-start gap-0.5 text-left">
+              <span>Bill saved. Thermal receipt sent to print.</span>
+              <Button
+                type="link"
+                className="!h-auto !p-0 text-[var(--ochre-700)]"
+                onClick={() => {
+                  const ok = openPrintableInvoice(printPayload, 'a4');
+                  if (!ok) {
+                    message.error('Pop-up blocked. Allow pop-ups to print the A4 invoice.');
+                  }
+                }}
+              >
+                Print full A4 invoice
+              </Button>
+            </span>
+          ),
+          duration: 10,
+        });
       }
       setPaymentMethod(null);
       setDiscount(0);
@@ -209,7 +245,7 @@ export function BillingBillPanel({
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                 {items.length === 0
                   ? 'Scan a barcode or add a line below'
-                  : `${lineCount} item${lineCount === 1 ? '' : 's'} · Order #${orderId}`}
+                  : `${lineCount} line${lineCount === 1 ? '' : 's'} · Order #${orderId}`}
               </p>
             </div>
             {!hideAddCustomerInPanel && !customer ? (
@@ -309,13 +345,14 @@ export function BillingBillPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:py-4">
         {items.length === 0 ? (
           <div className="py-10 text-center text-sm text-[var(--text-muted)]">
-            No lines yet. Use the scanner field or pick a product from the list.
+            No lines yet. Scan a barcode, use Standard billing, or Instant billing
+            for custom weights.
           </div>
         ) : (
           <ul className="space-y-3 pr-1 sm:space-y-4">
             {items.map((item) => (
               <li
-                key={item.variantId}
+                key={item.lineId}
                 className="flex gap-3 border-b border-[var(--pearl-bush)] pb-3 last:border-0 last:pb-0 sm:pb-4"
               >
                 <div className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 self-center">
@@ -337,35 +374,106 @@ export function BillingBillPanel({
                       </p>
                     </div>
                     <p className="shrink-0 font-semibold text-[var(--text-primary)]">
-                      ₹{(item.quantity * item.unitPrice).toFixed(2)}
+                      ₹
+                      {billLineSubtotal(
+                        item.stockUnitsToDeduct,
+                        item.catalogUnitPrice,
+                      ).toFixed(2)}
                     </p>
                   </div>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {item.quantity} {item.unit} × ₹{item.unitPrice.toFixed(2)}
+                    {item.displayQuantity}{' '}
+                    {item.displayUnit}
+                    {' × ₹'}
+                    {billDisplayUnitPrice(
+                      item.stockUnitsToDeduct,
+                      item.catalogUnitPrice,
+                      item.displayQuantity,
+                    ).toFixed(2)}
                   </p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="flex items-center overflow-hidden rounded-lg border border-[var(--pearl-bush)]">
-                      <button
-                        type="button"
-                        onClick={() => onQuantityChange(item.variantId, -1)}
-                        className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--bistre-100)]"
-                      >
-                        −
-                      </button>
-                      <span className="min-w-[1.5rem] sm:min-w-[2rem] text-center text-xs sm:text-sm font-medium text-[var(--text-primary)]">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onQuantityChange(item.variantId, 1)}
-                        className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--ochre-100)]"
-                      >
-                        +
-                      </button>
+                  {item.isInstant ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-[11rem]">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+                          Qty
+                        </span>
+                        <InputNumber
+                          size="small"
+                          className="w-full !min-w-0"
+                          min={item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.001}
+                          step={
+                            item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.5
+                          }
+                          value={item.displayQuantity}
+                          onChange={(v) => {
+                            if (v == null || onInstantLineUpdate == null) return;
+                            onInstantLineUpdate(item.lineId, {
+                              displayQuantity: v,
+                              displayUnit: item.displayUnit,
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-[9rem]">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+                          Unit
+                        </span>
+                        <Select
+                          size="small"
+                          className="w-full min-w-0"
+                          value={item.displayUnit}
+                          options={allowedInstantDisplayUnits(
+                            item.variantLabel,
+                            item.inventoryUnit,
+                          ).map((u) => ({
+                            value: u,
+                            label: u,
+                          }))}
+                          onChange={(u) => {
+                            if (onInstantLineUpdate == null) return;
+                            let q = item.displayQuantity;
+                            if (u.toUpperCase() === 'PC') {
+                              q = Math.max(1, Math.round(q));
+                            }
+                            onInstantLineUpdate(item.lineId, {
+                              displayQuantity: q,
+                              displayUnit: u,
+                            });
+                          }}
+                          getPopupContainer={(n) => n.parentElement ?? document.body}
+                        />
+                      </div>
                     </div>
+                  ) : null}
+                  <div className="mt-2 flex items-center gap-2">
+                    {!item.isInstant ? (
+                      <div className="flex items-center overflow-hidden rounded-lg border border-[var(--pearl-bush)]">
+                        <button
+                          type="button"
+                          onClick={() => onQuantityChange(item.lineId, -1)}
+                          className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--bistre-100)]"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-[1.5rem] sm:min-w-[2rem] text-center text-xs sm:text-sm font-medium text-[var(--text-primary)]">
+                          {item.displayQuantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onQuantityChange(item.lineId, 1)}
+                          className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--ochre-100)]"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-[var(--text-muted)]">
+                        Adjust qty &amp; unit above - total follows catalog price.
+                      </span>
+                    )}
                     <button
                       type="button"
-                      onClick={() => onRemove(item.variantId)}
+                      onClick={() => onRemove(item.lineId)}
                       className="flex min-h-10 min-w-10 items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
                       aria-label={`Remove ${item.name}`}
                     >

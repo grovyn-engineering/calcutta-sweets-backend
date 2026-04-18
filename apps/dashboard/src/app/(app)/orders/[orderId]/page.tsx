@@ -12,19 +12,22 @@ import {
   Divider,
   Row,
   Space,
-  Table,
   Tag,
   Tooltip,
   Typography,
 } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
+import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 
-import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
+import { DataTable } from "@/components/DataTable/DataTable";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
-import { openPrintableInvoice, orderIdToInvoiceRef } from "@/lib/printInvoice";
+import {
+  openPrintableInvoice,
+  orderIdToInvoiceRef,
+  type InvoicePrintFormat,
+} from "@/lib/printInvoice";
 
 import styles from "./bill-detail.module.css";
 
@@ -43,6 +46,12 @@ type OrderDetailItem = {
   variantLabel: string;
   unit: string | null;
   barcode: string;
+};
+
+type OrderLineTabRow = OrderDetailItem & {
+  id: string;
+  unitResolved: string;
+  lineTotal: number;
 };
 
 type OrderDetail = {
@@ -151,75 +160,95 @@ export default function OrderBillDetailPage() {
 
   const invoiceRef = order ? orderIdToInvoiceRef(order.id) : "…";
 
-  const lineColumns: ColumnsType<OrderDetailItem & { key: number }> = useMemo(
+  const lineColumns = useMemo<ColumnDefinition[]>(
     () => [
       {
         title: "Item",
-        key: "item",
-        render: (_, line) => (
-          <div className="min-w-0 max-w-[min(100%,280px)] py-0.5">
-            <Text strong className="text-[var(--text-primary)]">
-              {line.productName}
-            </Text>
-            {line.variantLabel && line.variantLabel !== "-" ? (
-              <div>
-                <Text type="secondary" className="text-xs leading-snug">
-                  {line.variantLabel}
-                </Text>
-              </div>
-            ) : null}
-            {line.barcode ? (
-              <Tooltip title={`Barcode: ${line.barcode}`}>
-                <Text
-                  type="secondary"
-                  className="mt-0.5 block max-w-full break-words font-mono text-[10px] leading-snug opacity-70"
-                >
-                  {line.barcode}
-                </Text>
-              </Tooltip>
-            ) : null}
-          </div>
-        ),
+        field: "productName",
+        minWidth: 200,
+        headerSort: false,
+        cssClass: styles.lineItemProductCol,
+        formatter: (cell) => {
+          const row = cell.getRow().getData() as OrderLineTabRow;
+          const wrap = document.createElement("div");
+          wrap.className = styles.lineItemProductStack;
+          const title = document.createElement("div");
+          title.className = styles.lineItemTitle;
+          title.textContent = row.productName ?? "";
+          wrap.appendChild(title);
+          if (row.variantLabel?.trim() && row.variantLabel !== "-") {
+            const sub = document.createElement("div");
+            sub.className = styles.lineItemSub;
+            sub.textContent = row.variantLabel;
+            wrap.appendChild(sub);
+          }
+          if (row.barcode?.trim()) {
+            const code = document.createElement("div");
+            code.className = styles.lineItemCode;
+            code.textContent = row.barcode;
+            code.title = `Barcode: ${row.barcode}`;
+            wrap.appendChild(code);
+          }
+          return wrap;
+        },
       },
       {
         title: "Qty",
-        dataIndex: "quantity",
-        width: 72,
-        align: "right",
-        className: "tabular-nums",
+        field: "quantity",
+        width: 88,
+        hozAlign: "right",
+        headerSort: false,
+        cssClass: styles.lineItemNumCol,
+        formatter: (cell) => {
+          const span = document.createElement("span");
+          span.className = styles.tabularCell;
+          const n = Number(cell.getValue());
+          span.textContent = Number.isFinite(n)
+            ? n.toLocaleString("en-IN", { maximumFractionDigits: 3 })
+            : String(cell.getValue() ?? "");
+          return span;
+        },
       },
       {
         title: "Unit",
-        key: "unit",
-        width: 72,
-        align: "center",
-        render: (_, line) => line.unit ?? "PC",
+        field: "unitResolved",
+        width: 80,
+        hozAlign: "center",
+        headerSort: false,
       },
       {
         title: "Rate",
-        key: "rate",
+        field: "unitPrice",
         width: 112,
-        align: "right",
-        className: "tabular-nums",
-        render: (_, line) => inr.format(line.unitPrice),
+        hozAlign: "right",
+        headerSort: false,
+        cssClass: styles.lineItemNumCol,
+        formatter: (cell) => {
+          const span = document.createElement("span");
+          span.className = styles.tabularCell;
+          span.textContent = inr.format(Number(cell.getValue()) || 0);
+          return span;
+        },
       },
       {
         title: "Amount",
-        key: "amount",
+        field: "lineTotal",
         width: 120,
-        align: "right",
-        className: "tabular-nums",
-        render: (_, line) => (
-          <Text strong className="text-[var(--bistre-800)]">
-            {inr.format(line.quantity * line.unitPrice)}
-          </Text>
-        ),
+        hozAlign: "right",
+        headerSort: false,
+        cssClass: styles.lineItemNumCol,
+        formatter: (cell) => {
+          const span = document.createElement("span");
+          span.className = styles.lineItemAmount;
+          span.textContent = inr.format(Number(cell.getValue()) || 0);
+          return span;
+        },
       },
     ],
     [],
   );
 
-  const handlePrint = () => {
+  const handlePrint = (format: InvoicePrintFormat) => {
     if (!order) return;
     const customer =
       order.customerName?.trim() || order.customerPhone?.trim()
@@ -231,40 +260,58 @@ export default function OrderBillDetailPage() {
             : {}),
         }
         : null;
-    const ok = openPrintableInvoice({
-      shopName,
-      shopCode: effectiveShopCode ?? "-",
-      invoiceNo: orderIdToInvoiceRef(order.id),
-      issuedAt: order.createdAt,
-      customer,
-      lines: order.items.map((i) => ({
-        name: i.productName,
-        variantLabel: i.variantLabel,
-        barcode: i.barcode,
-        quantity: i.quantity,
-        unit: i.unit ?? "PC",
-        unitPrice: i.unitPrice,
-      })),
-      subtotal: order.subtotal,
-      gstRate: totalTaxRate,
-      gstAmount: order.tax,
-      discount: order.discount,
-      total: order.totalAmount,
-    });
+    const ok = openPrintableInvoice(
+      {
+        shopName,
+        shopCode: effectiveShopCode ?? "-",
+        invoiceNo: orderIdToInvoiceRef(order.id),
+        issuedAt: order.createdAt,
+        customer,
+        lines: order.items.map((i) => ({
+          name: i.productName,
+          variantLabel: i.variantLabel,
+          barcode: i.barcode,
+          quantity: i.quantity,
+          unit: i.unit ?? "PC",
+          unitPrice: i.unitPrice,
+        })),
+        subtotal: order.subtotal,
+        gstRate: totalTaxRate,
+        gstAmount: order.tax,
+        discount: order.discount,
+        total: order.totalAmount,
+      },
+      format,
+    );
     if (!ok) {
       message.error("Pop-up blocked. Allow pop-ups to print this bill.");
     }
   };
 
-  const tableData =
-    order?.items.map((line, idx) => ({ ...line, key: idx })) ?? [];
+  const tableData: OrderLineTabRow[] = useMemo(() => {
+    if (!order?.items.length) return [];
+    return order.items.map((line, idx) => ({
+      ...line,
+      id: `${order.id}-${idx}`,
+      unitResolved: line.unit?.trim() || "PC",
+      lineTotal: line.quantity * line.unitPrice,
+    }));
+  }, [order]);
 
   const lineCount = order?.items.length ?? 0;
-  const tableScroll = {
-    y: linesBodyMaxHeight,
-    x: "max-content" as const,
-  };
-  const tableSize = lineCount > 14 ? ("small" as const) : ("middle" as const);
+
+  const lineTableOptions = useMemo<ReactTabulatorOptions>(() => {
+    const bodyCap = Math.min(
+      linesBodyMaxHeight,
+      Math.max(220, 52 + Math.max(1, lineCount) * 48),
+    );
+    return {
+      layout: "fitColumns",
+      maxHeight: bodyCap,
+      placeholder: "No line items on this bill.",
+      selectable: false,
+    };
+  }, [linesBodyMaxHeight, lineCount]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto pb-2">
@@ -342,17 +389,27 @@ export default function OrderBillDetailPage() {
               <Button onClick={() => router.push("/orders")}>
                 Back to orders
               </Button>
-              <Button
-                type="primary"
-                icon={<Printer className="h-4 w-4" />}
-                onClick={handlePrint}
-                style={{
-                  backgroundColor: "var(--ochre-600)",
-                  borderColor: "var(--ochre-600)",
-                }}
-              >
-                Print bill
-              </Button>
+              <Tooltip title="Full invoice on A4 / PDF-style layout">
+                <Button
+                  type="primary"
+                  icon={<Printer className="h-4 w-4" />}
+                  onClick={() => handlePrint("a4")}
+                  style={{
+                    backgroundColor: "var(--ochre-600)",
+                    borderColor: "var(--ochre-600)",
+                  }}
+                >
+                  Print invoice (A4)
+                </Button>
+              </Tooltip>
+              <Tooltip title="Narrow layout for 80mm thermal printers">
+                <Button
+                  icon={<Receipt className="h-4 w-4" />}
+                  onClick={() => handlePrint("receipt")}
+                >
+                  Print receipt
+                </Button>
+              </Tooltip>
             </Space>
           </div>
 
@@ -463,58 +520,43 @@ export default function OrderBillDetailPage() {
 
               <Divider className="my-6 border-[var(--pearl-bush)]" />
 
-              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                <Text className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-700)]">
-                  Line items
-                  {order ? (
-                    <span className="ml-1.5 font-mono font-normal normal-case text-[var(--bistre-600)]">
-                      ({order.items.length})
-                    </span>
+              <div className={styles.linesSection}>
+                <div className={styles.linesSectionHead}>
+                  <span className={styles.linesSectionTitle}>Line items</span>
+                  <span className={styles.linesSectionCount}>({lineCount})</span>
+                </div>
+                <div className={styles.lineItemsTableHost}>
+                  <DataTable
+                    key={order.id}
+                    columns={lineColumns}
+                    data={tableData}
+                    options={lineTableOptions}
+                    loading={false}
+                    minHeight={450}
+                    emptyTitle="No line items"
+                    emptyDescription="This bill has no products attached."
+                  />
+                  {order && lineCount > 0 ? (
+                    <div className={styles.linesFooter} role="rowgroup">
+                      <div className={styles.linesFooterLead} aria-hidden />
+                      <div className={styles.linesFooterMeta}>
+                        <Text strong className={styles.linesFooterMetaTitle}>
+                          Payable total
+                        </Text>
+                        <Text
+                          type="secondary"
+                          className={styles.linesFooterMetaHint}
+                        >
+                          Incl. GST & discount · {lineCount} line
+                          {lineCount === 1 ? "" : "s"}
+                        </Text>
+                      </div>
+                      <div className={styles.linesFooterGrand}>
+                        {inr.format(order.totalAmount)}
+                      </div>
+                    </div>
                   ) : null}
-                </Text>
-              </div>
-              <div className={`${styles.linesWrap} ${styles.linesWrapScroll}`}>
-                <Table<OrderDetailItem & { key: number }>
-                  size={tableSize}
-                  pagination={false}
-                  components={antTableOverflowComponents}
-                  columns={lineColumns}
-                  dataSource={tableData}
-                  scroll={tableScroll}
-                  rowClassName={() => "align-top"}
-                  summary={() =>
-                    order ? (
-                      <Table.Summary fixed="bottom">
-                        <Table.Summary.Row className={styles.summaryRow}>
-                          <Table.Summary.Cell index={0} colSpan={4} align="right">
-                            <div>
-                              <Text strong className="text-[var(--text-primary)]">
-                                Payable total
-                              </Text>
-                              <div>
-                                <Text
-                                  type="secondary"
-                                  className="text-[11px] leading-tight"
-                                >
-                                  Incl. GST & discount · {order.items.length} line
-                                  {order.items.length === 1 ? "" : "s"}
-                                </Text>
-                              </div>
-                            </div>
-                          </Table.Summary.Cell>
-                          <Table.Summary.Cell index={1} align="right">
-                            <Text
-                              strong
-                              className="!text-lg tabular-nums !text-[var(--bistre-800)]"
-                            >
-                              {inr.format(order.totalAmount)}
-                            </Text>
-                          </Table.Summary.Cell>
-                        </Table.Summary.Row>
-                      </Table.Summary>
-                    ) : null
-                  }
-                />
+                </div>
               </div>
             </div>
           </Card>

@@ -1,5 +1,12 @@
 import { Unit } from '@prisma/client';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateVariantDto {
   @IsOptional()
@@ -40,4 +47,21 @@ export class UpdateVariantDto {
   @IsOptional()
   @IsString({ each: true })
   images?: string[];
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  productName?: string;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null)
+  @IsUUID()
+  categoryId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  barcode?: string;
 }

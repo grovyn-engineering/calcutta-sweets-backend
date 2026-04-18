@@ -13,7 +13,6 @@ export type PrintInvoiceInput = {
   shopName: string;
   shopCode: string;
   invoiceNo: string;
-  /** Bill header date/time. Omit for the current time; use the stored sale time when reprinting. */
   issuedAt?: string;
   customer: CustomerFormValues | null;
   lines: InvoiceLineInput[];
@@ -23,6 +22,8 @@ export type PrintInvoiceInput = {
   discount: number;
   total: number;
 };
+
+export type InvoicePrintFormat = 'a4' | 'receipt';
 
 function esc(s: string | undefined | null): string {
   if (s == null || s === '') return '';
@@ -40,39 +41,217 @@ function formatMoney(n: number): string {
   }).format(Number.isFinite(n) ? n : 0);
 }
 
-/**
- * Opens the invoice HTML in a new window and runs the browser print dialog.
- * @returns `false` if the window was blocked.
- */
-export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
-  const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
-  const rows = data.lines.map((line) => {
-    const lineTotal = line.quantity * line.unitPrice;
-    const variant =
-      line.variantLabel && line.variantLabel !== 'Regular'
-        ? ` (${esc(line.variantLabel)})`
-        : '';
-    return `<tr>
+function buildLineRowsA4(data: PrintInvoiceInput): string {
+  return data.lines
+    .map((line) => {
+      const lineTotal = line.quantity * line.unitPrice;
+      const variant =
+        line.variantLabel && line.variantLabel !== 'Regular'
+          ? ` (${esc(line.variantLabel)})`
+          : '';
+      return `<tr>
       <td>${esc(line.name)}${variant}</td>
       <td class="num">${line.quantity}</td>
       <td>${esc(line.unit)}</td>
       <td class="num">₹${formatMoney(line.unitPrice)}</td>
       <td class="num">₹${formatMoney(lineTotal)}</td>
     </tr>`;
-  });
+    })
+    .join('');
+}
 
-  const customerBlock = data.customer
-    ? `<div class="box">
+function buildLineRowsReceipt(data: PrintInvoiceInput): string {
+  return data.lines
+    .map((line) => {
+      const lineTotal = line.quantity * line.unitPrice;
+      const variant =
+        line.variantLabel && line.variantLabel !== 'Regular'
+          ? ` (${esc(line.variantLabel)})`
+          : '';
+      return `<tr class="item-block">
+      <td colspan="2">
+        <div class="item-name">${esc(line.name)}${variant}</div>
+        <div class="item-meta">${line.quantity} ${esc(line.unit)} × ₹${formatMoney(line.unitPrice)}</div>
+      </td>
+      <td class="num amt">₹${formatMoney(lineTotal)}</td>
+    </tr>`;
+    })
+    .join('');
+}
+
+function customerBlockA4(data: PrintInvoiceInput): string {
+  if (!data.customer) {
+    return '<div class="box muted">Walk-in customer</div>';
+  }
+  return `<div class="box">
         <div class="box-title">Bill to</div>
         <div><strong>${esc(data.customer.name)}</strong></div>
         <div>Mobile: ${esc(data.customer.phone)}</div>
         ${data.customer.email ? `<div>${esc(data.customer.email)}</div>` : ''}
         ${data.customer.address ? `<div class="pre">${esc(data.customer.address)}</div>` : ''}
         ${data.customer.notes ? `<div class="note">Note: ${esc(data.customer.notes)}</div>` : ''}
-      </div>`
-    : '<div class="box muted">Walk-in customer</div>';
+      </div>`;
+}
 
-  const html = `<!DOCTYPE html>
+function customerBlockReceipt(data: PrintInvoiceInput): string {
+  if (!data.customer) {
+    return '<div class="cust muted">Walk-in</div>';
+  }
+  return `<div class="cust">
+    <strong>${esc(data.customer.name)}</strong>
+    · ${esc(data.customer.phone)}
+  </div>`;
+}
+
+function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): string {
+  const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
+  const dateStr = when.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const timeStr = when.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  if (format === 'receipt') {
+    const rows = buildLineRowsReceipt(data);
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Receipt ${esc(data.invoiceNo)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    html {
+      margin: 0;
+      padding: 0;
+      height: auto;
+    }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: #1a110c;
+      margin: 0 auto;
+      padding: 4mm 3mm;
+      width: 72mm;
+      max-width: 72mm;
+      min-height: 0;
+      height: auto !important;
+      font-size: 10px;
+      line-height: 1.3;
+    }
+    .print-hint {
+      font-size: 10px;
+      line-height: 1.35;
+      color: #5c4030;
+      margin: 0 0 10px;
+      padding: 8px 10px;
+      background: #fff4e0;
+      border: 1px solid #e8c48a;
+      border-radius: 6px;
+    }
+    .print-hint strong { color: #1a110c; }
+    .head { text-align: center; margin-bottom: 6px; }
+    h1 {
+      margin: 0 0 2px;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .sub { color: #5c4030; font-size: 9px; }
+    .meta { font-size: 9px; margin: 6px 0; color: #3d2818; }
+    .meta div { margin: 1px 0; }
+    .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; }
+    .cust.muted { color: #6b4a30; font-style: italic; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9px; }
+    th {
+      text-align: left;
+      border-bottom: 1px solid #1a110c;
+      padding: 4px 2px 3px 0;
+      font-size: 8px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #3d2818;
+    }
+    th.num { text-align: right; }
+    td { padding: 3px 2px 4px 0; vertical-align: top; border-bottom: 1px dotted #e0d5c8; }
+    td.num { text-align: right; white-space: nowrap; }
+    .item-name { font-weight: 600; }
+    .item-meta { color: #5c4030; font-size: 8px; margin-top: 1px; }
+    .item-block:last-child td { border-bottom: none; }
+    .totals { margin-top: 8px; font-size: 9px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 2px 0; gap: 8px; }
+    .totals-row.grand { font-size: 11px; font-weight: 700; border-top: 2px solid #1a110c; margin-top: 4px; padding-top: 6px; }
+    .footer { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #b8a08a; font-size: 8px; color: #6b4a30; text-align: center; }
+    /* Browsers often ignore custom roll sizes; thermal output is still correct when the printer is chosen. */
+    @page { margin: 2mm; size: 80mm auto; }
+    @media print {
+      .print-hint { display: none !important; }
+      html {
+        height: auto !important;
+        min-height: 0 !important;
+      }
+      body {
+        padding: 2mm 2mm 3mm;
+        width: 72mm;
+        max-width: 72mm;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <p class="print-hint">
+    <strong>Testing:</strong> Open <strong>Destination</strong> and pick your <strong>TVS / thermal printer</strong>.
+    &quot;Save as PDF&quot; always uses a full sheet, so the receipt looks tiny with empty space below. If you see paper size, choose 80&nbsp;mm or the driver&apos;s roll option.
+  </p>
+  <div class="head">
+    <h1>${esc(data.shopName)}</h1>
+    <div class="sub">Calcutta Sweets · Shop ${esc(data.shopCode)}</div>
+  </div>
+  <div class="meta">
+    <div><strong>Bill</strong> ${esc(data.invoiceNo)}</div>
+    <div>${esc(dateStr)} · ${esc(timeStr)}</div>
+  </div>
+  ${customerBlockReceipt(data)}
+  <table>
+    <thead>
+      <tr>
+        <th colspan="2">Item</th>
+        <th class="num">Amt</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+  <div class="totals">
+    <div class="totals-row"><span>Subtotal</span><span>₹${formatMoney(data.subtotal)}</span></div>
+    <div class="totals-row"><span>GST (${(data.gstRate * 100).toFixed(0)}%)</span><span>₹${formatMoney(data.gstAmount)}</span></div>
+    <div class="totals-row"><span>Discount</span><span>₹${formatMoney(data.discount)}</span></div>
+    <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>
+  </div>
+  <div class="footer">Thank you. Computer-generated bill.</div>
+  <script>
+    window.onload = function () {
+      setTimeout(function () {
+        window.focus();
+        window.print();
+      }, 150);
+    };
+  </script>
+</body>
+</html>`;
+  }
+
+  const rows = buildLineRowsA4(data);
+  const customerBlock = customerBlockA4(data);
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -134,8 +313,8 @@ export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
   <div class="tagline">Calcutta Sweets · Est. 2000 · Shop ${esc(data.shopCode)}</div>
   <div class="meta">
     <div><strong>Invoice no.</strong> ${esc(data.invoiceNo)}</div>
-    <div><strong>Date</strong> ${esc(when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}</div>
-    <div><strong>Time</strong> ${esc(when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))}</div>
+    <div><strong>Date</strong> ${esc(dateStr)}</div>
+    <div><strong>Time</strong> ${esc(timeStr)}</div>
   </div>
   ${customerBlock}
   <table>
@@ -149,7 +328,7 @@ export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
       </tr>
     </thead>
     <tbody>
-      ${rows.join('')}
+      ${rows}
     </tbody>
   </table>
   <div class="totals">
@@ -172,8 +351,13 @@ export function openPrintableInvoice(data: PrintInvoiceInput): boolean {
   </script>
 </body>
 </html>`;
+}
 
-  // Avoid `noopener` in the feature string - some browsers still open a tab but return `null` from `window.open`.
+export function openPrintableInvoice(
+  data: PrintInvoiceInput,
+  format: InvoicePrintFormat = 'a4',
+): boolean {
+  const html = buildInvoiceHtml(data, format);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');
@@ -201,7 +385,6 @@ export function makeInvoiceNo(prefix = 'INV'): string {
   return `${prefix}-${t.toString(36).toUpperCase()}-${r}`;
 }
 
-/** Compact bill reference derived from the order id (what we show on printed invoices). */
 export function orderIdToInvoiceRef(id: string): string {
   return id.replace(/-/g, '').slice(0, 12).toUpperCase();
 }

@@ -82,7 +82,7 @@ export default function ReportsOrdersTabulator() {
       {
         title: "Payment",
         field: "paymentMethod",
-        width: 100,
+        minWidth: 100,
         headerSort: false,
         formatter: (cell) => paymentPill(String(cell.getValue() ?? "")),
       },

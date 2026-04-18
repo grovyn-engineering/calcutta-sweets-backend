@@ -19,13 +19,25 @@ export class PosOrderLineDto {
   @IsString()
   variantId!: string;
 
+  @Type(() => Number)
   @IsNumber()
-  @Min(1)
+  @Min(0.000001)
   quantity!: number;
 
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   unitPrice!: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.000001)
+  displayQuantity?: number;
+
+  @IsOptional()
+  @IsString()
+  displayUnit?: string;
 }
 
 export class CreatePosOrderDto {

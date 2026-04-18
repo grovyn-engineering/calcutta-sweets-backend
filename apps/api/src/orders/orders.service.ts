@@ -8,6 +8,18 @@ import { CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { OrderStatus, Prisma } from '@calcutta/database';
 import { optionalIndianMobileOrNull } from '../common/indian-mobile';
 
+type OrderItemBillRow = {
+  quantity: unknown;
+  price: unknown;
+  posLabelQuantity: number | null;
+  posLabelUnit: string | null;
+  product: { name: string };
+  productVariant: {
+    name: string;
+    unit: string | null;
+    barcode: string;
+  } | null;
+};
 
 @Injectable()
 export class OrdersService {
@@ -35,7 +47,9 @@ export class OrdersService {
 
     for (const line of dto.items) {
       const v = vmap.get(line.variantId)!;
-      if (v.quantity < line.quantity) {
+      const available = Number(v.quantity);
+      const need = Number(line.quantity);
+      if (available + 1e-9 < need) {
         throw new BadRequestException(
           `Insufficient stock for ${v.product.name} (${v.name})`,
         );
@@ -59,7 +73,7 @@ export class OrdersService {
     const totalTaxRate = ((shop?.cgstRate ?? 2.5) + (shop?.sgstRate ?? 2.5)) / 100;
     const tax = totalAmount * (totalTaxRate / (1 + totalTaxRate));
 
-       const customerPhone = optionalIndianMobileOrNull(dto.customerPhone);
+    const customerPhone = optionalIndianMobileOrNull(dto.customerPhone);
 
     const order = await this.prisma.$transaction(async (tx) => {
       const o = await tx.order.create({
@@ -86,6 +100,8 @@ export class OrdersService {
             productVariantId: v.id,
             quantity: line.quantity,
             price: line.unitPrice,
+            posLabelQuantity: line.displayQuantity ?? null,
+            posLabelUnit: line.displayUnit?.trim() || null,
           },
         });
         await tx.productVariant.update({
@@ -178,8 +194,9 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-    const subtotal = order.items.reduce(
-      (s, i) => s + i.quantity * i.price,
+    const items = order.items as OrderItemBillRow[];
+    const subtotal = items.reduce(
+      (s, i) => s + Number(i.quantity) * Number(i.price),
       0,
     );
     return {
@@ -194,14 +211,26 @@ export class OrdersService {
       customerPhone: order.customerPhone,
       customerEmail: order.customerEmail,
       subtotal,
-      items: order.items.map((i) => ({
-        quantity: i.quantity,
-        unitPrice: i.price,
-        productName: i.product.name,
-        variantLabel: i.productVariant?.name ?? '-',
-        unit: i.productVariant?.unit ?? null,
-        barcode: i.productVariant?.barcode ?? '',
-      })),
+      items: items.map((i) => {
+        const stockQty = Number(i.quantity);
+        const catalogRate = Number(i.price);
+        const lineTotal = stockQty * catalogRate;
+        const dispQ =
+          i.posLabelQuantity != null ? Number(i.posLabelQuantity) : stockQty;
+        const dispU =
+          i.posLabelUnit?.trim() ||
+          i.productVariant?.unit ||
+          'PC';
+        const dispRate = dispQ > 0 ? lineTotal / dispQ : catalogRate;
+        return {
+          quantity: dispQ,
+          unitPrice: dispRate,
+          productName: i.product.name,
+          variantLabel: i.productVariant?.name ?? '-',
+          unit: dispU,
+          barcode: i.productVariant?.barcode ?? '',
+        };
+      }),
     };
   }
 }

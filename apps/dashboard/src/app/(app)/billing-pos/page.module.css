@@ -1,4 +1,3 @@
-/* Two-column layout uses @container so narrow *content* (e.g. docked DevTools) still stacks. */
 .billingPageShell {
   container-type: inline-size;
   container-name: billing-pos;
@@ -10,7 +9,6 @@
   flex-direction: column;
 }
 
-/* Space for fixed “Current sale” bar on stacked / narrow POS */
 .shellStackedPad {
   padding-bottom: max(5.25rem, env(safe-area-inset-bottom, 0px));
 }
@@ -131,6 +129,51 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.billingMain::-webkit-scrollbar {
+  display: none;
+}
+
+.billingModeTabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.billingModeTabs :global(.ant-tabs) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.billingModeTabs :global(.ant-tabs-content-holder) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.billingModeTabs :global(.ant-tabs-content),
+.billingModeTabs :global(.ant-tabs-content-top) {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 0.75rem;
+}
+
+.billingModeTabs :global(.ant-tabs-tabpane-active) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
 }
 
 @container billing-pos (min-width: 1024px) {
@@ -400,4 +443,31 @@
     max-height: calc(100vh - 64px - 3rem);
     margin-bottom: 0;
   }
+}
+
+.billingModeTabs :global(.ant-tabs-nav) {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.billingModeTabs :global(.ant-tabs-nav::before) {
+  border-color: var(--pearl-bush);
+}
+
+.billingModeTabs :global(.ant-tabs-tab) {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--bistre-500);
+  border-radius: 10px 10px 0 0;
+}
+
+.billingModeTabs :global(.ant-tabs-tab-active .ant-tabs-tab-btn) {
+  color: var(--ochre-800) !important;
+}
+
+.billingModeTabs :global(.ant-tabs-ink-bar) {
+  background: var(--ochre-600);
+  height: 3px;
+  border-radius: 3px;
 }

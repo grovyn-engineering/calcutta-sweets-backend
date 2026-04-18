@@ -41,7 +41,7 @@ export class ProductsService {
           : {}),
         variants: {
           create: {
-            name: 'Regular',
+            name: createProductDto.variantName?.trim() || 'Regular',
             price: createProductDto.price,
             barcode,
             quantity: createProductDto.quantity ?? 0,
@@ -68,12 +68,6 @@ export class ProductsService {
     });
   }
 
-  /**
-   * Paginated products for a shop with optional filters.
-   * @param opts.search - Case-insensitive match on product name, category name, variant name, barcode, or SKU.
-   * @param opts.categoryId - Restrict to this category.
-   * @param opts.status - `active` or `inactive`; omit for both.
-   */
   async findPage(
     shopCode: string,
     page: number,

@@ -11,7 +11,7 @@ export function digitsOnlyMobile(value: unknown): string {
     .slice(0, 10);
 }
 
-/** Strips non-digits; caps at 10 — use with Form.Item `normalize`. */
+/** Strips non-digits; caps at 10 - use with Form.Item `normalize`. */
 export function normalizeMobileFormValue(value: unknown): string {
   return digitsOnlyMobile(value);
 }

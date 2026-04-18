@@ -4,11 +4,11 @@ import { Search, UserPlus } from 'lucide-react';
 import { App, Button, Input, Select, Tooltip } from 'antd';
 import {
   memo,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { DataTable } from '@/components/DataTable/DataTable';
 import type { ColumnDefinition, ReactTabulatorOptions } from 'react-tabulator';
@@ -30,8 +30,6 @@ import 'tabulator-tables/dist/css/tabulator.min.css';
 
 type CategorySummary = { id: string; name: string };
 
-type TabulatorPageable = { setPage: (page: number) => void };
-
 type ApiVariantRow = {
   id: string;
   productId: string;
@@ -45,7 +43,46 @@ type ApiVariantRow = {
   imageUrl?: string | null;
 };
 
+type InventoryVariantsPageJson = {
+  data?: ApiVariantRow[];
+  last_page?: number;
+  page?: number;
+  hasMore?: boolean;
+};
+
 const PAGE_SIZE = 40;
+const PAGE_SIZE_OPTIONS = [20, 40, 60, 100] as const;
+
+function coalesceStr(v: unknown): string {
+  if (v == null) return '';
+  return String(v).trim();
+}
+
+function normalizeInventoryVariantRow(raw: unknown): ApiVariantRow {
+  const r = raw as Record<string, unknown>;
+  const productObj = r.product;
+  const fromNestedProduct =
+    typeof productObj === 'object' && productObj !== null
+      ? coalesceStr((productObj as Record<string, unknown>).name)
+      : '';
+  const productName =
+    coalesceStr(r.productName ?? r.product_name) || fromNestedProduct;
+  const variantName = coalesceStr(
+    r.variantName ?? r.variant_name ?? r.name,
+  );
+  return {
+    id: coalesceStr(r.id),
+    productId: coalesceStr(r.productId ?? r.product_id),
+    productName,
+    variantName,
+    barcode: coalesceStr(r.barcode),
+    category: coalesceStr(r.category) || '-',
+    quantity: Number(r.quantity ?? 0),
+    unit: coalesceStr(r.unit) || 'PC',
+    price: Number(r.price ?? 0),
+    imageUrl: (r.imageUrl ?? r.image_url ?? null) as string | null | undefined,
+  };
+}
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>`;
 
@@ -78,6 +115,9 @@ export type BillingPosManualSectionProps = {
   showToolbarAddCustomer?: boolean;
   onToolbarAddCustomer?: () => void;
   showSaleCheckoutHint?: boolean;
+  sectionTitle?: string;
+  sectionHint?: ReactNode;
+  hideBarcodeColumn?: boolean;
 };
 
 function BillingPosManualSectionInner({
@@ -87,6 +127,9 @@ function BillingPosManualSectionInner({
   showToolbarAddCustomer = false,
   onToolbarAddCustomer,
   showSaleCheckoutHint = false,
+  sectionTitle = 'Standard billing',
+  sectionHint,
+  hideBarcodeColumn = false,
 }: BillingPosManualSectionProps) {
   const { message: messageApi } = App.useApp();
   const messageApiRef = useRef(messageApi);
@@ -108,8 +151,13 @@ function BillingPosManualSectionInner({
     addProductRef.current = onAddProduct;
   }, [onAddProduct]);
 
-  const tableRef = useRef<TabulatorPageable | null>(null);
+  const tableRef = useRef<{ setPage?: (n: number) => void } | null>(null);
   const prevFilterKeyRef = useRef<string | null>(null);
+
+  const filterKey = `${shopCode}|${debouncedSearch}|${activeCategory}|${dataRefreshKey}`;
+
+  const { loading: tableLoading, onRemoteBusyChange } =
+    useRemoteTabulatorLoading(shopCode, filterKey);
 
   useEffect(() => {
     if (!shopCode) {
@@ -142,26 +190,55 @@ function BillingPosManualSectionInner({
     })),
   ];
 
-  const filterKey = `${shopCode}|${debouncedSearch}|${activeCategory}`;
-
-  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading(
-    shopCode,
-    dataRefreshKey,
-    activeCategory,
-  );
-
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
     prevFilterKeyRef.current = filterKey;
-
     const t = tableRef.current;
-    if (!t || !shopCode) return;
+    if (!shopCode || !t?.setPage) return;
     if (prev === null || prev === filterKey) return;
     t.setPage(1);
   }, [filterKey, shopCode]);
 
-  const columns = useMemo<ColumnDefinition[]>(
-    () => [
+  const columns = useMemo<ColumnDefinition[]>(() => {
+    const barcodeColumn: ColumnDefinition = {
+      title: 'Barcode',
+      field: 'barcode',
+      minWidth: 120,
+      cssClass: 'billing-pos-col-barcode',
+      headerSort: false,
+      responsive: 2,
+      formatter: (cell) => {
+        const raw = String(cell.getValue() ?? '');
+        const wrap = document.createElement('div');
+        wrap.className = 'billing-pos-barcode-wrap';
+        const span = document.createElement('span');
+        span.className = 'billing-pos-mono';
+        span.textContent = raw;
+        if (raw) span.title = raw;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'billing-pos-copy-btn';
+        btn.innerHTML = COPY_ICON_SVG;
+        btn.setAttribute('aria-label', 'Copy barcode');
+        btn.disabled = !raw;
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!raw) return;
+          try {
+            await navigator.clipboard.writeText(raw);
+            messageApiRef.current.success('Barcode copied');
+          } catch {
+            messageApiRef.current.error('Could not copy');
+          }
+        });
+        wrap.appendChild(btn);
+        wrap.appendChild(span);
+        return wrap;
+      },
+    };
+
+    return [
       {
         title: 'S.No.',
         formatter: 'responsiveCollapse',
@@ -196,6 +273,7 @@ function BillingPosManualSectionInner({
         minWidth: 140,
         headerSort: false,
         responsive: 0,
+        cssClass: 'billing-pos-product-cell',
         formatter: (cell) => {
           const row = cell.getRow().getData() as ApiVariantRow;
           const wrap = document.createElement('div');
@@ -204,8 +282,11 @@ function BillingPosManualSectionInner({
 
           const product = (row.productName ?? '').trim();
           const variant = (row.variantName ?? '').trim();
-          const titleText =
-            product || variant || '—';
+          const cat = (row.category ?? '').trim();
+          const catLabel =
+            cat && cat !== '-' ? cat.replace(/_/g, ' ') : '';
+          let titleText = product || variant;
+          if (!titleText) titleText = catLabel || '-';
 
           const titleEl = document.createElement('div');
           titleEl.className = 'billing-pos-product-title';
@@ -213,20 +294,19 @@ function BillingPosManualSectionInner({
 
           const sub = document.createElement('div');
           sub.className = 'billing-pos-product-sub';
-          const cat = (row.category ?? '').trim();
           const subParts: string[] = [];
           if (product && variant && variant !== product) {
             subParts.push(variant);
           }
-          if (cat && cat !== '-') {
-            subParts.push(cat.replace(/_/g, ' '));
+          if (catLabel && titleText !== catLabel) {
+            subParts.push(catLabel);
           }
           const subText = subParts.join(' · ');
           sub.textContent = subText;
 
           const tipParts = [titleText];
           if (subText) tipParts.push(subText);
-          const fullTip = tipParts.join(' — ');
+          const fullTip = tipParts.join(' - ');
           wrap.dataset.fullTip = fullTip;
 
           const inner = document.createElement('div');
@@ -237,43 +317,7 @@ function BillingPosManualSectionInner({
           return wrap;
         },
       },
-      {
-        title: 'Barcode',
-        field: 'barcode',
-        minWidth: 120,
-        cssClass: 'billing-pos-col-barcode',
-        headerSort: false,
-        responsive: 2,
-        formatter: (cell) => {
-          const raw = String(cell.getValue() ?? '');
-          const wrap = document.createElement('div');
-          wrap.className = 'billing-pos-barcode-wrap';
-          const span = document.createElement('span');
-          span.className = 'billing-pos-mono';
-          span.textContent = raw;
-          if (raw) span.title = raw;
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'billing-pos-copy-btn';
-          btn.innerHTML = COPY_ICON_SVG;
-          btn.setAttribute('aria-label', 'Copy barcode');
-          btn.disabled = !raw;
-          btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!raw) return;
-            try {
-              await navigator.clipboard.writeText(raw);
-              messageApiRef.current.success('Barcode copied');
-            } catch {
-              messageApiRef.current.error('Could not copy');
-            }
-          });
-          wrap.appendChild(btn);
-          wrap.appendChild(span);
-          return wrap;
-        },
-      },
+      ...(hideBarcodeColumn ? [] : [barcodeColumn]),
       {
         title: 'Stock',
         field: 'quantity',
@@ -322,29 +366,29 @@ function BillingPosManualSectionInner({
           return btn;
         },
       },
-    ],
-    [],
-  );
-
-  const baseUrl = getApiBaseUrl();
+    ];
+  }, [hideBarcodeColumn]);
 
   const options = useMemo<ReactTabulatorOptions>(() => {
+    const baseUrl = getApiBaseUrl();
     return {
       layout: 'fitColumns',
       responsiveLayout: 'collapse',
       responsiveLayoutCollapseStartOpen: false,
-      height: '100%',
+      height: 'clamp(240px, 32vh, 360px)',
       placeholder:
         'No products match your search or category for this shop.',
       pagination: true,
       paginationMode: 'remote',
       paginationSize: PAGE_SIZE,
-      paginationSizeSelector: [40],
+      paginationSizeSelector: [...PAGE_SIZE_OPTIONS],
       ajaxURL: `${baseUrl}/inventory/variants`,
-      ajaxRequestFunc: (url, _config, params) => {
+      ajaxRequestFunc: (url: string, _config: unknown, params: unknown) => {
         const u = new URL(
           url,
-          typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+          typeof window !== 'undefined'
+            ? window.location.origin
+            : 'http://localhost',
         );
         const merged: Record<string, unknown> = {
           ...(params && typeof params === 'object' ? params : {}),
@@ -359,32 +403,23 @@ function BillingPosManualSectionInner({
             u.searchParams.set(k, String(v));
           }
         });
-        const page = Math.max(1, parseInt(String(merged.page ?? '1'), 10) || 1);
-        const dedupeKey = `GET:/inventory/variants:${shopCode}:p${page}:q${qt}:c${category}`;
-        return dedupeInFlight(dedupeKey, async () => {
-          const r = await fetch(u.toString(), {
-            headers: {
-              ...getAuthHeaders(),
-              Accept: 'application/json',
-            },
-          });
+        return fetch(u.toString(), {
+          headers: { ...getAuthHeaders(), Accept: 'application/json' },
+        }).then(async (r) => {
           if (!r.ok) {
-            const t = await r.text();
-            throw new Error(t || r.statusText);
+            messageApiRef.current.error('Could not load products for billing.');
+            throw new Error(await r.text().catch(() => r.statusText));
           }
-          return r.json();
+          const json = (await r.json()) as InventoryVariantsPageJson;
+          const data = (Array.isArray(json.data) ? json.data : []).map(
+            normalizeInventoryVariantRow,
+          );
+          return { ...json, data };
         });
       },
-      dataLoader: true,
+      dataLoader: false,
     };
-  }, [baseUrl, shopCode]);
-
-  const onTableRef = useCallback(
-    (instanceRef: { current?: unknown }) => {
-      tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
-    },
-    [],
-  );
+  }, [shopCode]);
 
   if (!shopCode) return null;
 
@@ -393,7 +428,7 @@ function BillingPosManualSectionInner({
       <header className={styles.manualHeader}>
         <div className={styles.manualTitleRow}>
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--bistre-800)]">
-            Manual billing
+            {sectionTitle}
           </h2>
           {showToolbarAddCustomer && onToolbarAddCustomer ? (
             <Tooltip title="Add customer">
@@ -411,7 +446,11 @@ function BillingPosManualSectionInner({
           <Input
             className={`${pageStyles.searchInput} ${styles.manualSearch}`}
             allowClear
-            placeholder="Search products, variants, barcodes…"
+            placeholder={
+              hideBarcodeColumn
+                ? 'Search products, variants…'
+                : 'Search products, variants, barcodes…'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" />}
@@ -434,6 +473,12 @@ function BillingPosManualSectionInner({
         </div>
       </header>
 
+      {sectionHint ? (
+        <p className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2.5 text-xs leading-relaxed text-[var(--bistre-700)]">
+          {sectionHint}
+        </p>
+      ) : null}
+
       {showSaleCheckoutHint ? (
         <p className="rounded-xl border border-dashed border-[var(--ochre-200)] bg-[var(--ochre-2)] px-3 py-2 text-xs leading-snug text-[var(--bistre-700)]">
           <span className="font-semibold text-[var(--bistre-900)]">
@@ -446,16 +491,22 @@ function BillingPosManualSectionInner({
 
       <div className={styles.wrap}>
         <div className={styles.tabulatorInner}>
-          <DataTable
-            key={`${shopCode}-${dataRefreshKey}`}
-            columns={columns}
-            options={options}
-            onRef={onTableRef}
-            minHeight={0}
-            loading={tableLoading}
-            onRemoteBusyChange={onRemoteBusyChange}
-            emptyTitle="No matching products"
-          />
+          <div className={styles.tableScrollShell}>
+            <DataTable
+              key={`${shopCode}-${hideBarcodeColumn ? 'i' : 's'}`}
+              columns={columns}
+              options={options}
+              onRef={(instanceRef) => {
+                tableRef.current =
+                  (instanceRef.current as { setPage?: (n: number) => void }) ??
+                  null;
+              }}
+              loading={tableLoading}
+              onRemoteBusyChange={onRemoteBusyChange}
+              minHeight={400}
+              emptyTitle="No matching products"
+            />
+          </div>
         </div>
       </div>
     </section>

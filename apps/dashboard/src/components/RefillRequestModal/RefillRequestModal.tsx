@@ -4,6 +4,7 @@ import { App, Button, InputNumber, Modal, Select, Input } from 'antd';
 import { PackagePlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useShop } from '@/contexts/ShopContext';
 
 type VariantOption = {
@@ -35,7 +36,7 @@ export function RefillRequestModal({
   onSuccess,
 }: RefillRequestModalProps) {
   const { message } = App.useApp();
-  const { effectiveShopCode } = useShop();
+  const { shops } = useShop();
 
   const [variantOptions, setVariantOptions] = useState<VariantOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,43 +45,75 @@ export function RefillRequestModal({
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState<number>(1);
   const [note, setNote] = useState('');
+  /** Raw search from the Select; filtering uses the debounced value. */
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebouncedValue(searchText, 400);
 
-  const { shops } = useShop();
   const factoryShop = shops.find(s => s.isFactory);
   const factoryCode = factoryShop?.shopCode || 'FACTORY01';
 
-  // Load variants for the factory shop
+  // Load all factory variants (API caps page size at 100; paginate until done).
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setSearchText('');
+      return;
+    }
+
+    const ac = new AbortController();
     setLoading(true);
 
-    // Explicitly target the Factory shop for the refill options
-    apiFetch(`/inventory/variants?page=1&size=500`, {
-      headers: {
-        'x-shop': factoryCode
-      }
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Failed to load products from factory');
-        const { data } = await res.json();
-        setVariantOptions(
-          (data as any[]).map((d) => ({
-            id: d.id,
-            barcode: d.barcode,
-            productName: d.productName,
-            variantName: d.variantName,
-            quantity: d.quantity,
-            unit: d.unit ?? 'PC',
-            price: d.price,
-          })),
-        );
-      })
-      .catch(() => {
+    (async () => {
+      const pageSize = 100;
+      const maxPages = 500;
+      const collected: VariantOption[] = [];
+
+      try {
+        for (let page = 1; page <= maxPages; page += 1) {
+          if (ac.signal.aborted) return;
+
+          const res = await apiFetch(
+            `/inventory/variants?page=${page}&size=${pageSize}`,
+            {
+              headers: { 'x-shop': factoryCode },
+              signal: ac.signal,
+            },
+          );
+
+          if (!res.ok) throw new Error('Failed to load products from factory');
+          const json = (await res.json()) as {
+            data?: unknown[];
+            last_page?: number;
+          };
+          const chunk = Array.isArray(json.data) ? json.data : [];
+
+          for (const d of chunk as any[]) {
+            collected.push({
+              id: d.id,
+              barcode: d.barcode ?? '',
+              productName: d.productName,
+              variantName: d.variantName,
+              quantity: d.quantity,
+              unit: d.unit ?? 'PC',
+              price: d.price,
+            });
+          }
+
+          const lastPage = Math.max(1, json.last_page ?? page);
+          if (page >= lastPage) break;
+        }
+
+        if (ac.signal.aborted) return;
+        setVariantOptions(collected);
+      } catch {
+        if (ac.signal.aborted) return;
         message.error(`Could not load Factory inventory (${factoryCode})`);
         setVariantOptions([]);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+
+    return () => ac.abort();
   }, [open, factoryCode, message]);
 
   const handleAddLine = useCallback(() => {
@@ -159,12 +192,13 @@ export function RefillRequestModal({
     setNote('');
     setSelectedVariantId(null);
     setQty(1);
+    setSearchText('');
     onClose();
   };
 
   const filteredOptions = variantOptions.filter((v) => {
-    if (!searchText.trim()) return true;
-    const q = searchText.toLowerCase();
+    if (!debouncedSearchText.trim()) return true;
+    const q = debouncedSearchText.toLowerCase();
     return (
       v.productName.toLowerCase().includes(q) ||
       v.variantName.toLowerCase().includes(q) ||
@@ -203,10 +237,16 @@ export function RefillRequestModal({
               className="w-full"
               size="large"
               filterOption={false}
-              options={filteredOptions.map((v) => ({
-                value: v.id,
-                label: `${v.productName} · ${v.variantName} (${v.barcode.slice(-8)})`,
-              }))}
+              options={filteredOptions.map((v) => {
+                const code =
+                  v.barcode.length >= 8
+                    ? v.barcode.slice(-8)
+                    : v.barcode || '-';
+                return {
+                  value: v.id,
+                  label: `${v.productName} · ${v.variantName} (${code})`,
+                };
+              })}
               notFoundContent={loading ? 'Loading...' : (shops.length > 0 && !factoryShop ? 'No Factory shop configured' : 'No products found at Factory')}
             />
           </div>

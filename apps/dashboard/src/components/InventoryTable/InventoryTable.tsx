@@ -337,7 +337,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         typeof window !== "undefined"
           ? window.location.origin
           : "http://localhost";
-      /** API caps size at 100 (`inventory.controller`); fetch every page for the scoped shop (`X-Shop`). */
       const pageSize = 100;
       const maxPages = 500;
       const allRows: {
@@ -527,6 +526,11 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           emptyIcon={<PackageSearch size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>
+
+      <RefillRequestModal
+        open={refillModalOpen}
+        onClose={() => setRefillModalOpen(false)}
+      />
     </div>
   );
 }

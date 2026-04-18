@@ -30,10 +30,6 @@ export class ProductsController {
     );
   }
 
-  /**
-   * Lists products for the scoped shop. If `page` is omitted, returns the full list; otherwise
-   * paginates with optional `q` / `search`, `categoryId`, and `status` (`active` | `inactive`).
-   */
   @Get()
   findAll(
     @Req() req: Request,
