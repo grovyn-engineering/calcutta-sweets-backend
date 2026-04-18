@@ -12,22 +12,29 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Controller('category')
-@UseGuards(JwtAuthGuard, ShopScopeGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Get()
+  @RequireAnyPermission('canAccessCategories', 'canAccessBilling')
   findAllForShop(@Req() req: Request) {
     return this.categoryService.findAllWithShopSummary(req.effectiveShopCode!);
   }
 
   @Get(':id/products')
+  @RequireAnyPermission('canAccessCategories', 'canAccessBilling')
   findProductsPage(
     @Req() req: Request,
     @Param('id') id: string,
@@ -48,6 +55,7 @@ export class CategoryController {
   }
 
   @Get(':id')
+  @RequirePermission('canAccessCategories')
   findOneForShop(@Req() req: Request, @Param('id') id: string) {
     return this.categoryService.findOneSummaryForShop(
       id,
@@ -56,11 +64,13 @@ export class CategoryController {
   }
 
   @Post()
+  @RequirePermission('canAccessCategories')
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoryService.create(createCategoryDto);
   }
 
   @Patch(':id')
+  @RequirePermission('canAccessCategories')
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -69,6 +79,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
+  @RequirePermission('canAccessCategories')
   remove(@Param('id') id: string) {
     return this.categoryService.delete(id);
   }

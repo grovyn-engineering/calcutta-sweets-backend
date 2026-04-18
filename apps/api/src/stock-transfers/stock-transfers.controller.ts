@@ -12,13 +12,16 @@ import {
 import { TransferStatus } from '@prisma/client';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermission } from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { StockTransfersService } from './stock-transfers.service';
 import { ShopsService } from '../shops/shops.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 
 @Controller('stock-transfers')
-@UseGuards(JwtAuthGuard, ShopScopeGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
+@RequirePermission('canAccessInventory')
 export class StockTransfersController {
   constructor(
     private readonly service: StockTransfersService,

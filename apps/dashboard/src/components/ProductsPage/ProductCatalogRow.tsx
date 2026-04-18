@@ -1,8 +1,12 @@
 "use client";
 
+import { App, Popconfirm } from "antd";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
+import { useState } from "react";
 
 import type { ProductWithRelations } from "@/components/ProductCard/ProductCard";
+import { apiFetch } from "@/lib/api";
 
 import styles from "./ProductCatalogRow.module.css";
 
@@ -17,9 +21,12 @@ function formatInr(amount: number) {
 
 type Props = {
   product: ProductWithRelations;
+  onProductDeleted?: () => void;
 };
 
-export function ProductCatalogRow({ product }: Props) {
+export function ProductCatalogRow({ product, onProductDeleted }: Props) {
+  const { message } = App.useApp();
+  const [deleting, setDeleting] = useState(false);
   const variants = product.variants ?? [];
   const totalStock = variants.reduce((s, v) => s + v.quantity, 0);
   const prices = variants.map((v) => v.price).filter(Number.isFinite);
@@ -33,6 +40,30 @@ export function ProductCatalogRow({ product }: Props) {
         : `${formatInr(minP)}–${formatInr(maxP)}`;
 
   const firstVariant = variants[0];
+
+  const onDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await apiFetch(`/products/${product.id}`, {
+        method: "DELETE",
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        message.error(
+          typeof payload?.message === "string"
+            ? payload.message
+            : "Could not delete product",
+        );
+        return;
+      }
+      message.success("Product deleted");
+      onProductDeleted?.();
+    } catch {
+      message.error("Failed to delete product");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className={styles.row}>
@@ -79,17 +110,37 @@ export function ProductCatalogRow({ product }: Props) {
           <span className={styles.statLabel}>Price</span>
           <span className={styles.statValue}>{priceLabel}</span>
         </div>
-        {firstVariant ? (
-          <Link
-            href={`/inventory/${firstVariant.id}`}
-            className={styles.manageLink}
-            scroll={false}
+        <div className={styles.actions}>
+          {firstVariant ? (
+            <Link
+              href={`/inventory/${firstVariant.id}`}
+              className={styles.manageLink}
+              scroll={false}
+            >
+              Inventory
+            </Link>
+          ) : (
+            <span className={styles.manageDisabled}>—</span>
+          )}
+          <Popconfirm
+            title="Delete this product?"
+            description="This removes the product and its variants. If it appears on past orders, deletion may be blocked."
+            onConfirm={() => void onDelete()}
+            okText="Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true, loading: deleting }}
           >
-            Inventory
-          </Link>
-        ) : (
-          <span className={styles.manageDisabled}>-</span>
-        )}
+            <button
+              type="button"
+              className={styles.removeBtn}
+              aria-label={`Delete ${product.name}`}
+              disabled={deleting}
+            >
+              <Trash2 size={15} strokeWidth={2} aria-hidden />
+              <span>Remove</span>
+            </button>
+          </Popconfirm>
+        </div>
       </div>
     </div>
   );

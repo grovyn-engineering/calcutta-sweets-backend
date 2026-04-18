@@ -167,30 +167,19 @@ export default function OrderBillDetailPage() {
         field: "productName",
         minWidth: 200,
         headerSort: false,
+      },
+      {
+        title: "Item",
+        field: "variantLabel",
+        minWidth: 200,
+        headerSort: false,
         cssClass: styles.lineItemProductCol,
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as OrderLineTabRow;
-          const wrap = document.createElement("div");
-          wrap.className = styles.lineItemProductStack;
-          const title = document.createElement("div");
-          title.className = styles.lineItemTitle;
-          title.textContent = row.productName ?? "";
-          wrap.appendChild(title);
-          if (row.variantLabel?.trim() && row.variantLabel !== "-") {
-            const sub = document.createElement("div");
-            sub.className = styles.lineItemSub;
-            sub.textContent = row.variantLabel;
-            wrap.appendChild(sub);
-          }
-          if (row.barcode?.trim()) {
-            const code = document.createElement("div");
-            code.className = styles.lineItemCode;
-            code.textContent = row.barcode;
-            code.title = `Barcode: ${row.barcode}`;
-            wrap.appendChild(code);
-          }
-          return wrap;
-        },
+      },
+      {
+        title: "Item",
+        field: "barcode",
+        minWidth: 200,
+        headerSort: false,
       },
       {
         title: "Qty",
@@ -308,7 +297,7 @@ export default function OrderBillDetailPage() {
     return {
       layout: "fitColumns",
       maxHeight: bodyCap,
-      placeholder: "No line items on this bill.",
+      placeholder: "No items on this bill.",
       selectable: false,
     };
   }, [linesBodyMaxHeight, lineCount]);
@@ -522,7 +511,7 @@ export default function OrderBillDetailPage() {
 
               <div className={styles.linesSection}>
                 <div className={styles.linesSectionHead}>
-                  <span className={styles.linesSectionTitle}>Line items</span>
+                  <span className={styles.linesSectionTitle}>Items</span>
                   <span className={styles.linesSectionCount}>({lineCount})</span>
                 </div>
                 <div className={styles.lineItemsTableHost}>
@@ -532,9 +521,9 @@ export default function OrderBillDetailPage() {
                     data={tableData}
                     options={lineTableOptions}
                     loading={false}
-                    minHeight={450}
-                    emptyTitle="No line items"
-                    emptyDescription="This bill has no products attached."
+                    minHeight={linesBodyMaxHeight}
+                    emptyTitle="No items"
+                    emptyDescription="This bill has no items."
                   />
                   {order && lineCount > 0 ? (
                     <div className={styles.linesFooter} role="rowgroup">
@@ -547,7 +536,7 @@ export default function OrderBillDetailPage() {
                           type="secondary"
                           className={styles.linesFooterMetaHint}
                         >
-                          Incl. GST & discount · {lineCount} line
+                          Incl. GST & discount · {lineCount} Item
                           {lineCount === 1 ? "" : "s"}
                         </Text>
                       </div>

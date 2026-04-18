@@ -40,7 +40,7 @@ export default function SettingsPage() {
       label: (
         <span className={styles.panelLabel}>
           <IdCard className={`h-[1.125rem] w-[1.125rem] ${styles.panelIcon}`} strokeWidth={1.75} aria-hidden />
-          <span className={styles.panelTitle}>Roles & Scopes</span>
+          <span className={styles.panelTitle}>Your Roles & Permissions</span>
         </span>
       ),
       children: <RolesSection />
@@ -66,7 +66,7 @@ export default function SettingsPage() {
       label: (
         <span className={styles.panelLabel}>
           <Crown className={`h-[1.125rem] w-[1.125rem] ${styles.panelIconAdmin}`} strokeWidth={1.75} aria-hidden />
-          <span className={styles.panelTitle}>Role Requests Management</span>
+          <span className={styles.panelTitle}>Role & Permissions Management</span>
         </span>
       ),
       children: <RoleRequestsAdmin />

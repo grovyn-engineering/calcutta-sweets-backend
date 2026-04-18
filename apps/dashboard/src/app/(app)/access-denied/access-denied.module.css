@@ -1,0 +1,98 @@
+.shell {
+  display: flex;
+  min-height: min(70vh, 640px);
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  padding: 2.25rem 1.75rem 2rem;
+  border-radius: 20px;
+  border: 1px solid var(--pearl-bush);
+  background: linear-gradient(
+    165deg,
+    #fffef9 0%,
+    var(--parchment) 45%,
+    rgba(201, 147, 45, 0.06) 100%
+  );
+  box-shadow:
+    0 1px 2px rgba(44, 24, 16, 0.05),
+    0 16px 40px -20px rgba(44, 24, 16, 0.18);
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 16px;
+  background: rgba(201, 147, 45, 0.14);
+  border: 1px solid rgba(166, 124, 0, 0.28);
+}
+
+.icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--ochre-700);
+}
+
+.title {
+  margin: 0 0 0.75rem !important;
+  color: var(--bistre-900) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.lead {
+  margin-bottom: 1.5rem !important;
+  color: var(--bistre-600) !important;
+  font-size: 0.9375rem !important;
+  line-height: 1.55 !important;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.primaryBtn:global(.ant-btn.ant-btn-primary) {
+  font-weight: 600 !important;
+  border-radius: 12px !important;
+  height: auto !important;
+  padding: 0.55rem 1.35rem !important;
+  color: #fff !important;
+  background: var(--ochre-600) !important;
+  border-color: var(--ochre-600) !important;
+  box-shadow: 0 1px 2px rgba(44, 24, 16, 0.12) !important;
+}
+
+.primaryBtn:global(.ant-btn.ant-btn-primary:not(:disabled):hover) {
+  color: #fff !important;
+  background: var(--ochre-700) !important;
+  border-color: var(--ochre-700) !important;
+}
+
+.primaryBtn:global(.ant-btn.ant-btn-primary:not(:disabled):active) {
+  color: #fff !important;
+  background: #8a6518 !important;
+  border-color: #8a6518 !important;
+}
+
+.primaryBtn:global(.ant-btn.ant-btn-primary:focus-visible) {
+  color: #fff !important;
+  outline: 2px solid var(--ochre-500) !important;
+  outline-offset: 2px !important;
+}
+
+.primaryBtn:global(.ant-btn.ant-btn-primary .ant-btn-icon),
+.primaryBtn:global(.ant-btn.ant-btn-primary span) {
+  color: inherit !important;
+}

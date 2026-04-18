@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { invalidateJwtUserCache } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
-import { ROLE_PERMISSION_FIELD_KEYS } from '../settings/settings.service';
+import { ROLE_PERMISSION_FIELD_KEYS } from '../settings/effective-permissions';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -93,12 +95,66 @@ export class UsersService {
 
     // Send welcome email asynchronously
     this.emailService
-      .sendWelcomeEmail(user.email, user.name || '', user.role, shop.name)
+      .sendWelcomeEmail(
+        user.email,
+        user.name || '',
+        user.role,
+        shop.name,
+        dto.password,
+      )
       .catch((err) => {
         console.error(`Failed to send welcome email to ${user.email}:`, err);
       });
 
     return user;
+  }
+
+  assertActorCanRemoveUser(actorRole: UserRole, targetRole: UserRole) {
+    if (actorRole === UserRole.SUPER_ADMIN) {
+      return;
+    }
+    if (targetRole === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('You cannot remove a super admin');
+    }
+    if (actorRole === UserRole.ADMIN) {
+      if (targetRole === UserRole.ADMIN) {
+        throw new ForbiddenException('Admins cannot remove other admins');
+      }
+      return;
+    }
+    if (actorRole === UserRole.MANAGER) {
+      if (
+        targetRole === UserRole.MANAGER ||
+        targetRole === UserRole.ADMIN
+      ) {
+        throw new ForbiddenException('You do not have permission to remove this user');
+      }
+      return;
+    }
+    throw new ForbiddenException('You do not have permission to remove users');
+  }
+
+  async remove(
+    id: string,
+    scopeShopCode: string,
+    actor: { id: string; role: UserRole },
+  ) {
+    if (id === actor.id) {
+      throw new BadRequestException('You cannot delete your own account');
+    }
+    const target = await this.findOneForShop(id, scopeShopCode);
+    this.assertActorCanRemoveUser(actor.role, target.role);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.updateMany({
+        where: { createdById: id },
+        data: { createdById: null },
+      });
+      await tx.roleRequest.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+
+    invalidateJwtUserCache(id);
   }
 
   async update(id: string, dto: UpdateUserDto, scopeShopCode: string) {

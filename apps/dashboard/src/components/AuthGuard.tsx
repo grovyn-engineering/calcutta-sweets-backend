@@ -1,35 +1,44 @@
-'use client';
+"use client";
 
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useShop } from "@/contexts/ShopContext";
+import {
+  matchAppNavItem,
+  isAppNavAllowed,
+  getFirstAllowedNavHref,
+  isDashboardNavAllowed,
+} from "@/lib/appNavAccess";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 
-import styles from './AuthGuard.module.css';
+import styles from "./AuthGuard.module.css";
+
+const ACCESS_DENIED_PATH = "/access-denied";
 
 const PROTECTED_PATHS = [
-  '/dashboard',
-  '/billing-pos',
-  '/orders',
-  '/products',
-  '/inventory',
-  '/categories',
-  '/reports',
-  '/users',
-  '/settings',
-  '/shops',
-  '/logout',
+  "/dashboard",
+  "/billing-pos",
+  "/orders",
+  "/products",
+  "/inventory",
+  "/categories",
+  "/reports",
+  "/users",
+  "/settings",
+  "/shops",
+  "/logout",
+  "/stock-transfers",
+  ACCESS_DENIED_PATH,
 ];
 
-const SUPER_ADMIN_PATHS = ['/users'];
-
 function isProtectedPath(path: string) {
-  if (path === '/') return true;
+  if (path === "/") return true;
   return PROTECTED_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
-function isSuperAdminOnlyPath(path: string) {
-  return SUPER_ADMIN_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+function isDashboardEntryPath(pathname: string) {
+  return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 }
 
 /**
@@ -39,22 +48,72 @@ function isSuperAdminOnlyPath(path: string) {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, permissions } = useAuth();
+  const { effectiveShopCode, shops } = useShop();
+  const redirectingRef = useRef(false);
+
+  const isFactory = useMemo(() => {
+    const s = shops.find((x) => x.shopCode === effectiveShopCode);
+    return !!s?.isFactory;
+  }, [shops, effectiveShopCode]);
+
+  const navCtx = useMemo(
+    () => ({ user, permissions, isFactory }),
+    [user, permissions, isFactory],
+  );
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isAuthenticated && isProtectedPath(pathname)) {
-      router.replace('/login');
+      router.replace("/login");
     }
   }, [pathname, isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || !user) return;
-    if (isSuperAdminOnlyPath(pathname) && user.role !== 'SUPER_ADMIN') {
-      router.replace('/dashboard');
+    redirectingRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !user || !permissions) return;
+    if (!isProtectedPath(pathname)) return;
+    if (pathname === ACCESS_DENIED_PATH) return;
+
+    const rule = matchAppNavItem(pathname);
+    if (!rule) {
+      return;
     }
-  }, [pathname, isAuthenticated, isLoading, user, router]);
+    const allowed = isAppNavAllowed(rule, navCtx);
+    if (allowed) {
+      return;
+    }
+
+    if (redirectingRef.current) return;
+    redirectingRef.current = true;
+
+    if (isDashboardEntryPath(pathname)) {
+      const next = getFirstAllowedNavHref(navCtx);
+      if (next) {
+        router.replace(next);
+      } else {
+        router.replace(`${ACCESS_DENIED_PATH}?reason=no-access`);
+      }
+      return;
+    }
+
+    router.replace(
+      `${ACCESS_DENIED_PATH}?from=${encodeURIComponent(pathname)}`,
+    );
+  }, [
+    pathname,
+    isAuthenticated,
+    isLoading,
+    user,
+    permissions,
+    navCtx,
+    isFactory,
+    router,
+  ]);
 
   if (isLoading) {
     return (
@@ -75,14 +134,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (
     isAuthenticated &&
     user &&
-    isSuperAdminOnlyPath(pathname) &&
-    user.role !== 'SUPER_ADMIN'
+    permissions &&
+    isProtectedPath(pathname) &&
+    pathname !== ACCESS_DENIED_PATH
   ) {
-    return (
-      <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
-        <ContentSkeleton variant="table" rowCount={6} />
-      </div>
-    );
+    const rule = matchAppNavItem(pathname);
+    if (rule && !isAppNavAllowed(rule, navCtx)) {
+      return (
+        <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
+          <ContentSkeleton variant="table" rowCount={6} />
+        </div>
+      );
+    }
   }
 
   return <>{children}</>;

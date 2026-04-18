@@ -230,13 +230,20 @@ model ProductImage {
   createdAt DateTime @default(now())
 }
 
+enum RoleRequestKind {
+  ROLE_CHANGE
+  PERMISSION_EXTENSION
+}
+
 model RoleRequest {
   id            String        @id @default(uuid())
   userId        String
   user          User          @relation(fields: [userId], references: [id])
   shopCode      String
   shop          Shop          @relation(fields: [shopCode], references: [shopCode])
-  requestedRole UserRole
+  kind          RoleRequestKind @default(ROLE_CHANGE)
+  requestedRole UserRole?
+  requestedPermissions Json?
   status        RequestStatus @default(PENDING)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

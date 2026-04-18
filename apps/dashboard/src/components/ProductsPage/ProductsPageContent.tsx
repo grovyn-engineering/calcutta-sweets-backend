@@ -309,7 +309,11 @@ export function ProductsPageContent({
           <>
             <div className={styles.rowStack}>
               {items.map((p) => (
-                <ProductCatalogRow key={p.id} product={p} />
+                <ProductCatalogRow
+                  key={p.id}
+                  product={p}
+                  onProductDeleted={() => onRefresh?.()}
+                />
               ))}
             </div>
             {hasMore ? (

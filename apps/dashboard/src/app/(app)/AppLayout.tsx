@@ -11,55 +11,14 @@ import logo from '@/assets/logo.svg';
 import { ActivityNotificationsBell } from '@/components/ActivityNotificationsBell/ActivityNotificationsBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShop } from '@/contexts/ShopContext';
+import {
+  APP_NAV_ITEMS,
+  SIDEBAR_ROUTE_PREFIXES,
+  isAppNavAllowed,
+} from '@/lib/appNavAccess';
 import styles from './AppLayout.module.css';
 
 const { Header, Sider, Content } = Layout;
-
-type SidebarItem = {
-  key: string;
-  label: React.ReactNode;
-  permissionKey?: keyof import('@/contexts/AuthContext').RolePermissions;
-  /** Show when any of these permissions is true (used for merged Dashboard + Analytics). */
-  anyPermissionKey?: (keyof import('@/contexts/AuthContext').RolePermissions)[];
-  superAdminOnly?: boolean;
-  /** If set, sidebar item is shown only when `user.role` is one of these (e.g. Users for Admin + Super Admin). */
-  allowedRoles?: string[];
-};
-
-const sidebarItemsDef: SidebarItem[] = [
-  {
-    key: '/dashboard',
-    label: <Link href="/dashboard" className={styles.menuLink} scroll={false}>Dashboard</Link>,
-    anyPermissionKey: ['canAccessDashboard', 'canAccessReports'],
-  },
-  { key: '/billing-pos', label: <Link href="/billing-pos" className={styles.menuLink} scroll={false}>Billing POS</Link>, permissionKey: 'canAccessBilling' },
-  { key: '/orders', label: <Link href="/orders" className={styles.menuLink} scroll={false}>Orders</Link>, permissionKey: 'canAccessOrders' },
-  { key: '/products', label: <Link href="/products" className={styles.menuLink} scroll={false}>Products</Link>, permissionKey: 'canAccessProducts' },
-  { key: '/inventory', label: <Link href="/inventory" className={styles.menuLink} scroll={false}>Inventory</Link>, permissionKey: 'canAccessInventory' },
-  { key: '/stock-transfers', label: <Link href="/stock-transfers" className={styles.menuLink} scroll={false}>Stock Transfers</Link>, permissionKey: 'canAccessInventory' },
-  { key: '/categories', label: <Link href="/categories" className={styles.menuLink} scroll={false}>Categories</Link>, permissionKey: 'canAccessCategories' },
-  {
-    key: '/users',
-    label: <Link href="/users" className={styles.menuLink} scroll={false}>Users</Link>,
-    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
-  },
-  { key: '/shops', label: <Link href="/shops" className={styles.menuLink} scroll={false}>Shops</Link>, superAdminOnly: true },
-  { key: '/settings', label: <Link href="/settings" className={styles.menuLink} scroll={false}>Settings</Link>, permissionKey: 'canAccessSettings' },
-];
-
-/** Bases that map nested routes to a single sidebar item (e.g. /shops/SH000001 → /shops). */
-const SIDEBAR_ROUTE_PREFIXES = [
-  '/dashboard',
-  '/billing-pos',
-  '/orders',
-  '/products',
-  '/inventory',
-  '/stock-transfers',
-  '/categories',
-  '/users',
-  '/shops',
-  '/settings',
-] as const;
 
 function sidebarSelectedKey(pathname: string): string {
   const hit = SIDEBAR_ROUTE_PREFIXES.find(
@@ -69,6 +28,7 @@ function sidebarSelectedKey(pathname: string): string {
 }
 
 const pageTitles: Record<string, string> = {
+  '/access-denied': 'Access restricted',
   '/dashboard': 'Dashboard',
   '/billing-pos': 'Billing POS',
   '/orders': 'Orders',
@@ -94,30 +54,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [shops, effectiveShopCode]);
 
   const sidebarItems = useMemo(() => {
-    const isSuper = user?.role === 'SUPER_ADMIN';
-    return sidebarItemsDef
-      .filter((item) => {
-        if (
-          item.allowedRoles?.length &&
-          (!user?.role || !item.allowedRoles.includes(user.role))
-        ) {
-          return false;
-        }
-        if (item.superAdminOnly && !isSuper) return false;
-        if (item.anyPermissionKey?.length && permissions) {
-          const ok = item.anyPermissionKey.some((k) => permissions[k]);
-          if (!ok) return false;
-        } else if (item.permissionKey && permissions && !permissions[item.permissionKey]) {
-          return false;
-        }
-
-        const factoryOnlyKeys = ["/stock-transfers", "/shops"];
-        if (!isFactory && factoryOnlyKeys.includes(item.key)) return false;
-
-        return true;
-      })
-      .map(({ key, label }) => ({ key, label }));
-  }, [user?.role, permissions, isFactory]);
+    return APP_NAV_ITEMS.filter((item) => item.sidebarLabel).filter((item) =>
+      isAppNavAllowed(item, {
+        user,
+        permissions,
+        isFactory,
+      }),
+    ).map((item) => ({
+      key: item.prefix,
+      label: (
+        <Link
+          href={item.prefix}
+          className={styles.menuLink}
+          scroll={false}
+        >
+          {item.sidebarLabel}
+        </Link>
+      ),
+    }));
+  }, [user, permissions, isFactory]);
 
   const pageTitle =
     pageTitles[pathname] ??
