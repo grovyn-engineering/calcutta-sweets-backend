@@ -7,9 +7,10 @@ import { Link2, Loader2, Smartphone, User } from "lucide-react";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiFetch } from "../../../../lib/api";
 import {
-  indianMobileOptionalRules,
-  normalizeMobileFormValue,
+    indianMobileOptionalRules,
+    normalizeMobileFormValue,
 } from "../../../../lib/mobileNumber";
+import { uploadImageToCloudinary } from "../../../../lib/cloudinaryUpload";
 import styles from "./PersonalDetails.module.css";
 
 export function PersonalDetails() {
@@ -32,34 +33,16 @@ export function PersonalDetails() {
 
     const customRequest = async (options: any) => {
         const { file, onSuccess, onError } = options;
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
-        if (!cloudName || !uploadPreset) {
-            message.error("Cloudinary configuration missing! Please add NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET to your .env");
-            onError("Missing config");
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("upload_preset", uploadPreset);
-
         setUploadingAvatar(true);
         try {
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: "POST",
-                body: formData,
-            });
-            const data = await res.json();
-
-            if (!res.ok) throw new Error(data.error?.message || "Upload failed");
-
-            form.setFieldValue("avatarUrl", data.secure_url);
-            onSuccess(data, file);
+            const secureUrl = await uploadImageToCloudinary(file as File);
+            form.setFieldValue("avatarUrl", secureUrl);
+            onSuccess({ secure_url: secureUrl }, file);
             message.success("Avatar uploaded successfully!");
-        } catch (err: any) {
-            message.error(err.message || "Avatar upload failed");
+        } catch (err: unknown) {
+            const msg =
+                err instanceof Error ? err.message : "Avatar upload failed";
+            message.error(msg);
             onError(err);
         } finally {
             setUploadingAvatar(false);

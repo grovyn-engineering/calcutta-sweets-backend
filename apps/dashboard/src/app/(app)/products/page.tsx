@@ -5,9 +5,6 @@ import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { ProductsPageContent } from "@/components/ProductsPage/ProductsPageContent";
 import { useShop } from "@/contexts/ShopContext";
 
-/**
- * Product catalog route; bumps `refreshKey` after creates so {@link ProductsPageContent} refetches.
- */
 export default function ProductsPage() {
   const { effectiveShopCode } = useShop();
   const shopCode =

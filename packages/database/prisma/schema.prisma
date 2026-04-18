@@ -103,8 +103,12 @@ model OrderItem {
   productVariantId String?
   productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
 
-  quantity Int
+  quantity Float
   price    Float
+
+  /** Optional POS display qty (e.g. 400 when stock `quantity` is 0.4 kg). */
+  posLabelQuantity Float?
+  posLabelUnit     String?
 }
 
 // ================== ORDER ==================
@@ -203,8 +207,8 @@ model ProductVariant {
 
   hsnCode String?
 
-  quantity Int  @default(0)
-  minStock Int?
+  quantity Float @default(0)
+  minStock Float?
 
   unit Unit?
 

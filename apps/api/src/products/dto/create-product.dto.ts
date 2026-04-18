@@ -22,7 +22,6 @@ export class CreateProductDto {
   @IsString()
   barcode?: string;
 
-  /** Optional category to attach on create. */
   @IsOptional()
   @IsUUID()
   categoryId?: string;
@@ -63,4 +62,8 @@ export class CreateProductDto {
 
   @IsOptional()
   isListedOnWebsite?: boolean;
+
+  @IsOptional()
+  @IsString()
+  variantName?: string;
 }

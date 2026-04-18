@@ -41,12 +41,6 @@ const ReactTabulator = dynamic(
 export type DataTableProps = {
   columns: ColumnDefinition[];
   options?: ReactTabulatorOptions;
-  /**
-   * Tabulator event handlers (e.g. rowClick). Prefer this over putting the same keys on
-   * `options` — react-tabulator wires `events` via `instance.on()` and does not reliably
-   * apply callbacks that only live on `options`.
-   */
-  // Tabulator passes typed row/cell args; a single index signature cannot model every event.
   events?: Record<string, (...args: any[]) => void>;
   data?: unknown[];
   loading?: boolean;
@@ -88,7 +82,6 @@ export function DataTable({
   const onRemoteBusyChangeRef = useRef(onRemoteBusyChange);
   onRemoteBusyChangeRef.current = onRemoteBusyChange;
   const sawRemoteDataLoadingRef = useRef(false);
-  /** Concurrent remote ajax calls (progressive load, overlapping pages). Overlay clears when this hits 0 after dataProcessed. */
   const remoteInFlightRef = useRef(0);
   const overflowTipsRafRef = useRef<number | null>(null);
 

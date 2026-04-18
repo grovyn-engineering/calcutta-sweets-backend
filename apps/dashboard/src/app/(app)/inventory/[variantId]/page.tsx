@@ -18,7 +18,8 @@ import {
 } from "antd";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { BarcodePrintModal } from "@/components/BarcodePrintModal/BarcodePrintModal";
-import { apiFetch, getApiBaseUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import { uploadImageToCloudinary } from "@/lib/cloudinaryUpload";
 import styles from "./page.module.css";
 import {
   Globe,
@@ -64,7 +65,7 @@ type VariantDetail = {
 type VariantFormValues = {
   productName: string;
   description: string;
-  category: string;
+  categoryId?: string;
   shopName: string;
   shopCode: string;
   variantName: string;
@@ -81,7 +82,6 @@ type VariantFormValues = {
   pendingImageUrl: string;
 };
 
-/** Holds `imageUrls` in the form store (gallery uses `Form.useWatch`). */
 function ImageUrlsFormAnchor({
   value: _v,
   onChange: _on,
@@ -120,15 +120,34 @@ function InventoryVariantEditor({
   const router = useRouter();
   const [form] = Form.useForm<VariantFormValues>();
   const [saving, setSaving] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   const imageUrls = Form.useWatch("imageUrls", form) ?? [];
+
+  useEffect(() => {
+    void apiFetch("/category")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (Array.isArray(data)) {
+          setCategoryOptions(
+            data.map((c: { id: string; name: string }) => ({
+              label: c.name,
+              value: c.id,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const urls = (detail.product.images || []).map((img) => img.url);
     form.setFieldsValue({
       productName: detail.product.name,
       description: detail.product.description ?? "",
-      category: detail.product.category?.name ?? "-",
+      categoryId: detail.product.category?.id,
       shopName: detail.product.shop.name,
       shopCode: detail.product.shopCode,
       variantName: detail.name,
@@ -169,23 +188,14 @@ function InventoryVariantEditor({
   };
 
   const handleUpload = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const res = await apiFetch("/inventory/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Upload failed");
-      const { url } = await res.json();
-      const fullUrl = `${getApiBaseUrl().replace("/api", "")}${url}`;
+      const url = await uploadImageToCloudinary(file);
       const current = (form.getFieldValue("imageUrls") ?? []) as string[];
-      form.setFieldValue("imageUrls", [...current, fullUrl]);
+      form.setFieldValue("imageUrls", [...current, url]);
       message.success("Image uploaded");
       return false;
-    } catch {
-      message.error("Upload failed");
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Upload failed");
       return false;
     }
   };
@@ -206,9 +216,25 @@ function InventoryVariantEditor({
           description: values.description,
           isListedOnWebsite: values.isListedOnWebsite,
           images: values.imageUrls ?? [],
+          name: values.variantName.trim(),
+          productName: values.productName.trim(),
+          categoryId:
+            values.categoryId === undefined || values.categoryId === ""
+              ? null
+              : values.categoryId,
+          barcode: values.barcode.trim(),
         }),
       });
-      if (!res.ok) throw new Error(res.statusText);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const msg =
+          typeof errBody?.message === "string"
+            ? errBody.message
+            : Array.isArray(errBody?.message)
+              ? errBody.message.join(", ")
+              : res.statusText;
+        throw new Error(msg);
+      }
       const updated = (await res.json()) as VariantDetail;
       onSaved(updated);
       message.success("Saved");
@@ -333,8 +359,13 @@ function InventoryVariantEditor({
               label: "General information",
               children: (
                 <div className={styles.grid}>
-                  <Form.Item name="productName" label="Product name">
-                    <Input disabled />
+                  <Form.Item
+                    name="productName"
+                    label="Product name"
+                    rules={[{ required: true, message: "Required" }]}
+                    extra="Shared by every variant of this product."
+                  >
+                    <Input autoComplete="off" />
                   </Form.Item>
                   <Form.Item name="shopName" label="Shop">
                     <Input disabled />
@@ -342,8 +373,19 @@ function InventoryVariantEditor({
                   <Form.Item name="shopCode" label="Shop code">
                     <Input disabled />
                   </Form.Item>
-                  <Form.Item name="category" label="Category">
-                    <Input disabled />
+                  <Form.Item
+                    name="categoryId"
+                    label="Category"
+                    extra="Shared by every variant of this product."
+                  >
+                    <Select
+                      placeholder="Uncategorized"
+                      options={categoryOptions}
+                      allowClear
+                      showSearch
+                      optionFilterProp="label"
+                      className={styles.fullWidth}
+                    />
                   </Form.Item>
                   <Form.Item
                     name="description"
@@ -356,11 +398,22 @@ function InventoryVariantEditor({
                       placeholder="Add a tempting description for your customers..."
                     />
                   </Form.Item>
-                  <Form.Item name="variantName" label="Variant name">
-                    <Input disabled />
+                  <Form.Item
+                    name="variantName"
+                    label="Variant name"
+                    rules={[{ required: true, message: "Required" }]}
+                  >
+                    <Input
+                      placeholder="e.g. Regular, 500g"
+                      autoComplete="off"
+                    />
                   </Form.Item>
-                  <Form.Item name="barcode" label="Barcode">
-                    <Input disabled />
+                  <Form.Item
+                    name="barcode"
+                    label="Barcode"
+                    rules={[{ required: true, message: "Required" }]}
+                  >
+                    <Input autoComplete="off" />
                   </Form.Item>
                   <Form.Item name="sku" label="SKU">
                     <Input placeholder="Optional" />

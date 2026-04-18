@@ -15,17 +15,11 @@ import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import styles from "./ProductsPageContent.module.css";
 
-/** Page size for `GET /products?page=&size=` (server caps `size`). */
 const PAGE_SIZE = 40;
 
-/**
- * Props for {@link ProductsPageContent}.
- */
 type Props = {
   shopCode: string;
-  /** Change to refetch from page 1 (e.g. after creating a product). */
   refreshKey?: number;
-  /** Called after a successful create; typically bumps `refreshKey` upstream. */
   onRefresh?: () => void;
 };
 
@@ -40,17 +34,12 @@ type ProductsPageResponse = {
   hasMore: boolean;
 };
 
-/** Narrowing guard for paginated `GET /products` JSON. */
 function isProductsPageResponse(x: unknown): x is ProductsPageResponse {
   if (!x || typeof x !== "object") return false;
   const o = x as Record<string, unknown>;
   return Array.isArray(o.data) && typeof o.total === "number";
 }
 
-/**
- * Shop catalog: paginated `GET /products`, infinite scroll via intersection observer,
- * and client-driven search/status filters (debounced).
- */
 export function ProductsPageContent({
   shopCode,
   refreshKey = 0,
@@ -377,6 +366,10 @@ export function ProductsPageContent({
               options={categoryOptions}
               allowClear
             />
+          </Form.Item>
+
+          <Form.Item name="variantName" label="Variant label">
+            <Input placeholder="e.g. Regular, 500g (optional)" />
           </Form.Item>
 
           <Form.Item name="quantity" label="Initial Stock">

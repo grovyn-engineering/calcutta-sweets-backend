@@ -1,0 +1,2 @@
+ALTER TABLE "OrderItem" ADD COLUMN "posLabelQuantity" DOUBLE PRECISION;
+ALTER TABLE "OrderItem" ADD COLUMN "posLabelUnit" TEXT;

@@ -13,8 +13,8 @@ interface BillDrawerProps {
   open: boolean;
   onClose: () => void;
   items: BillItem[];
-  onQuantityChange: (variantId: string, delta: number) => void;
-  onRemove: (variantId: string) => void;
+  onQuantityChange: (lineId: string, delta: number) => void;
+  onRemove: (lineId: string) => void;
   onSaleComplete?: () => void;
   orderId?: string;
 }

@@ -27,7 +27,6 @@ export class UpdateProductDto {
   @IsString()
   shopCode?: string;
 
-  /** Omit to leave unchanged; send null to clear the category. */
   @IsOptional()
   @ValidateIf((_, v) => v != null)
   @IsUUID()

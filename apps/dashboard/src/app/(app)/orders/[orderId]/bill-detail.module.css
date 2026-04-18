@@ -1,91 +1,242 @@
-.linesWrap {
-  overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid var(--pearl-bush);
-  background: rgba(255, 254, 249, 0.45);
-  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+.linesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
-.linesWrap :global(.ant-table) {
-  background: transparent;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-primary);
+.linesSectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
 }
 
-.linesWrap :global(.ant-table-container) {
-  border-radius: 12px;
-}
-
-.linesWrap :global(.ant-table-thead > tr > th) {
-  position: relative;
-  z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 244, 214, 0.92) 0%,
-    rgba(250, 235, 205, 0.75) 42%,
-    rgba(245, 228, 190, 0.55) 100%
-  ) !important;
-  color: var(--bistre-800) !important;
+.linesSectionTitle {
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-bottom: 2px solid rgba(166, 124, 35, 0.35) !important;
-  border-right: none !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    inset -1px 0 0 rgba(92, 64, 38, 0.14) !important;
-  padding: 14px 10px !important;
+  color: var(--bistre-700);
 }
 
-.linesWrap :global(.ant-table-thead > tr > th:last-child) {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75) !important;
+.linesSectionCount {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--bistre-600);
 }
 
-.linesWrap :global(.ant-table-tbody > tr > td) {
+.lineItemsTableHost {
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid var(--pearl-bush);
+  background: rgba(255, 254, 249, 0.55);
+  box-shadow:
+    0 1px 2px rgba(44, 24, 16, 0.04),
+    0 1px 3px rgba(44, 24, 16, 0.06);
+  overflow: hidden;
+}
+
+.lineItemsTableHost :global(.tableWrapper) {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.lineItemsTableHost :global(.tabulator) {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+/* Read-only bill: no row selection / gold hover rail (DataTable default "highlight") */
+.lineItemsTableHost :global(.tabulator .tabulator-row) {
+  min-height: 52px !important;
+  border-bottom: none !important;
+  transition: background-color 0.15s ease;
+}
+
+.lineItemsTableHost :global(.tabulator .tabulator-row.tabulator-selectable:hover) {
   background: transparent !important;
-  border-color: rgba(232, 226, 217, 0.65) !important;
-  border-right: 1px solid rgba(232, 226, 217, 0.35) !important;
-  border-bottom: 1px solid rgba(232, 226, 217, 0.65) !important;
-  vertical-align: middle;
-  padding: 11px 10px !important;
 }
 
-.linesWrap :global(.ant-table-tbody > tr > td:last-child) {
+.lineItemsTableHost :global(.tabulator .tabulator-row.tabulator-selectable:hover::after) {
+  display: none !important;
+  content: none !important;
+}
+
+.lineItemsTableHost :global(.tabulator .tabulator-header) {
+  background: linear-gradient(
+    180deg,
+    var(--linen-95) 0%,
+    var(--parchment) 100%
+  ) !important;
+  border-bottom: 1px solid var(--pearl-bush) !important;
+  font-weight: 700 !important;
+  color: var(--bistre-600) !important;
+}
+
+.lineItemsTableHost :global(.tabulator .tabulator-header .tabulator-col) {
+  padding: 0.75rem 0.65rem !important;
+  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.12) !important;
+}
+
+.lineItemsTableHost
+  :global(.tabulator .tabulator-header .tabulator-col:last-child) {
+  box-shadow: none !important;
+}
+
+.lineItemsTableHost :global(.tabulator .tabulator-row .tabulator-cell) {
+  padding: 0.75rem 0.65rem !important;
   border-right: none !important;
+  border-bottom: 1px solid rgba(232, 226, 217, 0.85) !important;
+  vertical-align: middle;
+  background: transparent !important;
 }
 
-.linesWrap :global(.ant-table-tbody > tr:nth-child(odd) > td) {
+.lineItemsTableHost :global(.tabulator .tabulator-row:nth-child(odd) .tabulator-cell) {
   background: var(--linen-100) !important;
 }
 
-.linesWrap :global(.ant-table-tbody > tr:nth-child(even) > td) {
+.lineItemsTableHost :global(.tabulator .tabulator-row:nth-child(even) .tabulator-cell) {
   background: #fffef9 !important;
 }
 
-.linesWrap :global(.ant-table-tbody > tr:hover > td) {
-  filter: brightness(0.98);
+.lineItemsTableHost :global(.tabulator .tabulator-row:last-child .tabulator-cell) {
+  border-bottom: none !important;
 }
 
-.linesWrapScroll :global(.ant-table-body) {
-  overflow-x: auto !important;
-  overflow-y: auto !important;
-  scrollbar-gutter: stable;
+.lineItemsTableHost :global(.tabulator .tabulator-row:hover .tabulator-cell) {
+  filter: none;
+  background: rgba(255, 250, 235, 0.65) !important;
 }
 
-.summaryRow :global(td) {
+.lineItemProductCol {
+  align-items: flex-start !important;
+}
+
+.lineItemNumCol {
+  font-variant-numeric: tabular-nums;
+}
+
+.lineItemProductStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  max-width: min(100%, 22rem);
+}
+
+.lineItemTitle {
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.lineItemSub {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.lineItemCode {
+  font-family: ui-monospace, monospace;
+  font-size: 0.625rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  opacity: 0.88;
+  word-break: break-all;
+}
+
+.tabularCell {
+  font-variant-numeric: tabular-nums;
+}
+
+.lineItemAmount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bistre-800);
+}
+
+/* Footer: spacer + label (Rate width) + amount - aligns with table columns */
+.linesFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0 0.5rem;
+  row-gap: 0.35rem;
+  padding: 0.85rem 0.65rem;
   background: linear-gradient(
     180deg,
     var(--parchment) 0%,
     var(--linen-95) 100%
-  ) !important;
-  border-top: 1px solid var(--pearl-bush) !important;
-  border-bottom: none !important;
-  border-right: 1px solid rgba(232, 226, 217, 0.35) !important;
-  padding: 12px 10px !important;
-  vertical-align: middle;
+  );
+  border-top: 1px solid var(--pearl-bush);
 }
 
-.summaryRow :global(td:last-child) {
-  border-right: none !important;
+.linesFooterLead {
+  flex: 1 1 8rem;
+  min-width: 2rem;
+  min-height: 1px;
+}
+
+.linesFooterMeta {
+  flex: 0 0 112px;
+  max-width: 40%;
+  text-align: right;
+}
+
+.linesFooterMetaTitle {
+  display: block;
+  color: var(--text-primary) !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.3 !important;
+}
+
+.linesFooterMetaHint {
+  display: block;
+  margin-top: 0.15rem !important;
+  font-size: 0.6875rem !important;
+  line-height: 1.35 !important;
+  color: var(--text-muted) !important;
+}
+
+.linesFooterGrand {
+  flex: 0 0 120px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bistre-800);
+  text-align: right;
+  line-height: 1.2;
+  padding-bottom: 0.05rem;
+}
+
+@media (max-width: 520px) {
+  .linesFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .linesFooterLead {
+    display: none;
+  }
+
+  .linesFooterMeta,
+  .linesFooterGrand {
+    flex: 1 1 auto;
+    max-width: none;
+    text-align: right;
+  }
+
+  .linesFooterGrand {
+    font-size: 1.25rem;
+    border-top: 1px dashed rgba(166, 124, 35, 0.25);
+    padding-top: 0.5rem;
+    margin-top: 0.15rem;
+  }
 }

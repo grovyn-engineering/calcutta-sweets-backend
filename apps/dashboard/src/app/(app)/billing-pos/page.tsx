@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Drawer } from 'antd';
+import { Drawer, Tabs } from 'antd';
 import { Receipt, ScanBarcode } from 'lucide-react';
 import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
 import { BarcodeScannerInput } from '@/components/BarcodeScannerInput/BarcodeScannerInput';
@@ -20,6 +20,11 @@ import {
 import type { CustomerFormValues } from '@/components/CustomerDetails';
 import { BillingPosManualSection } from '@/components/BillingPosManualSection/BillingPosManualSection';
 import type { BillingVariantRow } from '@/hooks/useBillingPosVariants';
+import {
+  billLineSubtotal,
+  computeInstantStockDeduction,
+  defaultInstantDisplay,
+} from '@/lib/billingInstantPricing';
 import { useShop } from '@/contexts/ShopContext';
 import styles from './page.module.css';
 
@@ -30,16 +35,21 @@ const inrCompact = new Intl.NumberFormat('en-IN', {
 });
 
 function variantRowToBillItem(row: BillingVariantRow): BillItem {
+  const inv = row.unit ?? 'PC';
   return {
+    lineId: row.variantId,
     variantId: row.variantId,
     productId: row.productId,
     name: row.productName,
     variantLabel: row.variantName,
     barcode: row.barcode,
-    unitPrice: row.price,
-    quantity: 1,
-    unit: row.unit,
+    catalogUnitPrice: row.price,
+    stockUnitsToDeduct: 1,
+    displayQuantity: 1,
+    displayUnit: inv,
+    inventoryUnit: inv,
     imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
+    isInstant: false,
   };
 }
 
@@ -59,6 +69,9 @@ export default function BillingPOSPage() {
   const [stackedBillingLayout, setStackedBillingLayout] = useState(true);
   const [billDrawerOpen, setBillDrawerOpen] = useState(false);
   const prevBillLenRef = useRef(0);
+  const [billingTab, setBillingTab] = useState<'standard' | 'instant'>(
+    'standard',
+  );
 
   useLayoutEffect(() => {
     const el = billingShellRef.current;
@@ -86,13 +99,21 @@ export default function BillingPOSPage() {
 
   const mergeLine = useCallback((line: BillItem) => {
     setBillItems((prev) => {
-      const existing = prev.find((i) => i.variantId === line.variantId);
-      if (existing) {
-        return prev.map((i) =>
-          i.variantId === line.variantId
-            ? { ...i, quantity: i.quantity + line.quantity }
-            : i,
+      if (!line.isInstant) {
+        const existing = prev.find(
+          (i) => !i.isInstant && i.variantId === line.variantId,
         );
+        if (existing) {
+          return prev.map((i) =>
+            i.lineId === existing.lineId
+              ? {
+                  ...i,
+                  stockUnitsToDeduct: i.stockUnitsToDeduct + line.stockUnitsToDeduct,
+                  displayQuantity: i.displayQuantity + line.displayQuantity,
+                }
+              : i,
+          );
+        }
       }
       return [...prev, { ...line }];
     });
@@ -105,21 +126,87 @@ export default function BillingPOSPage() {
     [mergeLine],
   );
 
+  const addInstantLine = useCallback(
+    (row: BillingVariantRow) => {
+      const inv = row.unit ?? 'PC';
+      const { displayQuantity, displayUnit } = defaultInstantDisplay(
+        row.variantName,
+        inv,
+      );
+      const stock = computeInstantStockDeduction(
+        row.variantName,
+        inv,
+        displayQuantity,
+        displayUnit,
+      );
+      mergeLine({
+        lineId: crypto.randomUUID(),
+        variantId: row.variantId,
+        productId: row.productId,
+        name: row.productName,
+        variantLabel: row.variantName,
+        barcode: row.barcode,
+        catalogUnitPrice: row.price,
+        stockUnitsToDeduct: stock,
+        displayQuantity,
+        displayUnit,
+        inventoryUnit: inv,
+        imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
+        isInstant: true,
+      });
+    },
+    [mergeLine],
+  );
 
-  const updateQuantity = useCallback((variantId: string, delta: number) => {
+  const updateInstantLine = useCallback(
+    (lineId: string, next: { displayQuantity: number; displayUnit: string }) => {
+      let q = next.displayQuantity;
+      const u = next.displayUnit;
+      if (u.toUpperCase() === 'PC') {
+        q = Math.max(1, Math.round(q));
+      } else {
+        q = Math.max(1e-6, q);
+      }
+      setBillItems((prev) =>
+        prev.map((i) => {
+          if (i.lineId !== lineId || !i.isInstant) return i;
+          const stock = computeInstantStockDeduction(
+            i.variantLabel,
+            i.inventoryUnit,
+            q,
+            u,
+          );
+          return {
+            ...i,
+            displayQuantity: q,
+            displayUnit: u,
+            stockUnitsToDeduct: stock,
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const updateQuantity = useCallback((lineId: string, delta: number) => {
     setBillItems((prev) =>
       prev
-        .map((i) =>
-          i.variantId === variantId
-            ? { ...i, quantity: Math.max(0, i.quantity + delta) }
-            : i,
-        )
-        .filter((i) => i.quantity > 0),
+        .map((i) => {
+          if (i.lineId !== lineId || i.isInstant) return i;
+          const nextQty = Math.max(0, i.displayQuantity + delta);
+          const nextStock = Math.max(0, i.stockUnitsToDeduct + delta);
+          return {
+            ...i,
+            displayQuantity: nextQty,
+            stockUnitsToDeduct: nextStock,
+          };
+        })
+        .filter((i) => i.stockUnitsToDeduct > 1e-9),
     );
   }, []);
 
-  const removeFromBill = useCallback((variantId: string) => {
-    setBillItems((prev) => prev.filter((i) => i.variantId !== variantId));
+  const removeFromBill = useCallback((lineId: string) => {
+    setBillItems((prev) => prev.filter((i) => i.lineId !== lineId));
   }, []);
 
   const clearSale = useCallback(() => {
@@ -138,13 +225,14 @@ export default function BillingPOSPage() {
     prevBillLenRef.current = billItems.length;
   }, [stackedBillingLayout, billItems.length]);
 
-  const saleLineCount = useMemo(
-    () => billItems.reduce((s, i) => s + i.quantity, 0),
-    [billItems],
-  );
+  const saleLineCount = billItems.length;
 
   const itemsGrossTotal = useMemo(
-    () => billItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0),
+    () =>
+      billItems.reduce(
+        (s, i) => s + billLineSubtotal(i.stockUnitsToDeduct, i.catalogUnitPrice),
+        0,
+      ),
     [billItems],
   );
 
@@ -163,6 +251,7 @@ export default function BillingPOSPage() {
     items: billItems,
     onQuantityChange: updateQuantity,
     onRemove: removeFromBill,
+    onInstantLineUpdate: updateInstantLine,
     onSaleComplete: () => {
       clearSale();
       setBillingStockRefreshKey((k) => k + 1);
@@ -180,33 +269,67 @@ export default function BillingPOSPage() {
     >
       <div className={`${styles.billingLayout} min-h-0`}>
         <div className={styles.billingMain}>
-          <section className={`shrink-0 p-3 sm:p-5 ${styles.scanSection}`}>
-            <div className="mb-3 flex items-start gap-2.5 sm:gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ochre-100)] text-[var(--ochre-600)] sm:h-11 sm:w-11">
-                <ScanBarcode className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+          {billingTab === 'standard' ? (
+            <section className={`shrink-0 p-3 sm:p-5 ${styles.scanSection}`}>
+              <div className="mb-3 flex items-start gap-2.5 sm:gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ochre-100)] text-[var(--ochre-600)] sm:h-11 sm:w-11">
+                  <ScanBarcode className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-[var(--bistre-800)]">
+                    Barcode billing
+                  </h2>
+                  <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
+                    <span className="block sm:inline">
+                      Scan the product label-most scanners send Enter automatically.
+                    </span>{' '}
+                    <span className="hidden sm:inline">Or type the code and press Enter.</span>
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-[var(--bistre-800)]">
-                  Barcode scan
-                </h2>
-                <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
-                  <span className="block sm:inline">
-                    Scan the product label-most scanners send Enter automatically.
-                  </span>{' '}
-                  <span className="hidden sm:inline">Or type the code and press Enter.</span>
-                </p>
-              </div>
-            </div>
-            <BarcodeScannerInput onAddProduct={addRowManual} />
-          </section>
+              <BarcodeScannerInput onAddProduct={addRowManual} />
+            </section>
+          ) : null}
 
-          <BillingPosManualSection
-            shopCode={shopCode}
-            onAddProduct={addRowManual}
-            dataRefreshKey={billingStockRefreshKey}
-            showToolbarAddCustomer={stackedBillingLayout}
-            onToolbarAddCustomer={openCustomerDetails}
-            showSaleCheckoutHint={stackedBillingLayout}
+          <Tabs
+            className={`${styles.billingModeTabs} min-h-0 flex-1`}
+            activeKey={billingTab}
+            onChange={(k) => setBillingTab(k as 'standard' | 'instant')}
+            items={[
+              {
+                key: 'standard',
+                label: 'Standard',
+                children: (
+                  <BillingPosManualSection
+                    shopCode={shopCode}
+                    onAddProduct={addRowManual}
+                    dataRefreshKey={billingStockRefreshKey}
+                    showToolbarAddCustomer={stackedBillingLayout}
+                    onToolbarAddCustomer={openCustomerDetails}
+                    showSaleCheckoutHint={stackedBillingLayout}
+                    sectionTitle="Standard billing"
+                    sectionHint="Fixed packs and SKUs. Lines merge when you add the same variant again."
+                  />
+                ),
+              },
+              {
+                key: 'instant',
+                label: 'Instant',
+                children: (
+                  <BillingPosManualSection
+                    shopCode={shopCode}
+                    onAddProduct={addInstantLine}
+                    dataRefreshKey={billingStockRefreshKey}
+                    showToolbarAddCustomer={stackedBillingLayout}
+                    onToolbarAddCustomer={openCustomerDetails}
+                    showSaleCheckoutHint={stackedBillingLayout}
+                    sectionTitle="Instant billing"
+                    sectionHint="Custom weights or pours (e.g. 400 g of a kg-priced sweet). After Add, set quantity and unit in the sale panel - the total follows the variant’s list price proportionally."
+                    hideBarcodeColumn
+                  />
+                ),
+              },
+            ]}
           />
         </div>
 
@@ -227,7 +350,7 @@ export default function BillingPOSPage() {
                 <span className={styles.mobileBillBarSummary}>
                   {billItems.length === 0
                     ? 'No lines yet - tap to add customer & pay'
-                    : `${saleLineCount} ${saleLineCount === 1 ? 'item' : 'items'} · ${inrCompact.format(itemsGrossTotal)} (incl. tax)`}
+                    : `${saleLineCount} ${saleLineCount === 1 ? 'line' : 'lines'} · ${inrCompact.format(itemsGrossTotal)} (incl. tax)`}
                 </span>
               </div>
               <span className={styles.mobileBillBarCta}>Review & pay</span>

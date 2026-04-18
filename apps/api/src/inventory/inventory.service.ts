@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -23,10 +25,6 @@ export type VariantListFilters = {
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) { }
 
-  /**
-   * Prefix relative `/uploads/...` (and similar) paths with the public API origin so clients
-   * can load them without guessing the Nest host (e.g. when the dashboard proxies `/api` only).
-   */
   absoluteAssetUrl(url: string): string {
     const u = url.trim();
     if (u.startsWith('http://') || u.startsWith('https://')) return u;
@@ -120,7 +118,37 @@ export class InventoryService {
   }
 
   async updateVariant(id: string, dto: UpdateVariantDto, shopCode: string) {
-    await this.findVariantById(id, shopCode);
+    const existing = await this.findVariantById(id, shopCode);
+
+    if (dto.barcode !== undefined) {
+      const next = dto.barcode.trim();
+      if (!next) {
+        throw new BadRequestException('Barcode cannot be empty');
+      }
+      if (next !== existing.barcode) {
+        const taken = await this.prisma.productVariant.findFirst({
+          where: { barcode: next, NOT: { id } },
+        });
+        if (taken) {
+          throw new ConflictException(
+            'That barcode is already used by another variant',
+          );
+        }
+      }
+    }
+
+    const variantName =
+      dto.name !== undefined ? dto.name.trim() : undefined;
+    if (variantName !== undefined && !variantName) {
+      throw new BadRequestException('Variant name cannot be empty');
+    }
+
+    const productName =
+      dto.productName !== undefined ? dto.productName.trim() : undefined;
+    if (productName !== undefined && !productName) {
+      throw new BadRequestException('Product name cannot be empty');
+    }
+
     const updated = await this.prisma.productVariant.update({
       where: { id },
       data: {
@@ -131,8 +159,12 @@ export class InventoryService {
         ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
         ...(dto.unit !== undefined ? { unit: dto.unit } : {}),
         ...(dto.hsnCode !== undefined ? { hsnCode: dto.hsnCode } : {}),
+        ...(variantName !== undefined ? { name: variantName } : {}),
+        ...(dto.barcode !== undefined ? { barcode: dto.barcode.trim() } : {}),
         product: {
           update: {
+            ...(productName !== undefined ? { name: productName } : {}),
+            ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
             ...(dto.description !== undefined ? { description: dto.description } : {}),
             ...(dto.isListedOnWebsite !== undefined ? { isListedOnWebsite: dto.isListedOnWebsite } : {}),
             ...(dto.images !== undefined ? {
@@ -151,7 +183,6 @@ export class InventoryService {
     return this.mapVariantDetailAbsoluteUrls(updated);
   }
 
-  /** Paginated SKUs for inventory and POS; optional search, category, active-only. */
   async findVariantsPage(
     shopCode: string,
     page: number,

@@ -65,7 +65,6 @@ function mapProductToRow(p: ApiProduct): TabRow {
 
 export type CategoryProductsTabulatorProps = {
   categoryId: string;
-  /** Bump after add product / rename to reload grid from page 1. */
   refreshKey: number;
   onOpenVariant: (variantId: string) => void;
 };
