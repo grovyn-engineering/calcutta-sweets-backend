@@ -1,20 +1,14 @@
 .root {
   margin-top: 0;
   border-radius: 14px;
-  border: 1px solid var(--pearl-bush);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 254, 249, 0.96) 0%,
-    var(--linen-100) 100%
-  );
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.85) inset,
-    0 1px 3px rgba(44, 24, 16, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   overflow: hidden;
 }
 
 .table :global(.ant-table-wrapper .ant-table) {
-  background: transparent;
+  background: #fff;
 }
 
 .table :global(.ant-table-container) {
@@ -23,13 +17,13 @@
 }
 
 .table :global(.ant-table-thead > tr > th) {
-  background: var(--linen-95) !important;
+  background: #f9fafb !important;
   color: var(--bistre-900) !important;
   font-weight: 700 !important;
   font-size: 0.75rem !important;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--pearl-bush) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
   padding: 12px 16px !important;
 }
 
@@ -38,12 +32,12 @@
 }
 
 .table :global(.ant-table-thead > tr > th:not(:last-child)) {
-  border-inline-end: 1px solid var(--pearl-bush) !important;
+  border-inline-end: 1px solid rgba(15, 23, 42, 0.06) !important;
 }
 
 .table :global(.ant-table-tbody > tr > td) {
-  background: transparent !important;
-  border-bottom: 1px solid rgba(44, 24, 16, 0.06) !important;
+  background: #fff !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
   padding: 14px 16px !important;
   font-size: 0.875rem;
   color: var(--bistre-800);
@@ -55,7 +49,7 @@
 }
 
 .table :global(.ant-table-tbody > tr:hover > td) {
-  background: var(--ochre-2) !important;
+  background: #f4f4f5 !important;
 }
 
 .table :global(.ant-table-tbody > tr.ant-table-placeholder > td) {
@@ -78,15 +72,17 @@
 .table :global(.ant-pagination) {
   margin: 14px 16px 16px !important;
   padding-top: 4px;
-  border-top: 1px solid var(--pearl-bush);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background: #fff;
 }
 
 .table :global(.ant-pagination-item-active) {
-  border-color: var(--ochre-400) !important;
+  border-color: rgba(15, 23, 42, 0.2) !important;
+  background: #f9fafb !important;
 }
 
 .table :global(.ant-pagination-item-active a) {
-  color: var(--ochre-700) !important;
+  color: var(--bistre-900) !important;
 }
 
 .userCell {

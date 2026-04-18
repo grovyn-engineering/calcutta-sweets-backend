@@ -12,13 +12,16 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermission } from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Controller('products')
-@UseGuards(JwtAuthGuard, ShopScopeGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
+@RequirePermission('canAccessProducts')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 

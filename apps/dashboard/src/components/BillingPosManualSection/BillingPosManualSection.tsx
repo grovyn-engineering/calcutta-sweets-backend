@@ -50,8 +50,8 @@ type InventoryVariantsPageJson = {
   hasMore?: boolean;
 };
 
-const PAGE_SIZE = 40;
-const PAGE_SIZE_OPTIONS = [20, 40, 60, 100] as const;
+const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 40, 60, 100] as const;
 
 function coalesceStr(v: unknown): string {
   if (v == null) return '';
@@ -304,11 +304,6 @@ function BillingPosManualSectionInner({
           const subText = subParts.join(' · ');
           sub.textContent = subText;
 
-          const tipParts = [titleText];
-          if (subText) tipParts.push(subText);
-          const fullTip = tipParts.join(' - ');
-          wrap.dataset.fullTip = fullTip;
-
           const inner = document.createElement('div');
           inner.className = 'billing-pos-product-stack-content';
           inner.appendChild(titleEl);
@@ -375,6 +370,7 @@ function BillingPosManualSectionInner({
       layout: 'fitColumns',
       responsiveLayout: 'collapse',
       responsiveLayoutCollapseStartOpen: false,
+      virtualDom: false,
       height: 'clamp(240px, 32vh, 360px)',
       placeholder:
         'No products match your search or category for this shop.',
@@ -425,50 +421,50 @@ function BillingPosManualSectionInner({
 
   return (
     <section className={styles.section}>
-      <header className={styles.manualHeader}>
-        <div className={styles.manualTitleRow}>
-          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--bistre-800)]">
-            {sectionTitle}
-          </h2>
-          {showToolbarAddCustomer && onToolbarAddCustomer ? (
-            <Tooltip title="Add customer">
-              <Button
-                type="default"
-                className={styles.customerIconBtn}
-                icon={<UserPlus className="h-4 w-4" aria-hidden />}
-                onClick={onToolbarAddCustomer}
-                aria-label="Add customer"
-              />
-            </Tooltip>
-          ) : null}
-        </div>
-        <div className={styles.manualFilters}>
-          <Input
-            className={`${pageStyles.searchInput} ${styles.manualSearch}`}
-            allowClear
-            placeholder={
-              hideBarcodeColumn
-                ? 'Search products, variants…'
-                : 'Search products, variants, barcodes…'
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" />}
-            aria-label="Search products"
-          />
-          <div className={styles.manualCategoryWrap}>
-            <Select
-              className={`${pageStyles.categorySelect} w-full min-w-0`}
-              classNames={{
-                popup: { root: pageStyles.categorySelectDropdown },
-              }}
-              value={activeCategory}
-              onChange={(v) => setActiveCategory(v)}
-              options={categorySelectOptions}
-              aria-label="Filter by category"
-              getPopupContainer={(n) => n.parentElement ?? document.body}
-              listHeight={280}
+      <header className={styles.manualHeaderStrip}>
+        <div className={styles.manualHeaderInner}>
+          <div className={styles.manualTitleCluster}>
+            <h2 className={styles.manualSectionTitle}>{sectionTitle}</h2>
+            {showToolbarAddCustomer && onToolbarAddCustomer ? (
+              <Tooltip title="Add customer">
+                <Button
+                  type="default"
+                  className={styles.customerIconBtn}
+                  icon={<UserPlus className="h-4 w-4" aria-hidden />}
+                  onClick={onToolbarAddCustomer}
+                  aria-label="Add customer"
+                />
+              </Tooltip>
+            ) : null}
+          </div>
+          <div className={styles.manualFilters}>
+            <Input
+              className={`${pageStyles.searchInput} ${styles.manualSearch}`}
+              allowClear
+              placeholder={
+                hideBarcodeColumn
+                  ? 'Search products, variants…'
+                  : 'Search products, variants, barcodes…'
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" />}
+              aria-label="Search products"
             />
+            <div className={styles.manualCategoryWrap}>
+              <Select
+                className={`${pageStyles.categorySelect} w-full min-w-0`}
+                classNames={{
+                  popup: { root: pageStyles.categorySelectDropdown },
+                }}
+                value={activeCategory}
+                onChange={(v) => setActiveCategory(v)}
+                options={categorySelectOptions}
+                aria-label="Filter by category"
+                getPopupContainer={(n) => n.parentElement ?? document.body}
+                listHeight={280}
+              />
+            </div>
           </div>
         </div>
       </header>

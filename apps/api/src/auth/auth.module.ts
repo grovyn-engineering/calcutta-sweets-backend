@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { EmailModule } from '../email/email.module';
 import { RedisService } from '../redis.provider';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { PermissionsGuard } from './permissions.guard';
 import { RolesGuard } from './roles.guard';
 import { ShopScopeGuard } from './shop-scope.guard';
 
@@ -17,7 +18,20 @@ import { ShopScopeGuard } from './shop-scope.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, RedisService, JwtAuthGuard, RolesGuard, ShopScopeGuard],
-  exports: [JwtModule, JwtAuthGuard, RolesGuard, ShopScopeGuard],
+  providers: [
+    AuthService,
+    RedisService,
+    JwtAuthGuard,
+    RolesGuard,
+    ShopScopeGuard,
+    PermissionsGuard,
+  ],
+  exports: [
+    JwtModule,
+    JwtAuthGuard,
+    RolesGuard,
+    ShopScopeGuard,
+    PermissionsGuard,
+  ],
 })
 export class AuthModule {}

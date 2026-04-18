@@ -11,16 +11,19 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermission } from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
-@UseGuards(JwtAuthGuard, ShopScopeGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post('pos')
+  @RequirePermission('canAccessBilling')
   createPos(@Req() req: Request, @Body() dto: CreatePosOrderDto) {
     const user = req.user;
     return this.ordersService.createPosOrder(
@@ -31,6 +34,7 @@ export class OrdersController {
   }
 
   @Get()
+  @RequirePermission('canAccessOrders')
   list(
     @Req() req: Request,
     @Query('page') pageStr?: string,
@@ -46,6 +50,7 @@ export class OrdersController {
   }
 
   @Get(':id')
+  @RequirePermission('canAccessOrders')
   findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findOne(req.effectiveShopCode!, id);
   }

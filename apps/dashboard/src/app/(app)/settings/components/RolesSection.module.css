@@ -169,3 +169,76 @@
   border-radius: 12px !important;
   font-weight: 600 !important;
 }
+
+.sectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.sectionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+  background: rgba(201, 147, 45, 0.14);
+  color: var(--ochre-700);
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--bistre-900);
+  letter-spacing: -0.01em;
+}
+
+.permissionBlock {
+  padding-top: 0.25rem;
+  border-top: 1px dashed rgba(60, 42, 33, 0.12);
+  margin-top: 0.25rem;
+}
+
+.permissionIntro {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--bistre-600);
+}
+
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.checkboxGroup :global(.ant-checkbox-wrapper) {
+  margin-inline-start: 0 !important;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--pearl-bush);
+  background: rgba(255, 254, 249, 0.6);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.checkboxGroup :global(.ant-checkbox-wrapper:hover) {
+  border-color: var(--ochre-200);
+  background: var(--ochre-10);
+}
+
+.allAccessNote {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--pearl-bush);
+  background: var(--linen-95);
+}
+
+.allAccessText {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--bistre-600);
+}

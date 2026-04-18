@@ -1,9 +1,38 @@
 'use client';
 
-import { Tooltip } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import { createRoot, type Root } from 'react-dom/client';
 
 const overflowRoots = new Map<HTMLElement, Root>();
+const billingLineRoots = new Map<HTMLElement, Root>();
+
+function healEmptyBillingLineMounts(host: HTMLElement | null) {
+  if (!host) return;
+  host.querySelectorAll('[data-dt-billing-line-tip-root="1"]').forEach((node) => {
+    const el = node as HTMLElement;
+    const empty =
+      el.childElementCount === 0 && (el.textContent?.trim() ?? '') === '';
+    if (!empty) return;
+    const r = billingLineRoots.get(el);
+    if (r) {
+      try {
+        r.unmount();
+      } catch {
+        /* noop */
+      }
+      billingLineRoots.delete(el);
+    }
+    const parent = el.parentElement;
+    const cls = el.dataset.dtBillingLineRestoreClass ?? '';
+    const txt = el.dataset.dtBillingLineRestoreText ?? '';
+    if (parent) {
+      const div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = txt;
+      parent.replaceChild(div, el);
+    }
+  });
+}
 
 function pruneDisconnectedRoots() {
   for (const [el, root] of overflowRoots) {
@@ -14,6 +43,15 @@ function pruneDisconnectedRoots() {
         /* noop */
       }
       overflowRoots.delete(el);
+    }
+  }
+  for (const [el, root] of billingLineRoots) {
+    if (!el.isConnected) {
+      try {
+        root.unmount();
+      } catch {
+      }
+      billingLineRoots.delete(el);
     }
   }
 }
@@ -55,8 +93,63 @@ function CellOverflowTip({
   );
 }
 
+function BillingLineTypographyEllipsis({
+  className,
+  text,
+}: {
+  className: string;
+  text: string;
+}) {
+  return (
+    <Typography.Text
+      className={className}
+      ellipsis={{
+        tooltip: {
+          title: text,
+          placement: 'topLeft',
+          mouseEnterDelay: 0.35,
+          destroyOnHidden: true,
+        },
+      }}
+      style={{
+        display: 'block',
+        width: '100%',
+        maxWidth: '100%',
+        marginBottom: 0,
+      }}
+    >
+      {text}
+    </Typography.Text>
+  );
+}
+
 export function detachTabulatorOverflowTooltips(host: HTMLElement | null) {
   if (!host) return;
+
+  host.querySelectorAll('[data-dt-billing-line-tip-root="1"]').forEach((node) => {
+    const el = node as HTMLElement;
+    const r = billingLineRoots.get(el);
+    if (r) {
+      try {
+        r.unmount();
+      } catch {
+        /* noop */
+      }
+      billingLineRoots.delete(el);
+    }
+    const parent = el.parentElement;
+    const cls = el.dataset.dtBillingLineRestoreClass ?? '';
+    const txt = el.dataset.dtBillingLineRestoreText ?? '';
+    if (parent) {
+      const div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = txt;
+      parent.replaceChild(div, el);
+    } else {
+      el.remove();
+    }
+  });
+
   host.querySelectorAll('[data-dt-billing-tip-root="1"]').forEach((node) => {
     const el = node as HTMLElement;
     const stack = el.parentElement;
@@ -95,6 +188,8 @@ export function detachTabulatorOverflowTooltips(host: HTMLElement | null) {
 function attachBillingPosProductTooltips(host: HTMLElement | null) {
   if (!host) return;
 
+  healEmptyBillingLineMounts(host);
+
   const stacks = host.querySelectorAll('.billing-pos-product-stack');
   for (const node of stacks) {
     const stack = node as HTMLElement;
@@ -132,12 +227,43 @@ function attachBillingPosProductTooltips(host: HTMLElement | null) {
       stack.dataset.dtBillingRawHtml = contentEl.innerHTML;
     }
 
-    const fullTip =
-      stack.dataset.fullTip?.trim() ||
-      stack.getAttribute('title')?.trim() ||
-      '';
-    if (fullTip) stack.setAttribute('title', fullTip);
-    else stack.removeAttribute('title');
+    stack.removeAttribute('title');
+
+    if (!contentEl) continue;
+
+    for (const sel of [
+      ':scope > .billing-pos-product-title',
+      ':scope > .billing-pos-product-sub',
+    ] as const) {
+      const lineEls = contentEl.querySelectorAll(sel);
+      for (const n of lineEls) {
+        const lineEl = n as HTMLElement;
+        if (lineEl.closest('[data-dt-billing-line-tip-root="1"]')) continue;
+        const text = lineEl.textContent?.trim() ?? '';
+        if (!text) continue;
+
+        const cls = lineEl.className;
+        const mount = document.createElement('div');
+        mount.setAttribute('data-dt-billing-line-tip-root', '1');
+        mount.dataset.dtBillingLineRestoreText = text;
+        mount.dataset.dtBillingLineRestoreClass = cls;
+        mount.style.cssText = 'min-width:0;width:100%;';
+
+        lineEl.replaceWith(mount);
+        const prev = billingLineRoots.get(mount);
+        if (prev) {
+          try {
+            prev.unmount();
+          } catch {
+            /* noop */
+          }
+          billingLineRoots.delete(mount);
+        }
+        const root = createRoot(mount);
+        billingLineRoots.set(mount, root);
+        root.render(<BillingLineTypographyEllipsis className={cls} text={text} />);
+      }
+    }
   }
 }
 
@@ -209,4 +335,10 @@ export function attachTabulatorOverflowTooltips(host: HTMLElement | null) {
   }
 
   attachBillingPosProductTooltips(host);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      attachBillingPosProductTooltips(host);
+    });
+  });
 }

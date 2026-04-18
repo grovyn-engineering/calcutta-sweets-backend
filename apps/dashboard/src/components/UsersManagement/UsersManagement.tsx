@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DataTable } from "@/components/DataTable/DataTable";
 import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 
-/** Minimal Tabulator surface used here (avoids importing untyped tabulator-tables). */
 type TabulatorPageable = { setPage: (page: number) => void };
 
 import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
@@ -66,6 +65,22 @@ function rolePillModifier(role: string): string {
   return map[role] ?? "users-pill--role-default";
 }
 
+function canDeleteUserRow(
+  authRole: string | undefined,
+  authUserId: string | undefined,
+  row: UserRow,
+): boolean {
+  if (!authRole || !authUserId || row.id === authUserId) return false;
+  if (authRole === "SUPER_ADMIN") return true;
+  if (authRole === "ADMIN") {
+    return row.role !== "SUPER_ADMIN" && row.role !== "ADMIN";
+  }
+  if (authRole === "MANAGER") {
+    return row.role === "CASHIER" || row.role === "STAFF";
+  }
+  return false;
+}
+
 export default function UsersManagement() {
   const { message } = App.useApp();
   const router = useRouter();
@@ -98,6 +113,35 @@ export default function UsersManagement() {
       router.push(`/users/${row.id}`);
     };
   }, [router]);
+
+  const requestDeleteRef = useRef<(row: UserRow) => void>(() => {});
+  useEffect(() => {
+    requestDeleteRef.current = (row: UserRow) => {
+      Modal.confirm({
+        title: "Remove this user?",
+        content: `Permanently remove ${row.email} from this shop? They will no longer be able to sign in.`,
+        okText: "Remove user",
+        okType: "danger",
+        cancelText: "Cancel",
+        onOk: async () => {
+          const res = await apiFetch(`/users/${row.id}`, { method: "DELETE" });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            message.error(
+              typeof data?.message === "string"
+                ? data.message
+                : Array.isArray(data?.message)
+                  ? data.message.join(", ")
+                  : "Could not remove user",
+            );
+            throw new Error(String(data?.message ?? res.statusText));
+          }
+          message.success("User removed");
+          setRefreshKey((k) => k + 1);
+        },
+      });
+    };
+  }, [message]);
 
   const generateStrongPassword = useCallback(() => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -163,8 +207,8 @@ export default function UsersManagement() {
       {
         title: "Shop",
         field: "shopCode",
-        minWidth: 120,
-        width: 120,
+        minWidth: 200,
+        width: 200,
         hozAlign: "center",
         formatter: (cell) => {
           const row = cell.getRow().getData() as UserRow;
@@ -204,28 +248,50 @@ export default function UsersManagement() {
         base.push({
           title: "Actions",
           field: "_actions",
-          width: 100,
+          width: 200,
           hozAlign: "center",
           headerSort: false,
           resizable: false,
           formatter: (cell) => {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "users-edit-btn";
-            btn.textContent = "Edit";
-            btn.setAttribute("aria-label", "Edit user");
-            btn.addEventListener("click", (e) => {
+            const row = cell.getRow().getData() as UserRow;
+            const wrap = document.createElement("div");
+            wrap.className = "users-actions-cell";
+
+            const editBtn = document.createElement("button");
+            editBtn.type = "button";
+            editBtn.className = "users-edit-btn";
+            editBtn.textContent = "Edit";
+            editBtn.setAttribute("aria-label", "Edit user");
+            editBtn.addEventListener("click", (e) => {
               e.preventDefault();
               e.stopPropagation();
-              navigateToEditRef.current(cell.getRow().getData() as UserRow);
+              navigateToEditRef.current(row);
             });
-            return btn;
+            wrap.appendChild(editBtn);
+
+            if (
+              canDeleteUserRow(authUser?.role, authUser?.id, row)
+            ) {
+              const delBtn = document.createElement("button");
+              delBtn.type = "button";
+              delBtn.className = "users-delete-btn";
+              delBtn.textContent = "Delete";
+              delBtn.setAttribute("aria-label", "Remove user");
+              delBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                requestDeleteRef.current(row);
+              });
+              wrap.appendChild(delBtn);
+            }
+
+            return wrap;
           },
         });
       }
       return base;
     },
-    [canManageUserRows],
+    [authUser?.id, authUser?.role, canManageUserRows],
   );
 
   const options = useMemo<ReactTabulatorOptions>(() => {
@@ -265,7 +331,6 @@ export default function UsersManagement() {
     };
   }, [baseUrl, effectiveShopCode]);
 
-  /** Reload remote data when shop changes - do not remount the grid (Tabulator + ResizeObserver crash). */
   useEffect(() => {
     if (!readyForTable) return;
     const t = tableRef.current;

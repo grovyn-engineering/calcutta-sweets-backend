@@ -1,21 +1,26 @@
-import { Controller, Post, Get, Patch, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { RoleRequestsService } from './role-requests.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { ShopScopeGuard } from '../auth/shop-scope.guard';
+import { CreateRoleRequestDto } from './dto/create-role-request.dto';
 
 @Controller('role-requests')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, RolesGuard)
 export class RoleRequestsController {
     constructor(private readonly roleRequestsService: RoleRequestsService) { }
 
     @Post()
-    create(@Req() req: Request, @Body() dto: { requestedRole: UserRole }) {
+    create(@Req() req: Request, @Body() dto: CreateRoleRequestDto) {
         const userId = (req.user as any).sub || (req.user as any).id;
         const shopCode = req.effectiveShopCode || (req.user as any).shopCode;
-        return this.roleRequestsService.create(userId, shopCode, dto.requestedRole);
+        if (!shopCode) {
+            throw new BadRequestException('Missing shop context');
+        }
+        return this.roleRequestsService.create(userId, shopCode, dto);
     }
 
     @Get()

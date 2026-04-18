@@ -2,6 +2,10 @@
 
 import { Drawer } from 'antd';
 import { MoreHorizontal } from 'lucide-react';
+import { useState } from 'react';
+import CustomerDetails, {
+  type CustomerFormValues,
+} from '@/components/CustomerDetails';
 import {
   BillingBillPanel,
   type BillItem,
@@ -28,7 +32,11 @@ export function BillDrawer({
   onSaleComplete,
   orderId = '-',
 }: BillDrawerProps) {
+  const [customer, setCustomer] = useState<CustomerFormValues | null>(null);
+  const [customerDetailsOpen, setCustomerDetailsOpen] = useState(false);
+
   return (
+    <>
     <Drawer
       title={
         <div className="flex flex-col gap-1">
@@ -71,7 +79,20 @@ export function BillDrawer({
         onRemove={onRemove}
         onSaleComplete={onSaleComplete}
         orderId={orderId}
+        customerBinding={{
+          customer,
+          setCustomer,
+          detailsOpen: customerDetailsOpen,
+          setDetailsOpen: setCustomerDetailsOpen,
+        }}
       />
     </Drawer>
+    <CustomerDetails
+      open={customerDetailsOpen}
+      onCancel={() => setCustomerDetailsOpen(false)}
+      initialValues={customer ?? undefined}
+      onSave={(values) => setCustomer(values)}
+    />
+    </>
   );
 }

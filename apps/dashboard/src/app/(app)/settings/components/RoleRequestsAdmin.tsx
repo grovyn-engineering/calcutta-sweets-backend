@@ -7,11 +7,24 @@ import { Crown } from "lucide-react";
 import { apiFetch } from "../../../../lib/api";
 import { TableEmptyState } from "@/components/DataTable/TableDataOverlay";
 import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
+import { PERMISSION_ROWS } from "../../../../lib/rolePermissions";
+import type { RolePermissions } from "../../../../contexts/AuthContext";
 import styles from "./RoleRequestsAdmin.module.css";
+
+const PERM_LABEL: Partial<Record<keyof RolePermissions, string>> =
+  PERMISSION_ROWS.reduce(
+    (acc, row) => {
+      acc[row.key] = row.label;
+      return acc;
+    },
+    {} as Partial<Record<keyof RolePermissions, string>>,
+  );
 
 type RoleRequestRow = {
   id: string;
-  requestedRole: string;
+  kind?: string;
+  requestedRole: string | null;
+  requestedPermissions?: Record<string, boolean> | null;
   createdAt: string;
   user?: {
     name?: string | null;
@@ -20,10 +33,47 @@ type RoleRequestRow = {
   };
 };
 
+function renderRequested(record: RoleRequestRow) {
+  if (record.kind === "PERMISSION_EXTENSION" && record.requestedPermissions) {
+    const keys = Object.entries(record.requestedPermissions).filter(
+      ([, v]) => v === true,
+    );
+    if (keys.length === 0) {
+      return (
+        <Tag className="m-0 rounded-md border-neutral-200 bg-neutral-50 text-neutral-700">
+          Permissions
+        </Tag>
+      );
+    }
+    return (
+      <Space size={[4, 4]} wrap className="max-w-[280px]">
+        {keys.map(([k]) => (
+          <Tag
+            key={k}
+            color="purple"
+            className="m-0 rounded-md text-xs font-semibold"
+          >
+            {PERM_LABEL[k as keyof RolePermissions] ?? k}
+          </Tag>
+        ))}
+      </Space>
+    );
+  }
+  const role = record.requestedRole ?? "—";
+  return (
+    <Tag color="geekblue" className="m-0 rounded-md">
+      {role}
+    </Tag>
+  );
+}
+
 export function RoleRequestsAdmin() {
   const [requests, setRequests] = useState<RoleRequestRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    id: string;
+    action: "approve" | "reject";
+  } | null>(null);
   const fetchGenRef = useRef(0);
 
   const fetchRequests = useCallback(async () => {
@@ -56,7 +106,7 @@ export function RoleRequestsAdmin() {
   }, [fetchRequests]);
 
   const handleAction = async (id: string, action: "approve" | "reject") => {
-    setActionLoadingId(id);
+    setPendingAction({ id, action });
     try {
       const res = await apiFetch(`/role-requests/${id}/${action}`, {
         method: "PATCH",
@@ -76,7 +126,7 @@ export function RoleRequestsAdmin() {
     } catch (e: unknown) {
       message.error(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setActionLoadingId(null);
+      setPendingAction(null);
     }
   };
 
@@ -109,21 +159,32 @@ export function RoleRequestsAdmin() {
       key: "currentRole",
       width: 130,
       render: (role: string) => (
-        <Tag className="m-0 rounded-md border-[var(--pearl-bush)] bg-[var(--linen-95)] text-[var(--bistre-800)]">
+        <Tag className="m-0 rounded-md border-neutral-200 bg-neutral-50 text-neutral-800">
           {role || "STAFF"}
         </Tag>
       ),
     },
     {
-      title: "Requested",
-      dataIndex: "requestedRole",
-      key: "requestedRole",
-      width: 130,
-      render: (role: string) => (
-        <Tag color="geekblue" className="m-0 rounded-md">
-          {role}
+      title: "Type",
+      key: "kind",
+      width: 112,
+      render: (_: unknown, record: RoleRequestRow) => (
+        <Tag
+          className={`m-0 rounded-md ${
+            record.kind === "PERMISSION_EXTENSION"
+              ? "border-violet-200 bg-violet-50 text-violet-900"
+              : "border-neutral-200 bg-neutral-50 text-neutral-800"
+          }`}
+        >
+          {record.kind === "PERMISSION_EXTENSION" ? "Permissions" : "Role"}
         </Tag>
       ),
+    },
+    {
+      title: "Requested",
+      key: "requested",
+      width: 220,
+      render: (_: unknown, record: RoleRequestRow) => renderRequested(record),
     },
     {
       title: "Requested on",
@@ -151,7 +212,10 @@ export function RoleRequestsAdmin() {
             icon={<CheckOutlined />}
             size="small"
             className={styles.actionBtnApprove}
-            loading={actionLoadingId === record.id}
+            loading={
+              pendingAction?.id === record.id &&
+              pendingAction.action === "approve"
+            }
             onClick={() => handleAction(record.id, "approve")}
             style={{
               backgroundColor: "var(--ochre-600)",
@@ -165,7 +229,10 @@ export function RoleRequestsAdmin() {
             icon={<CloseOutlined />}
             size="small"
             className={styles.actionBtnReject}
-            loading={actionLoadingId === record.id}
+            loading={
+              pendingAction?.id === record.id &&
+              pendingAction.action === "reject"
+            }
             onClick={() => handleAction(record.id, "reject")}
           >
             Reject
@@ -189,13 +256,13 @@ export function RoleRequestsAdmin() {
         pagination={
           hasRows ? { pageSize: 8, showSizeChanger: false } : false
         }
-        scroll={hasRows ? { x: 720 } : undefined}
+        scroll={hasRows ? { x: 900 } : undefined}
         locale={{
           emptyText: (
             <TableEmptyState
               embedded
-              title="No pending role requests"
-              description="When team members request a role change, they will show up here for you to approve or reject."
+              title="No pending access requests"
+              description="When team members request a different role or extra permissions, they appear here for you to approve or reject."
               icon={
                 <Crown
                   className="text-[var(--ochre-600)]"

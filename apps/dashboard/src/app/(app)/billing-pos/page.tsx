@@ -17,7 +17,9 @@ import {
   type BillItem,
   type BillingCustomerBinding,
 } from '@/components/BillingBillPanel/BillingBillPanel';
-import type { CustomerFormValues } from '@/components/CustomerDetails';
+import CustomerDetails, {
+  type CustomerFormValues,
+} from '@/components/CustomerDetails';
 import { BillingPosManualSection } from '@/components/BillingPosManualSection/BillingPosManualSection';
 import type { BillingVariantRow } from '@/hooks/useBillingPosVariants';
 import {
@@ -393,6 +395,13 @@ export default function BillingPOSPage() {
           />
         </Drawer>
       ) : null}
+
+      <CustomerDetails
+        open={customerDetailsOpen}
+        onCancel={() => setCustomerDetailsOpen(false)}
+        initialValues={customer ?? undefined}
+        onSave={(values) => setCustomer(values)}
+      />
     </div>
   );
 }

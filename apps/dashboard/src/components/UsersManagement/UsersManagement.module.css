@@ -387,6 +387,14 @@
   font-weight: 600;
 }
 
+.wrap :global(.tabulator .users-actions-cell) {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .wrap :global(.tabulator .users-edit-btn) {
   display: inline-flex;
   align-items: center;
@@ -414,6 +422,35 @@
 
 .wrap :global(.tabulator .users-edit-btn:focus-visible) {
   outline: 2px solid var(--ochre-400);
+  outline-offset: 2px;
+}
+
+.wrap :global(.tabulator .users-delete-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(185, 60, 60, 0.45);
+  color: #b93c3c;
+  background: linear-gradient(180deg, #fff 0%, rgba(185, 60, 60, 0.06) 100%);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.wrap :global(.tabulator .users-delete-btn:hover) {
+  border-color: rgba(185, 60, 60, 0.75);
+  background: rgba(185, 60, 60, 0.1);
+  box-shadow: 0 2px 8px rgba(185, 60, 60, 0.12);
+}
+
+.wrap :global(.tabulator .users-delete-btn:focus-visible) {
+  outline: 2px solid rgba(185, 60, 60, 0.55);
   outline-offset: 2px;
 }
 

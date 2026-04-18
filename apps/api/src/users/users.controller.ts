@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -10,8 +12,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import type { User } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermission } from '../auth/permissions.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
@@ -20,12 +25,13 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, ShopScopeGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Get()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @RequirePermission('canAccessUsers')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   findPage(
     @Req() req: Request,
     @Query('page') pageStr?: string,
@@ -37,28 +43,57 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @RequirePermission('canAccessUsers')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   findOneForManager(@Req() req: Request, @Param('id') id: string) {
     return this.usersService.findOneForShop(id, req.effectiveShopCode!);
   }
 
   @Post()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @RequirePermission('canAccessUsers')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   create(@Req() req: Request, @Body() dto: CreateUserDto) {
+    const actor = req.user as User;
+    /**
+     * `ShopScopeGuard` sets `effectiveShopCode` from `X-Shop` (header shop switcher).
+     * User creation must honor the **Shop** field in the body for super admins;
+     * otherwise every new user is forced into whichever shop is selected in the header.
+     */
+    const shopCode =
+      actor.role === UserRole.SUPER_ADMIN
+        ? dto.shopCode
+        : actor.shopCode;
+    if (actor.role !== UserRole.SUPER_ADMIN && dto.shopCode !== actor.shopCode) {
+      throw new BadRequestException(
+        'You can only create users for your assigned shop',
+      );
+    }
     return this.usersService.create({
       ...dto,
-      shopCode: req.effectiveShopCode!,
+      shopCode,
     });
   }
 
   @Patch(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @RequirePermission('canAccessUsers')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   update(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
     return this.usersService.update(id, dto, req.effectiveShopCode!);
+  }
+
+  @Delete(':id')
+  @RequirePermission('canAccessUsers')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  remove(@Req() req: Request, @Param('id') id: string) {
+    const actor = req.user as User;
+    return this.usersService.remove(id, req.effectiveShopCode!, {
+      id: actor.id,
+      role: actor.role,
+    });
   }
 
   @Get('profile/me')

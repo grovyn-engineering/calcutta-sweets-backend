@@ -43,7 +43,7 @@ export function getPermissionsForRole(role: string): RolePermissions {
     canAccessInventory: isAtLeastStaff,
     canAccessCategories: isAtLeastStaff,
     canAccessReports: isAtLeastAdmin,
-    canAccessUsers: isSuperAdmin,
+    canAccessUsers: isSuperAdmin || isAdmin,
     canAccessSettings: true,
   };
 }

@@ -17,17 +17,23 @@ import type { Request } from 'express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { InventoryService } from './inventory.service';
 import { UpdateVariantDto } from './dto/update-variant.dto';
 
 @Controller('inventory')
-@UseGuards(JwtAuthGuard, ShopScopeGuard)
+@UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   /** Declared before `/:id` so paths like `variants/lookup` are not treated as ids. */
   @Get('variants/lookup')
+  @RequireAnyPermission('canAccessInventory', 'canAccessBilling')
   lookupByBarcode(@Req() req: Request, @Query('barcode') barcode?: string) {
     const b = barcode?.trim();
     if (!b) {
@@ -40,6 +46,7 @@ export class InventoryController {
   }
 
   @Get('variants')
+  @RequireAnyPermission('canAccessInventory', 'canAccessBilling')
   findVariants(
     @Req() req: Request,
     @Query('page') pageStr?: string,
@@ -76,11 +83,13 @@ export class InventoryController {
   }
 
   @Get('variants/:id')
+  @RequireAnyPermission('canAccessInventory', 'canAccessBilling')
   findVariantById(@Req() req: Request, @Param('id') id: string) {
     return this.inventoryService.findVariantById(id, req.effectiveShopCode!);
   }
 
   @Patch('variants/:id')
+  @RequirePermission('canAccessInventory')
   updateVariant(
     @Req() req: Request,
     @Param('id') id: string,
@@ -94,6 +103,7 @@ export class InventoryController {
   }
 
   @Post('upload')
+  @RequirePermission('canAccessInventory')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({

@@ -70,8 +70,13 @@ function buildItemsTitle(items: TransferItem[]): string {
     .join("\n");
 }
 
+type PendingTransferAction = {
+  id: string;
+  action: "approve" | "reject" | "fulfill";
+};
+
 function makeColumns(
-  actionBusy: string | null,
+  actionBusy: PendingTransferAction | null,
   onAction: (id: string, action: "approve" | "reject" | "fulfill") => void
 ): ColumnDefinition[] {
   return [
@@ -184,7 +189,11 @@ function makeColumns(
       hozAlign: "left",
       formatter: (cell) => {
         const row = cell.getRow().getData() as TransferTableRow;
-        const busy = actionBusy === row.id;
+        const rowPending = actionBusy?.id === row.id;
+        const approveBusy =
+          rowPending && actionBusy?.action === "approve";
+        const rejectBusy =
+          rowPending && actionBusy?.action === "reject";
         const wrap = document.createElement("div");
         wrap.className = "st-btn-row";
 
@@ -192,21 +201,21 @@ function makeColumns(
           const approve = document.createElement("button");
           approve.type = "button";
           approve.className = "st-btn st-btn-primary";
-          approve.textContent = busy ? "…" : "Approve";
-          approve.disabled = busy;
+          approve.textContent = approveBusy ? "…" : "Approve";
+          approve.disabled = rowPending;
           approve.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (!busy) onAction(row.id, "approve");
+            if (!rowPending) onAction(row.id, "approve");
           });
 
           const reject = document.createElement("button");
           reject.type = "button";
           reject.className = "st-btn st-btn-danger";
-          reject.textContent = busy ? "…" : "Reject";
-          reject.disabled = busy;
+          reject.textContent = rejectBusy ? "…" : "Reject";
+          reject.disabled = rowPending;
           reject.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (!busy) onAction(row.id, "reject");
+            if (!rowPending) onAction(row.id, "reject");
           });
 
           wrap.appendChild(approve);
@@ -215,14 +224,16 @@ function makeColumns(
         }
 
         if (row.status === "APPROVED") {
+          const fulfillBusy =
+            rowPending && actionBusy?.action === "fulfill";
           const fulfill = document.createElement("button");
           fulfill.type = "button";
           fulfill.className = "st-btn st-btn-primary";
-          fulfill.innerHTML = `${TRUCK_SVG}<span>${busy ? "…" : "Fulfill & Ship"}</span>`;
-          fulfill.disabled = busy;
+          fulfill.innerHTML = `${TRUCK_SVG}<span>${fulfillBusy ? "…" : "Fulfill & Ship"}</span>`;
+          fulfill.disabled = rowPending;
           fulfill.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (!busy) onAction(row.id, "fulfill");
+            if (!rowPending) onAction(row.id, "fulfill");
           });
           wrap.appendChild(fulfill);
           return wrap;
@@ -245,7 +256,9 @@ export default function StockTransfersPage() {
   const [requests, setRequests] = useState<TransferRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<PendingTransferAction | null>(
+    null
+  );
   const fetchGenRef = useRef(0);
 
   const currentShop = shops.find((s) => s.shopCode === effectiveShopCode);
@@ -278,7 +291,7 @@ export default function StockTransfersPage() {
 
   const handleAction = useCallback(
     async (id: string, action: "approve" | "reject" | "fulfill") => {
-      setActionBusy(id);
+      setActionBusy({ id, action });
       try {
         const res = await apiFetch(`/stock-transfers/${id}/${action}`, {
           method: "PATCH",

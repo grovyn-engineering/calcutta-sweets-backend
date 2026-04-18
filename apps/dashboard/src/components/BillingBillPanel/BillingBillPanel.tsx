@@ -10,9 +10,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import CustomerDetails, {
-  type CustomerFormValues,
-} from '../CustomerDetails';
+import type { CustomerFormValues } from '../CustomerDetails';
 import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
 import {
@@ -349,31 +347,44 @@ export function BillingBillPanel({
             for custom weights.
           </div>
         ) : (
-          <ul className="space-y-3 pr-1 sm:space-y-4">
+          <ul className="space-y-2 pr-1 sm:space-y-2.5">
             {items.map((item) => (
               <li
                 key={item.lineId}
-                className="flex gap-3 border-b border-[var(--pearl-bush)] pb-3 last:border-0 last:pb-0 sm:pb-4"
+                className="flex items-start gap-2 border-b border-[var(--pearl-bush)] pb-2 last:border-0 last:pb-0 sm:gap-2.5 sm:pb-2.5"
               >
-                <div className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 self-center">
+                <div className="h-10 w-10 shrink-0 sm:h-11 sm:w-11">
                   <ProductLineThumb imageUrl={item.imageUrl} alt={item.name} />
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center">
+                <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-[var(--text-primary)]">
+                      <p className="truncate text-sm font-semibold leading-tight text-[var(--text-primary)] sm:text-[0.9375rem]">
                         {item.name}
+                        {item.variantLabel &&
+                        item.variantLabel !== 'Regular' ? (
+                          <span className="font-normal text-[var(--text-muted)]">
+                            {' '}
+                            · {item.variantLabel}
+                          </span>
+                        ) : null}
                       </p>
-                      {item.variantLabel && item.variantLabel !== 'Regular' && (
-                        <p className="text-xs text-[var(--text-muted)]">
-                          {item.variantLabel}
-                        </p>
-                      )}
-                      <p className="mt-0.5 font-mono text-[11px] text-[var(--bistre-400)]">
-                        {item.barcode}
+                      <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                        <span className="font-mono text-[var(--bistre-400)]">
+                          {item.barcode}
+                        </span>
+                        <span className="text-[var(--bistre-200)]"> · </span>
+                        <span>
+                          {item.displayQuantity} {item.displayUnit} × ₹
+                          {billDisplayUnitPrice(
+                            item.stockUnitsToDeduct,
+                            item.catalogUnitPrice,
+                            item.displayQuantity,
+                          ).toFixed(2)}
+                        </span>
                       </p>
                     </div>
-                    <p className="shrink-0 font-semibold text-[var(--text-primary)]">
+                    <p className="shrink-0 text-sm font-semibold tabular-nums text-[var(--text-primary)] sm:text-[0.9375rem]">
                       ₹
                       {billLineSubtotal(
                         item.stockUnitsToDeduct,
@@ -381,26 +392,18 @@ export function BillingBillPanel({
                       ).toFixed(2)}
                     </p>
                   </div>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {item.displayQuantity}{' '}
-                    {item.displayUnit}
-                    {' × ₹'}
-                    {billDisplayUnitPrice(
-                      item.stockUnitsToDeduct,
-                      item.catalogUnitPrice,
-                      item.displayQuantity,
-                    ).toFixed(2)}
-                  </p>
                   {item.isInstant ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-[11rem]">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                      <div className="flex items-center gap-1">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
                           Qty
                         </span>
                         <InputNumber
                           size="small"
-                          className="w-full !min-w-0"
-                          min={item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.001}
+                          className="!min-w-0 w-[4.75rem] sm:w-[5.25rem]"
+                          min={
+                            item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.001
+                          }
                           step={
                             item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.5
                           }
@@ -414,13 +417,13 @@ export function BillingBillPanel({
                           }}
                         />
                       </div>
-                      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-[9rem]">
+                      <div className="flex min-w-0 items-center gap-1">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
                           Unit
                         </span>
                         <Select
                           size="small"
-                          className="w-full min-w-0"
+                          className="min-w-[4rem] w-[4.75rem] sm:w-[5.25rem]"
                           value={item.displayUnit}
                           options={allowedInstantDisplayUnits(
                             item.variantLabel,
@@ -440,62 +443,88 @@ export function BillingBillPanel({
                               displayUnit: u,
                             });
                           }}
-                          getPopupContainer={(n) => n.parentElement ?? document.body}
+                          getPopupContainer={(n) =>
+                            n.parentElement ?? document.body
+                          }
                         />
                       </div>
+                      <Tooltip title="Total uses the catalog price for the unit you select.">
+                        <span className="cursor-help text-[10px] text-[var(--text-muted)] underline decoration-dotted underline-offset-2">
+                          Pricing
+                        </span>
+                      </Tooltip>
+                      <button
+                        type="button"
+                        onClick={() => onRemove(item.lineId)}
+                        className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        aria-label={`Remove ${item.name}`}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                          <line x1="10" y1="11" x2="10" y2="17" />
+                          <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg>
+                      </button>
                     </div>
-                  ) : null}
-                  <div className="mt-2 flex items-center gap-2">
-                    {!item.isInstant ? (
-                      <div className="flex items-center overflow-hidden rounded-lg border border-[var(--pearl-bush)]">
+                  ) : (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="flex items-center overflow-hidden rounded-md border border-[var(--pearl-bush)]">
                         <button
                           type="button"
                           onClick={() => onQuantityChange(item.lineId, -1)}
-                          className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--bistre-100)]"
+                          className="flex h-7 min-w-7 items-center justify-center px-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--bistre-100)] sm:h-8 sm:min-w-8 sm:text-base"
                         >
                           −
                         </button>
-                        <span className="min-w-[1.5rem] sm:min-w-[2rem] text-center text-xs sm:text-sm font-medium text-[var(--text-primary)]">
+                        <span className="min-w-[1.35rem] text-center text-xs font-medium tabular-nums text-[var(--text-primary)] sm:min-w-[1.5rem] sm:text-sm">
                           {item.displayQuantity}
                         </span>
                         <button
                           type="button"
                           onClick={() => onQuantityChange(item.lineId, 1)}
-                          className="min-h-8 min-w-8 sm:min-h-10 sm:min-w-10 px-1 sm:px-2 text-base sm:text-lg font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--ochre-100)]"
+                          className="flex h-7 min-w-7 items-center justify-center px-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--linen-95)] active:bg-[var(--ochre-100)] sm:h-8 sm:min-w-8 sm:text-base"
                         >
                           +
                         </button>
                       </div>
-                    ) : (
-                      <span className="text-[10px] text-[var(--text-muted)]">
-                        Adjust qty &amp; unit above - total follows catalog price.
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => onRemove(item.lineId)}
-                      className="flex min-h-10 min-w-10 items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
-                      aria-label={`Remove ${item.name}`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                      <button
+                        type="button"
+                        onClick={() => onRemove(item.lineId)}
+                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        aria-label={`Remove ${item.name}`}
                       >
-                        <path d="M3 6h18" />
-                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                        <line x1="10" y1="11" x2="10" y2="17" />
-                        <line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
-                    </button>
-                  </div>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                          <line x1="10" y1="11" x2="10" y2="17" />
+                          <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             ))}
@@ -610,13 +639,6 @@ export function BillingBillPanel({
           </Button>
         </div>
       )}
-
-      <CustomerDetails
-        open={detailsOpen}
-        onCancel={() => setDetailsOpen(false)}
-        initialValues={customer ?? undefined}
-        onSave={(values) => setCustomer(values)}
-      />
 
       <Modal
         title="Adjust Discount"
