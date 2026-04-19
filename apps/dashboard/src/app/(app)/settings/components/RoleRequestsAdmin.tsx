@@ -59,7 +59,7 @@ function renderRequested(record: RoleRequestRow) {
       </Space>
     );
   }
-  const role = record.requestedRole ?? "—";
+  const role = record.requestedRole ?? "-";
   return (
     <Tag color="geekblue" className="m-0 rounded-md">
       {role}

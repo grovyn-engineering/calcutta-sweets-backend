@@ -1,6 +1,5 @@
 const AUTH_KEY = "calcutta_auth";
 
-/** Must match `ShopContext` persistence key for `X-Shop` on API calls. */
 export const EFFECTIVE_SHOP_STORAGE_KEY = "calcutta_effective_shop";
 
 export function getAuthToken(): string | null {
@@ -15,7 +14,6 @@ export function getAuthToken(): string | null {
   }
 }
 
-/** Current shop scope for `X-Shop` (super admin switcher + persisted choice). */
 export function getEffectiveShopCodeForHeader(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -25,10 +23,6 @@ export function getEffectiveShopCodeForHeader(): string | null {
   }
 }
 
-/**
- * Headers for authenticated, shop-scoped API calls.
- * Sends `Authorization` when a token exists and `X-Shop` when a shop code is known.
- */
 function nestOriginFromEnv(): string {
   const explicit =
     process.env.INTERNAL_API_URL?.trim() ??
@@ -43,19 +37,9 @@ function nestOriginFromEnv(): string {
   if (origin.startsWith("http://") || origin.startsWith("https://")) {
     return origin;
   }
-  /** Default Nest host when env is unset; keep in sync with `next.config.ts` `resolveApiUpstream`. */
   return "http://127.0.0.1:3001";
 }
 
-/**
- * Resolves the API base path including `/api` (Nest global prefix).
- *
- * **Browser:** same-origin `/api` unless `NEXT_PUBLIC_API_SAME_ORIGIN_PROXY=0`, then
- * `NEXT_PUBLIC_API_URL` is used directly. Rewrites in `next.config.ts` forward `/api`
- * to your Nest host (`API_UPSTREAM_URL`, or the origin from `NEXT_PUBLIC_API_URL`, or 3001).
- *
- * **SSR:** `INTERNAL_API_URL` / `API_UPSTREAM_URL`, else origin parsed from `NEXT_PUBLIC_API_URL`, else 3001.
- */
 export function getApiBaseUrl(): string {
   const raw = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
   const directApi =
@@ -71,6 +55,46 @@ export function getApiBaseUrl(): string {
 
   const internal = nestOriginFromEnv().replace(/\/+$/, "");
   return internal.endsWith("/api") ? internal : `${internal}/api`;
+}
+
+export function getApiBaseUrlLongRunning(): string {
+  if (typeof window === "undefined") {
+    return getApiBaseUrl();
+  }
+  const raw = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    const base = raw.replace(/\/+$/, "");
+    return base.endsWith("/api") ? base : `${base}/api`;
+  }
+  return getApiBaseUrl();
+}
+
+export async function apiFetchLong(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const base = getApiBaseUrlLongRunning();
+  const pathPart = path.startsWith("/") ? path : `/${path}`;
+  const method = (init.method || "GET").toUpperCase();
+  const fullUrl = `${base}${pathPart}`;
+
+  const headers = new Headers(init.headers);
+  const authHeaders = getAuthHeaders();
+  for (const [key, value] of Object.entries(authHeaders)) {
+    if (!headers.has(key)) {
+      headers.set(key, value);
+    }
+  }
+
+  if (
+    !headers.has("Content-Type") &&
+    init.body &&
+    !(init.body instanceof FormData)
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return fetch(fullUrl, { ...init, headers });
 }
 
 export function getAuthHeaders(): Record<string, string> {
@@ -114,7 +138,6 @@ export async function apiFetch(
     headers.set("Content-Type", "application/json");
   }
 
-  // Deduplicate inflight GET requests
   if (method === "GET") {
     const shop = headers.get("X-Shop") || "default";
     const dedupeKey = `${method}:${fullUrl}:${shop}`;
@@ -132,10 +155,6 @@ export async function apiFetch(
 
 const inFlightByKey = new Map<string, Promise<unknown>>();
 
-/**
- * Reuse one in-flight promise per key so overlapping callers share a single request.
- * Helps when React 18 Strict Mode runs effects twice in development (and harmless in prod).
- */
 export function dedupeInFlight<T>(key: string, run: () => Promise<T>): Promise<T> {
   const hit = inFlightByKey.get(key) as Promise<T> | undefined;
   if (hit) return hit;

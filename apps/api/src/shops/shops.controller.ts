@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -11,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { User } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -54,18 +54,29 @@ export class ShopsController {
     return this.shopsService.findAll();
   }
 
+  @Get('current')
+  findCurrent(@Req() req: Request) {
+    return this.shopsService.findByShopCode(req.effectiveShopCode!);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.shopsService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: Request) {
+    return this.shopsService.findOne(id, req.user as User);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateShopDto: UpdateShopDto) {
-    return this.shopsService.update(id, updateShopDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateShopDto: UpdateShopDto,
+    @Req() req: Request,
+  ) {
+    return this.shopsService.update(id, updateShopDto, req.user as User);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.shopsService.remove(id);
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  remove(@Param('id') id: string, @Req() req: Request) {
+    return this.shopsService.remove(id, req.effectiveShopCode!);
   }
 }

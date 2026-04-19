@@ -54,11 +54,6 @@ export class UsersController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   create(@Req() req: Request, @Body() dto: CreateUserDto) {
     const actor = req.user as User;
-    /**
-     * `ShopScopeGuard` sets `effectiveShopCode` from `X-Shop` (header shop switcher).
-     * User creation must honor the **Shop** field in the body for super admins;
-     * otherwise every new user is forced into whichever shop is selected in the header.
-     */
     const shopCode =
       actor.role === UserRole.SUPER_ADMIN
         ? dto.shopCode

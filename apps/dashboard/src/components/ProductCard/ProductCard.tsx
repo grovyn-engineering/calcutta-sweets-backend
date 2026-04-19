@@ -32,7 +32,6 @@ export type ProductWithRelations = {
   variants?: ProductVariant[] | null;
 };
 
-/** Flat shape stored on bill lines (first variant price for POS). */
 export type ProductCardProduct = {
   id: string;
   name: string;
@@ -74,7 +73,6 @@ type DetailProps = {
   product: ProductWithRelations;
 };
 
-/** Full product card for the Products admin page (variants, category, stock). */
 export default function ProductDetailCard({ product }: DetailProps) {
   const variants = product.variants ?? [];
 

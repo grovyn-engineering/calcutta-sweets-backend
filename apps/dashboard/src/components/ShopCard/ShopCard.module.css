@@ -1,3 +1,8 @@
+.wrapper {
+  position: relative;
+  min-height: 100%;
+}
+
 .card {
   display: flex;
   flex-direction: column;
@@ -207,4 +212,38 @@
 .ctaIcon {
   flex-shrink: 0;
   opacity: 0.95;
+}
+
+.deleteBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--bistre-500);
+  box-shadow: 0 1px 4px rgba(44, 24, 16, 0.12);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.deleteBtn:hover {
+  color: #b91c1c;
+  background: #fef2f2;
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.15);
+}
+
+.deleteBtn:focus-visible {
+  outline: 2px solid var(--ochre-400);
+  outline-offset: 2px;
 }

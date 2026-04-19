@@ -1,8 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateShopDto {
   @IsString()
+  @MaxLength(200)
   name: string;
 
   @IsString()
@@ -15,6 +22,71 @@ export class CreateShopDto {
   @IsOptional()
   @IsString()
   logoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  pincode?: string;
+
+  @IsOptional()
+  @IsString()
+  gstNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  fssaiNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  upiId?: string;
+
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @IsOptional()
+  @IsString()
+  bankAccountNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  bankIfsc?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isFactory?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  allowNextDayBooking?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  allowBookingWhenOutOfStock?: boolean;
 
   @IsOptional()
   @Type(() => Number)

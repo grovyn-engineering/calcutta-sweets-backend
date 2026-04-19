@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { OrderStatus } from '@calcutta/database';
 import { PrismaService } from '../prisma.service';
 
 function utcDayKey(d: Date): string {
@@ -258,6 +259,92 @@ export class AnalyticsService {
         revenue: p._sum.totalAmount ?? 0,
       })),
       topProducts,
+    };
+  }
+
+  async getReportsExportData(shopCode: string, days: number) {
+    const summary = await this.getReportsSummary(shopCode, days);
+    const rangeStart = utcDayStart(summary.range.start);
+
+    const ORDERS_CAP = 10_000;
+    const LINES_CAP = 50_000;
+
+    const [orders, lineRows] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          shopCode,
+          status: { not: OrderStatus.DRAFT },
+          createdAt: { gte: rangeStart },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: ORDERS_CAP,
+        include: { _count: { select: { items: true } } },
+      }),
+      this.prisma.orderItem.findMany({
+        where: {
+          order: {
+            shopCode,
+            status: { not: OrderStatus.DRAFT },
+            createdAt: { gte: rangeStart },
+          },
+        },
+        orderBy: [{ orderId: 'asc' }, { id: 'asc' }],
+        take: LINES_CAP,
+        include: {
+          order: {
+            select: {
+              id: true,
+              createdAt: true,
+              customerName: true,
+              customerPhone: true,
+              paymentMethod: true,
+            },
+          },
+          product: { select: { name: true } },
+          productVariant: { select: { name: true, barcode: true } },
+        },
+      }),
+    ]);
+
+    const ordersPayload = orders.map((o) => ({
+      id: o.id,
+      createdAt: o.createdAt.toISOString(),
+      paymentMethod: o.paymentMethod,
+      totalAmount: o.totalAmount,
+      discount: o.discount ?? 0,
+      tax: o.tax ?? 0,
+      status: o.status,
+      customerName: o.customerName,
+      customerPhone: o.customerPhone,
+      itemCount: o._count.items,
+    }));
+
+    const lineItems = lineRows.map((row) => {
+      const qty = Number(row.quantity);
+      const price = Number(row.price);
+      return {
+        orderId: row.orderId,
+        orderCreatedAt: row.order.createdAt.toISOString(),
+        customerName: row.order.customerName,
+        customerPhone: row.order.customerPhone,
+        paymentMethod: row.order.paymentMethod,
+        productName: row.product.name,
+        variantName: row.productVariant?.name ?? null,
+        barcode: row.productVariant?.barcode ?? null,
+        quantity: qty,
+        unitPrice: price,
+        lineTotal: qty * price,
+      };
+    });
+
+    return {
+      ...summary,
+      export: {
+        orders: ordersPayload,
+        lineItems,
+        ordersCapped: orders.length >= ORDERS_CAP,
+        lineItemsCapped: lineRows.length >= LINES_CAP,
+      },
     };
   }
 }

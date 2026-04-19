@@ -1,8 +1,11 @@
 "use client";
 
 import {
+  App,
+  Button,
   Card,
   Col,
+  Dropdown,
   Empty,
   Row,
   Segmented,
@@ -11,6 +14,7 @@ import {
   Table,
   Typography,
 } from "antd";
+import type { MenuProps } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -26,11 +30,22 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  PieChart as PieChartIcon,
+} from "lucide-react";
 
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
+import {
+  downloadReportsExcel,
+  downloadReportsPdf,
+  type ReportsExportPayload,
+} from "@/lib/reportsExport";
 import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
 import ReportsOrdersTabulator from "@/components/ReportsOrdersTabulator/ReportsOrdersTabulator";
 
@@ -58,7 +73,6 @@ function paymentLabel(raw: string) {
 const PIE_COLORS = ["#c9932d", "#6b4a30", "#8b7355", "#a67c23", "#4e3420"];
 
 export type ReportsHomeProps = {
-  /** When embedded under Dashboard, use a tighter header (no duplicate page chrome). */
   variant?: "full" | "embedded";
 };
 
@@ -66,13 +80,20 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
   const embedded = variant === "embedded";
   const showSummaryCards = !embedded;
   const showDailyRevenueChart = !embedded;
-  const { effectiveShopCode } = useShop();
+  const { message } = App.useApp();
+  const { effectiveShopCode, shops } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
   const shopKey = effectiveShopCode || defaultShop;
 
   const [days, setDays] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReportsPayload | null>(null);
+  const [exportBusy, setExportBusy] = useState<"xlsx" | "pdf" | null>(null);
+
+  const shopDisplayName = useMemo(() => {
+    const row = shops.find((s) => s.shopCode === shopKey);
+    return row?.name?.trim() || shopKey;
+  }, [shops, shopKey]);
 
   const load = useCallback(async () => {
     if (!shopKey) return;
@@ -93,6 +114,54 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const exportMenuItems = useMemo<MenuProps["items"]>(
+    () => [
+      {
+        key: "xlsx",
+        label: "Excel (.xlsx)",
+        icon: <FileSpreadsheet className="h-4 w-4" aria-hidden />,
+      },
+      {
+        key: "pdf",
+        label: "PDF",
+        icon: <FileText className="h-4 w-4" aria-hidden />,
+      },
+    ],
+    [],
+  );
+
+  const handleExport = useCallback(
+    async (kind: "xlsx" | "pdf") => {
+      if (!shopKey) return;
+      setExportBusy(kind);
+      try {
+        const res = await apiFetch(
+          `/analytics/reports/export-data?days=${encodeURIComponent(String(days))}`,
+        );
+        if (!res.ok) {
+          throw new Error((await res.text()) || res.statusText);
+        }
+        const payload = (await res.json()) as ReportsExportPayload;
+        if (kind === "xlsx") {
+          await downloadReportsExcel(payload, shopDisplayName, shopKey);
+        } else {
+          await downloadReportsPdf(payload, shopDisplayName, shopKey);
+        }
+        message.success(
+          kind === "xlsx"
+            ? "Excel file downloaded."
+            : "PDF downloaded.",
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Export failed.";
+        message.error(msg);
+      } finally {
+        setExportBusy(null);
+      }
+    },
+    [days, message, shopDisplayName, shopKey],
+  );
 
   const barData = useMemo(() => {
     if (!data) return [];
@@ -133,15 +202,34 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
               : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use UTC dates."}
           </Text>
         </div>
-        <Segmented
-          options={[
-            { label: "7 days", value: 7 },
-            { label: "30 days", value: 30 },
-            { label: "90 days", value: 90 },
-          ]}
-          value={days}
-          onChange={(v) => setDays(v as number)}
-        />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Dropdown
+            menu={{
+              items: exportMenuItems,
+              onClick: ({ key }) =>
+                void handleExport(key as "xlsx" | "pdf"),
+            }}
+            disabled={!shopKey || loading || !data || !!exportBusy}
+            trigger={["click"]}
+          >
+            <Button
+              type="default"
+              icon={<Download className="h-4 w-4" aria-hidden />}
+              loading={!!exportBusy}
+            >
+              Export report
+            </Button>
+          </Dropdown>
+          <Segmented
+            options={[
+              { label: "7 days", value: 7 },
+              { label: "30 days", value: 30 },
+              { label: "90 days", value: 90 },
+            ]}
+            value={days}
+            onChange={(v) => setDays(v as number)}
+          />
+        </div>
       </div>
 
       {loading && !data ? (

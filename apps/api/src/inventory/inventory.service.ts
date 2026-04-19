@@ -50,9 +50,11 @@ export class InventoryService {
   }
 
   async findVariantByBarcode(barcode: string, shopCode: string) {
-    // `barcode` is @unique: use findUnique (single index seek) then scope in app.
-    const row = await this.prisma.productVariant.findUnique({
-      where: { barcode },
+    const row = await this.prisma.productVariant.findFirst({
+      where: {
+        barcode,
+        product: { shopCode },
+      },
       select: {
         id: true,
         productId: true,
@@ -127,7 +129,11 @@ export class InventoryService {
       }
       if (next !== existing.barcode) {
         const taken = await this.prisma.productVariant.findFirst({
-          where: { barcode: next, NOT: { id } },
+          where: {
+            barcode: next,
+            NOT: { id },
+            product: { shopCode },
+          },
         });
         if (taken) {
           throw new ConflictException(
@@ -283,5 +289,74 @@ export class InventoryService {
       total,
       hasMore,
     };
+  }
+
+  async deleteVariantsByIds(shopCode: string, variantIds: string[]) {
+    const unique = [...new Set(variantIds)].filter(Boolean);
+    if (unique.length === 0) {
+      throw new BadRequestException('Select at least one variant');
+    }
+
+    const shop = await this.prisma.shop.findUnique({
+      where: { shopCode },
+      select: { isFactory: true },
+    });
+    if (!shop) {
+      throw new NotFoundException('Shop not found');
+    }
+    if (shop.isFactory) {
+      throw new BadRequestException(
+        'Bulk variant delete is not available for the factory warehouse',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const found = await tx.productVariant.findMany({
+        where: { id: { in: unique }, product: { shopCode } },
+        select: { id: true, productId: true },
+      });
+      if (found.length !== unique.length) {
+        throw new BadRequestException(
+          'Some variants were not found in this shop or may have already been removed',
+        );
+      }
+
+      const ids = found.map((f) => f.id);
+
+      await tx.orderItem.deleteMany({
+        where: { productVariantId: { in: ids } },
+      });
+
+      await tx.productVariant.deleteMany({
+        where: { id: { in: ids } },
+      });
+
+      const productIds = [...new Set(found.map((f) => f.productId))];
+      let productsRemoved = 0;
+      for (const pid of productIds) {
+        const left = await tx.productVariant.count({
+          where: { productId: pid },
+        });
+        if (left === 0) {
+          await tx.productImage.deleteMany({ where: { productId: pid } });
+          await tx.product.delete({ where: { id: pid } });
+          productsRemoved += 1;
+        }
+      }
+
+      const emptyCats = await tx.category.findMany({
+        where: { products: { none: {} } },
+        select: { id: true },
+      });
+      const catDel = await tx.category.deleteMany({
+        where: { id: { in: emptyCats.map((c) => c.id) } },
+      });
+
+      return {
+        variantsRemoved: ids.length,
+        productsRemoved,
+        orphanCategoriesRemoved: catDel.count,
+      };
+    });
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Button, Modal, InputNumber, Select, Tooltip } from 'antd';
+import { App, Button, Checkbox, Modal, InputNumber, Select, Tooltip } from 'antd';
 import {
   UserPlus,
   Receipt,
@@ -101,6 +101,7 @@ export function BillingBillPanel({
   const [discount, setDiscount] = useState(0);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [tempDiscount, setTempDiscount] = useState(0);
+  const [showGstinOnBill, setShowGstinOnBill] = useState(true);
 
   const total = itemsGrossTotal - discount;
 
@@ -109,6 +110,16 @@ export function BillingBillPanel({
   const sgstAmount = total * ((sgstRate / 100) / (1 + totalTaxRate));
 
   const baseAmount = total - gstAmount;
+
+  const shopAddressPrint = useMemo(() => {
+    if (!currentShop) return null;
+    const parts = [
+      currentShop.address,
+      [currentShop.city, currentShop.state].filter(Boolean).join(', '),
+      currentShop.pincode,
+    ].filter((x) => x?.trim());
+    return parts.length ? parts.join(', ') : null;
+  }, [currentShop]);
 
   const [internalDetailsOpen, setInternalDetailsOpen] = useState(false);
   const [internalCustomer, setInternalCustomer] =
@@ -172,6 +183,11 @@ export function BillingBillPanel({
       const printPayload: PrintInvoiceInput = {
         shopName,
         shopCode: effectiveShopCode || '-',
+        shopAddress: shopAddressPrint,
+        shopPhone: currentShop?.phone ?? null,
+        gstNumber: currentShop?.gstNumber ?? null,
+        fssaiNumber: currentShop?.fssaiNumber ?? null,
+        showGstinOnBill,
         invoiceNo,
         customer,
         lines: items.map((i) => ({
@@ -188,7 +204,11 @@ export function BillingBillPanel({
         })),
         subtotal: baseAmount,
         gstRate: totalTaxRate,
-        gstAmount: gstAmount,
+        gstAmount,
+        cgstPercent: cgstRate,
+        sgstPercent: sgstRate,
+        cgstAmountSplit: cgstAmount,
+        sgstAmountSplit: sgstAmount,
         discount,
         total,
       };
@@ -541,19 +561,28 @@ export function BillingBillPanel({
                 ₹{itemsGrossTotal.toFixed(2)}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-              <div className="flex min-w-0 justify-between gap-1 text-[var(--text-secondary)]">
-                <span className="truncate">CGST ({cgstRate}%)</span>
-                <span className="shrink-0 font-medium tabular-nums text-[var(--text-primary)]">
+            <div className="space-y-0.5">
+              <div className="flex min-w-0 justify-between gap-2 text-[var(--text-secondary)]">
+                <span className="min-w-0 truncate">CGST ({cgstRate}%)</span>
+                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-[var(--text-primary)]">
                   ₹{cgstAmount.toFixed(2)}
                 </span>
               </div>
-              <div className="flex min-w-0 justify-between gap-1 text-[var(--text-secondary)]">
-                <span className="truncate">SGST ({sgstRate}%)</span>
-                <span className="shrink-0 font-medium tabular-nums text-[var(--text-primary)]">
+              <div className="flex min-w-0 justify-between gap-2 text-[var(--text-secondary)]">
+                <span className="min-w-0 truncate">SGST ({sgstRate}%)</span>
+                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-[var(--text-primary)]">
                   ₹{sgstAmount.toFixed(2)}
                 </span>
               </div>
+            </div>
+            <div className="pt-0.5">
+              <Checkbox
+                checked={showGstinOnBill}
+                onChange={(e) => setShowGstinOnBill(e.target.checked)}
+                className="text-xs text-[var(--text-secondary)] [&_.ant-checkbox+span]:!ps-1"
+              >
+                Show GSTIN on printed bill
+              </Checkbox>
             </div>
             <div className="flex items-center justify-between gap-2 text-[var(--text-secondary)]">
               <span className="flex min-w-0 items-center gap-1">

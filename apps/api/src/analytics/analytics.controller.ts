@@ -32,4 +32,20 @@ export class AnalyticsController {
       days,
     );
   }
+
+  @Get('reports/export-data')
+  @RequirePermission('canAccessReports')
+  reportsExportData(
+    @Req() req: Request,
+    @Query('days') daysStr?: string,
+  ) {
+    const days = Math.min(
+      90,
+      Math.max(7, parseInt(daysStr ?? '30', 10) || 30),
+    );
+    return this.analyticsService.getReportsExportData(
+      req.effectiveShopCode!,
+      days,
+    );
+  }
 }

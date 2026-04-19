@@ -120,7 +120,7 @@ export function ProductCatalogRow({ product, onProductDeleted }: Props) {
               Inventory
             </Link>
           ) : (
-            <span className={styles.manageDisabled}>—</span>
+            <span className={styles.manageDisabled}>-</span>
           )}
           <Popconfirm
             title="Delete this product?"

@@ -167,7 +167,7 @@ export default function OrdersTable() {
         },
       },
       {
-        title: "Lines",
+        title: "Items",
         field: "itemCount",
         width: 80,
         hozAlign: "right",

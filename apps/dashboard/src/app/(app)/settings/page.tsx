@@ -1,11 +1,20 @@
 "use client";
 
 import { Collapse } from "antd";
-import { ChevronDown, Crown, IdCard, Percent, Shield, User } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  Crown,
+  IdCard,
+  Percent,
+  Shield,
+  User,
+} from "lucide-react";
 import { PersonalDetails } from "./components/PersonalDetails";
 import { SecuritySection } from "./components/SecuritySection";
 import { RolesSection } from "./components/RolesSection";
 import { TaxSettings } from "./components/TaxSettings";
+import { ShopProfileSettings } from "./components/ShopProfileSettings";
 import { RoleRequestsAdmin } from "./components/RoleRequestsAdmin";
 import { useAuth } from "../../../contexts/AuthContext";
 import styles from "./SettingsPage.module.css";
@@ -57,6 +66,19 @@ export default function SettingsPage() {
         </span>
       ),
       children: <TaxSettings />
+    });
+  }
+
+  if (user?.role === "SUPER_ADMIN") {
+    items.push({
+      key: '6',
+      label: (
+        <span className={styles.panelLabel}>
+          <Building2 className={`h-[1.125rem] w-[1.125rem] ${styles.panelIcon}`} strokeWidth={1.75} aria-hidden />
+          <span className={styles.panelTitle}>Shop profile</span>
+        </span>
+      ),
+      children: <ShopProfileSettings />
     });
   }
 
