@@ -92,10 +92,17 @@ function customerBlockA4(data: PrintInvoiceInput): string {
   if (!data.customer) {
     return '<div class="box muted">Walk-in customer</div>';
   }
+  const phoneLine = data.customer.phone?.trim()
+    ? `<div>Mobile: ${esc(data.customer.phone)}</div>`
+    : '';
+  const gstinLine = data.customer.gstin?.trim()
+    ? `<div>GSTIN: ${esc(data.customer.gstin.trim())}</div>`
+    : '';
   return `<div class="box">
         <div class="box-title">Bill to</div>
         <div><strong>${esc(data.customer.name)}</strong></div>
-        <div>Mobile: ${esc(data.customer.phone)}</div>
+        ${phoneLine}
+        ${gstinLine}
         ${data.customer.email ? `<div>${esc(data.customer.email)}</div>` : ''}
         ${data.customer.address ? `<div class="pre">${esc(data.customer.address)}</div>` : ''}
         ${data.customer.notes ? `<div class="note">Note: ${esc(data.customer.notes)}</div>` : ''}
@@ -106,9 +113,17 @@ function customerBlockReceipt(data: PrintInvoiceInput): string {
   if (!data.customer) {
     return '<div class="cust muted">Walk-in</div>';
   }
+  const phone = data.customer.phone?.trim();
+  const gst = data.customer.gstin?.trim();
+  const parts: string[] = [];
+  if (phone) parts.push(phone);
+  if (gst) parts.push(`GSTIN ${gst}`);
+  const metaHtml = parts.length
+    ? `<div class="cust-meta">${esc(parts.join(' · '))}</div>`
+    : '';
   return `<div class="cust">
     <strong>${esc(data.customer.name)}</strong>
-    · ${esc(data.customer.phone)}
+    ${metaHtml}
   </div>`;
 }
 
@@ -244,6 +259,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     .meta { font-size: 9px; margin: 6px 0; color: #3d2818; }
     .meta div { margin: 1px 0; }
     .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; }
+    .cust-meta { font-size: 8px; color: #5c4030; margin-top: 2px; font-weight: normal; }
     .cust.muted { color: #6b4a30; font-style: italic; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9px; }
     th {

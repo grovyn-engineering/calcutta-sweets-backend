@@ -15,6 +15,8 @@ export type CustomerFormValues = {
   email?: string;
   address?: string;
   notes?: string;
+  /** Customer GSTIN for invoices when provided */
+  gstin?: string;
 };
 
 export type CustomerDetailsProps = {
@@ -44,6 +46,7 @@ function CustomerDetailsForm({
       email: initialValues?.email ?? '',
       address: initialValues?.address ?? '',
       notes: initialValues?.notes ?? '',
+      gstin: initialValues?.gstin ?? '',
     });
   }, [form, initialValues]);
 
@@ -109,6 +112,32 @@ function CustomerDetailsForm({
             type="email"
             placeholder="For e-receipt (optional)"
             className={styles.input}
+          />
+        </Form.Item>
+        <Form.Item
+          label={<span className={styles.fieldLabel}>GSTIN (optional)</span>}
+          name="gstin"
+          normalize={(v) =>
+            String(v ?? '')
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, '')
+              .slice(0, 15)
+          }
+          rules={[
+            {
+              validator(_rule, value) {
+                const raw = String(value ?? '').trim();
+                if (!raw) return Promise.resolve();
+                if (/^[0-9A-Z]{15}$/.test(raw)) return Promise.resolve();
+                return Promise.reject(new Error('GSTIN must be 15 letters or digits'));
+              },
+            },
+          ]}
+        >
+          <Input
+            placeholder="15-character GSTIN"
+            className={`${styles.input} font-mono`}
+            maxLength={15}
           />
         </Form.Item>
         <Form.Item

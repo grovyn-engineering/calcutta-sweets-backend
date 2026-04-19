@@ -14,6 +14,7 @@ import type { CustomerFormValues } from '../CustomerDetails';
 import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
 import {
+  makeInvoiceNo,
   openPrintableInvoice,
   orderIdToInvoiceRef,
   type PrintInvoiceInput,
@@ -39,7 +40,14 @@ export interface BillItem {
   inventoryUnit: string;
   imageUrl?: string | null;
   isInstant?: boolean;
+  /** Manual line: not tied to catalog; checkout prints only (no order / stock). */
+  isRaw?: boolean;
 }
+
+export type ManualSaleCustomer = {
+  name: string;
+  gstin?: string | null;
+};
 
 export type BillingBillPanelLayout = 'sidebar' | 'drawer';
 
@@ -51,6 +59,30 @@ export type BillingCustomerBinding = {
   detailsOpen: boolean;
   setDetailsOpen: (open: boolean) => void;
 };
+
+function customerForRawOrCatalogPrint(args: {
+  items: BillItem[];
+  customer: CustomerFormValues | null;
+  manualSaleCustomer: ManualSaleCustomer | null;
+}): CustomerFormValues | null {
+  const { items, customer, manualSaleCustomer } = args;
+  const hasRaw = items.some((i) => i.isRaw);
+  if (!hasRaw) return customer;
+
+  const rawName = manualSaleCustomer?.name?.trim();
+  const rawGst = manualSaleCustomer?.gstin?.trim();
+  if (rawName) {
+    return {
+      name: rawName,
+      phone: customer?.phone?.trim() || '',
+      email: customer?.email?.trim() || undefined,
+      address: customer?.address,
+      notes: customer?.notes,
+      gstin: rawGst || customer?.gstin?.trim() || undefined,
+    };
+  }
+  return customer;
+}
 
 export interface BillingBillPanelProps {
   items: BillItem[];
@@ -66,6 +98,7 @@ export interface BillingBillPanelProps {
   className?: string;
   customerBinding?: BillingCustomerBinding;
   hideAddCustomerInPanel?: boolean;
+  manualSaleCustomer?: ManualSaleCustomer | null;
 }
 
 export function BillingBillPanel({
@@ -79,6 +112,7 @@ export function BillingBillPanel({
   className = '',
   customerBinding,
   hideAddCustomerInPanel = false,
+  manualSaleCustomer = null,
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
   const { shops, effectiveShopCode } = useShop();
@@ -134,6 +168,9 @@ export function BillingBillPanel({
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const lineCount = items.length;
 
+  const rawManualNameOnBill =
+    items.some((i) => i.isRaw) && Boolean(manualSaleCustomer?.name?.trim());
+
   const handleGenerateBill = async () => {
     if (items.length === 0) {
       message.warning('Add at least one item before generating a bill.');
@@ -143,6 +180,95 @@ export function BillingBillPanel({
       message.warning('Select a payment mode (Cash or UPI / Card) first.');
       return;
     }
+    const hasRaw = items.some((i) => i.isRaw);
+    const hasCatalog = items.some((i) => !i.isRaw);
+    if (hasRaw && hasCatalog) {
+      message.error(
+        'This sale mixes catalog lines with raw (manual) lines. Remove one kind before checkout.',
+      );
+      return;
+    }
+    const allRaw = hasRaw && items.length > 0;
+
+    if (allRaw) {
+      setCheckoutBusy(true);
+      try {
+        const invoiceNo = makeInvoiceNo('RAW');
+        const customerForPrint = customerForRawOrCatalogPrint({
+          items,
+          customer,
+          manualSaleCustomer,
+        });
+        const printPayload: PrintInvoiceInput = {
+          shopName,
+          shopCode: effectiveShopCode || '-',
+          shopAddress: shopAddressPrint,
+          shopPhone: currentShop?.phone ?? null,
+          gstNumber: currentShop?.gstNumber ?? null,
+          fssaiNumber: currentShop?.fssaiNumber ?? null,
+          showGstinOnBill,
+          invoiceNo,
+          customer: customerForPrint,
+          lines: items.map((i) => ({
+            name: i.name,
+            variantLabel: i.variantLabel,
+            barcode: i.barcode,
+            quantity: i.displayQuantity,
+            unit: i.displayUnit,
+            unitPrice: billDisplayUnitPrice(
+              i.stockUnitsToDeduct,
+              i.catalogUnitPrice,
+              i.displayQuantity,
+            ),
+          })),
+          subtotal: baseAmount,
+          gstRate: totalTaxRate,
+          gstAmount,
+          cgstPercent: cgstRate,
+          sgstPercent: sgstRate,
+          cgstAmountSplit: cgstAmount,
+          sgstAmountSplit: sgstAmount,
+          discount,
+          total,
+        };
+        const receiptOk = openPrintableInvoice(printPayload, 'receipt');
+        if (!receiptOk) {
+          message.error(
+            'Print window was blocked. Allow pop-ups to print the receipt.',
+          );
+        } else {
+          message.success({
+            content: (
+              <span className="flex flex-col items-start gap-0.5 text-left">
+                <span>Raw bill printed (not saved to orders or stock).</span>
+                <Button
+                  type="link"
+                  className="!h-auto !p-0 text-[var(--ochre-700)]"
+                  onClick={() => {
+                    const ok = openPrintableInvoice(printPayload, 'a4');
+                    if (!ok) {
+                      message.error('Pop-up blocked. Allow pop-ups to print the A4 invoice.');
+                    }
+                  }}
+                >
+                  Print full A4 invoice
+                </Button>
+              </span>
+            ),
+            duration: 10,
+          });
+        }
+        setPaymentMethod(null);
+        setDiscount(0);
+        onSaleComplete?.();
+      } catch {
+        message.error('Could not prepare the raw bill for printing.');
+      } finally {
+        setCheckoutBusy(false);
+      }
+      return;
+    }
+
     setCheckoutBusy(true);
     try {
       const res = await apiFetch('/orders/pos', {
@@ -180,6 +306,11 @@ export function BillingBillPanel({
       }
       const saved = payload as { id: string };
       const invoiceNo = orderIdToInvoiceRef(saved.id);
+      const customerForPrint = customerForRawOrCatalogPrint({
+        items,
+        customer,
+        manualSaleCustomer,
+      });
       const printPayload: PrintInvoiceInput = {
         shopName,
         shopCode: effectiveShopCode || '-',
@@ -189,7 +320,7 @@ export function BillingBillPanel({
         fssaiNumber: currentShop?.fssaiNumber ?? null,
         showGstinOnBill,
         invoiceNo,
-        customer,
+        customer: customerForPrint,
         lines: items.map((i) => ({
           name: i.name,
           variantLabel: i.variantLabel,
@@ -295,7 +426,36 @@ export function BillingBillPanel({
         </div>
       ) : null}
 
-      {customer ? (
+      {rawManualNameOnBill && manualSaleCustomer ? (
+        <div className="mx-4 mt-4 shrink-0">
+          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
+            <div className="mb-1 flex items-start gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
+                <UserRound className="h-4 w-4" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
+                  Customer (raw bill)
+                </p>
+                <p className="truncate font-semibold text-[var(--text-primary)]">
+                  {manualSaleCustomer.name.trim()}
+                </p>
+                {manualSaleCustomer.gstin?.trim() ? (
+                  <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
+                    GSTIN {manualSaleCustomer.gstin.trim()}
+                  </p>
+                ) : null}
+                <p className="mt-2 text-[10px] leading-snug text-[var(--text-muted)]">
+                  Edit name and GSTIN on the Raw billing tab. Add full contact with the toolbar
+                  button to include mobile on the printout.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {customer && !rawManualNameOnBill ? (
         <div className="mx-4 mt-4 shrink-0">
           <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
             <div className="mb-2 flex items-start justify-between gap-2">
@@ -346,6 +506,11 @@ export function BillingBillPanel({
             <p className="pl-11 text-sm text-[var(--text-secondary)]">
               {customer.phone}
             </p>
+            {customer.gstin?.trim() ? (
+              <p className="pl-11 font-mono text-xs text-[var(--text-secondary)]">
+                GSTIN {customer.gstin.trim()}
+              </p>
+            ) : null}
             {customer.email ? (
               <p className="mt-0.5 pl-11 text-xs text-[var(--text-muted)]">
                 {customer.email}
@@ -363,8 +528,8 @@ export function BillingBillPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:py-4">
         {items.length === 0 ? (
           <div className="py-10 text-center text-sm text-[var(--text-muted)]">
-            No lines yet. Scan a barcode, use Standard billing, or Instant billing
-            for custom weights.
+            No lines yet. Scan a barcode, use Standard or Instant billing, or Raw for
+            manual lines.
           </div>
         ) : (
           <ul className="space-y-2 pr-1 sm:space-y-2.5">
@@ -581,7 +746,7 @@ export function BillingBillPanel({
                 onChange={(e) => setShowGstinOnBill(e.target.checked)}
                 className="text-xs text-[var(--text-secondary)] [&_.ant-checkbox+span]:!ps-1"
               >
-                Show GSTIN on printed bill
+                Show Your GSTIN on printed bill
               </Checkbox>
             </div>
             <div className="flex items-center justify-between gap-2 text-[var(--text-secondary)]">

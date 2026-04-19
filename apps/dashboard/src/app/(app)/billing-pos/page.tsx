@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Drawer, Tabs } from 'antd';
+import { App, Drawer, Tabs } from 'antd';
 import { Receipt, ScanBarcode } from 'lucide-react';
 import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
 import { BarcodeScannerInput } from '@/components/BarcodeScannerInput/BarcodeScannerInput';
@@ -16,7 +16,13 @@ import {
   BillingBillPanel,
   type BillItem,
   type BillingCustomerBinding,
+  type ManualSaleCustomer,
 } from '@/components/BillingBillPanel/BillingBillPanel';
+import {
+  BillingPosRawSection,
+  RAW_BILL_FORM_INITIAL,
+  type RawBillFormValues,
+} from '@/components/BillingPosRawSection/BillingPosRawSection';
 import CustomerDetails, {
   type CustomerFormValues,
 } from '@/components/CustomerDetails';
@@ -57,6 +63,7 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
 
 
 export default function BillingPOSPage() {
+  const { message } = App.useApp();
   const { effectiveShopCode } = useShop();
   const shopCode =
     effectiveShopCode ||
@@ -71,9 +78,11 @@ export default function BillingPOSPage() {
   const [stackedBillingLayout, setStackedBillingLayout] = useState(true);
   const [billDrawerOpen, setBillDrawerOpen] = useState(false);
   const prevBillLenRef = useRef(0);
-  const [billingTab, setBillingTab] = useState<'standard' | 'instant'>(
+  const [billingTab, setBillingTab] = useState<'standard' | 'instant' | 'raw'>(
     'standard',
   );
+  const [rawBillForm, setRawBillForm] =
+    useState<RawBillFormValues>(RAW_BILL_FORM_INITIAL);
 
   useLayoutEffect(() => {
     const el = billingShellRef.current;
@@ -99,31 +108,76 @@ export default function BillingPOSPage() {
     setCustomerDetailsOpen(true);
   }, []);
 
-  const mergeLine = useCallback((line: BillItem) => {
-    setBillItems((prev) => {
-      if (!line.isInstant) {
-        const existing = prev.find(
-          (i) => !i.isInstant && i.variantId === line.variantId,
-        );
-        if (existing) {
-          return prev.map((i) =>
-            i.lineId === existing.lineId
-              ? {
-                  ...i,
-                  stockUnitsToDeduct: i.stockUnitsToDeduct + line.stockUnitsToDeduct,
-                  displayQuantity: i.displayQuantity + line.displayQuantity,
-                }
-              : i,
-          );
+  const mergeLine = useCallback(
+    (line: BillItem) => {
+      let blockMessage: string | null = null;
+      setBillItems((prev) => {
+        const prevHasRaw = prev.some((i) => i.isRaw);
+        const prevHasCatalog = prev.some((i) => !i.isRaw);
+        if (line.isRaw && prevHasCatalog) {
+          blockMessage =
+            'Remove catalog lines before adding raw (manual) lines.';
+          return prev;
         }
-      }
-      return [...prev, { ...line }];
-    });
-  }, []);
+        if (!line.isRaw && prevHasRaw) {
+          blockMessage = 'Remove raw lines before adding catalog products.';
+          return prev;
+        }
+        if (line.isRaw) {
+          return [...prev, { ...line }];
+        }
+        if (!line.isInstant) {
+          const existing = prev.find(
+            (i) =>
+              !i.isInstant &&
+              !i.isRaw &&
+              i.variantId === line.variantId,
+          );
+          if (existing) {
+            return prev.map((i) =>
+              i.lineId === existing.lineId
+                ? {
+                    ...i,
+                    stockUnitsToDeduct:
+                      i.stockUnitsToDeduct + line.stockUnitsToDeduct,
+                    displayQuantity: i.displayQuantity + line.displayQuantity,
+                  }
+                : i,
+            );
+          }
+        }
+        return [...prev, { ...line }];
+      });
+      if (blockMessage) message.error(blockMessage);
+    },
+    [message],
+  );
 
   const addRowManual = useCallback(
     (row: BillingVariantRow) => {
       mergeLine(variantRowToBillItem(row));
+    },
+    [mergeLine],
+  );
+
+  const addRawBillLine = useCallback(
+    (pick: Pick<RawBillFormValues, 'itemName' | 'unitPrice' | 'quantity'>) => {
+      const lineId = crypto.randomUUID();
+      mergeLine({
+        lineId,
+        variantId: `raw:${lineId}`,
+        productId: 'raw-line',
+        name: pick.itemName,
+        variantLabel: 'Regular',
+        barcode: '—',
+        catalogUnitPrice: pick.unitPrice,
+        stockUnitsToDeduct: pick.quantity,
+        displayQuantity: pick.quantity,
+        displayUnit: 'PC',
+        inventoryUnit: 'PC',
+        imageUrl: null,
+        isRaw: true,
+      });
     },
     [mergeLine],
   );
@@ -238,6 +292,18 @@ export default function BillingPOSPage() {
     [billItems],
   );
 
+  const manualSaleCustomer = useMemo((): ManualSaleCustomer | null => {
+    if (!billItems.some((i) => i.isRaw)) return null;
+    const n = rawBillForm.customerName.trim();
+    if (!n) return null;
+    return {
+      name: n,
+      gstin: rawBillForm.includeCustomerGstin
+        ? rawBillForm.customerGstin.trim() || null
+        : null,
+    };
+  }, [billItems, rawBillForm]);
+
   if (!shopCode) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4">
@@ -256,12 +322,14 @@ export default function BillingPOSPage() {
     onInstantLineUpdate: updateInstantLine,
     onSaleComplete: () => {
       clearSale();
+      setRawBillForm(RAW_BILL_FORM_INITIAL);
       setBillingStockRefreshKey((k) => k + 1);
       setBillDrawerOpen(false);
     },
     orderId: 'draft' as const,
     customerBinding,
     hideAddCustomerInPanel: stackedBillingLayout,
+    manualSaleCustomer,
   };
 
   return (
@@ -296,7 +364,7 @@ export default function BillingPOSPage() {
           <Tabs
             className={`${styles.billingModeTabs} min-h-0 flex-1`}
             activeKey={billingTab}
-            onChange={(k) => setBillingTab(k as 'standard' | 'instant')}
+            onChange={(k) => setBillingTab(k as 'standard' | 'instant' | 'raw')}
             items={[
               {
                 key: 'standard',
@@ -328,6 +396,20 @@ export default function BillingPOSPage() {
                     sectionTitle="Instant billing"
                     sectionHint="Custom weights or pours (e.g. 400 g of a kg-priced sweet). After Add, set quantity and unit in the sale panel - the total follows the variant’s list price proportionally."
                     hideBarcodeColumn
+                  />
+                ),
+              },
+              {
+                key: 'raw',
+                label: 'Raw',
+                children: (
+                  <BillingPosRawSection
+                    formValues={rawBillForm}
+                    onFormChange={setRawBillForm}
+                    onAddLine={addRawBillLine}
+                    showToolbarAddCustomer={stackedBillingLayout}
+                    onToolbarAddCustomer={openCustomerDetails}
+                    showSaleCheckoutHint={stackedBillingLayout}
                   />
                 ),
               },
