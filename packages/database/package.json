@@ -10,7 +10,6 @@
   "scripts": {
     "build": "prisma generate --schema=prisma/schema.prisma",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
-    "db:ensure-pos-label-columns": "prisma db execute --file prisma/sql/ensure-order-item-pos-label-columns.sql",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

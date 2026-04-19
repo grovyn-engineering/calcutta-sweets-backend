@@ -37,7 +37,9 @@ coverage
 
 packages/database/recode-barcodes.ts
 
-PUBLIC_API.md# Temporary maintenance and seed scripts
+PUBLIC_API.md
+
+# Local maintenance / seed helpers (not for the repo)
 apps/api/src/seed/run-fix.ts
 apps/api/src/seed/fix-categories.ts
 apps/api/src/seed/list-categories.ts

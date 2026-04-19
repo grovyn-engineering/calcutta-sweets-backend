@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type { User } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateShopDto } from './dto/create-shop.dto';
 import { CreateShopWithInventoryDto } from './dto/create-shop-with-inventory.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
+import { deleteShopAndDependencies } from './shop-delete';
 
 @Injectable()
 export class ShopsService {
@@ -14,14 +22,14 @@ export class ShopsService {
         createdAt: 'desc',
       },
     });
-  
+
     let nextNumber = 1;
-  
+
     if (lastShop?.shopCode) {
       const lastNumber = parseInt(lastShop.shopCode.replace('SH', ''));
       nextNumber = lastNumber + 1;
     }
-  
+
     return `SH${nextNumber.toString().padStart(6, '0')}`;
   }
 
@@ -117,7 +125,18 @@ export class ShopsService {
     });
   }
 
-  async findOne(id: string) {
+  async findByShopCode(shopCode: string) {
+    const shop = await this.prisma.shop.findUnique({
+      where: { shopCode },
+    });
+    if (!shop) {
+      throw new NotFoundException(`Shop ${shopCode} not found`);
+    }
+    return shop;
+  }
+
+  async findOne(id: string, actor: User) {
+    await this.assertCanAccessShop(id, actor);
     const shop = await this.prisma.shop.findUnique({
       where: { id },
       include: { products: true, users: true },
@@ -128,12 +147,48 @@ export class ShopsService {
     return shop;
   }
 
-  async update(id: string, updateShopDto: UpdateShopDto) {
-    await this.findOne(id);
+  async update(id: string, updateShopDto: UpdateShopDto, actor: User) {
+    await this.assertCanAccessShop(id, actor);
+
+    const data =
+      actor.role === UserRole.SUPER_ADMIN
+        ? updateShopDto
+        : this.pickTaxOnlyUpdate(updateShopDto);
+
+    if (
+      actor.role !== UserRole.SUPER_ADMIN &&
+      Object.keys(data).length === 0
+    ) {
+      return this.prisma.shop.findUnique({ where: { id } });
+    }
+
     return this.prisma.shop.update({
       where: { id },
-      data: updateShopDto,
+      data,
     });
+  }
+
+  private pickTaxOnlyUpdate(dto: UpdateShopDto): UpdateShopDto {
+    const out: UpdateShopDto = {};
+    if (dto.cgstRate !== undefined) out.cgstRate = dto.cgstRate;
+    if (dto.sgstRate !== undefined) out.sgstRate = dto.sgstRate;
+    return out;
+  }
+
+  private async assertCanAccessShop(id: string, actor: User) {
+    const row = await this.prisma.shop.findUnique({
+      where: { id },
+      select: { shopCode: true },
+    });
+    if (!row) {
+      throw new NotFoundException(`Shop #${id} not found`);
+    }
+    if (
+      actor.role !== UserRole.SUPER_ADMIN &&
+      row.shopCode !== actor.shopCode
+    ) {
+      throw new ForbiddenException('You can only update your assigned shop');
+    }
   }
 
   async isFactory(shopCode: string): Promise<boolean> {
@@ -144,10 +199,23 @@ export class ShopsService {
     return !!shop?.isFactory;
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.shop.delete({
-      where: { id },
-    });
+  async remove(id: string, effectiveShopCode: string) {
+    if (!(await this.isFactory(effectiveShopCode))) {
+      throw new ForbiddenException(
+        'Shop deletion is only allowed when scoped to the factory warehouse',
+      );
+    }
+    try {
+      return await deleteShopAndDependencies(this.prisma, id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'Shop not found') {
+        throw new NotFoundException(`Shop #${id} not found`);
+      }
+      if (msg.includes('factory')) {
+        throw new BadRequestException(msg);
+      }
+      throw e;
+    }
   }
 }

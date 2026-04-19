@@ -9,8 +9,7 @@
     "dev:api": "turbo run dev --filter=api",
     "dev:dash": "turbo run dev --filter=dashboard",
     "build": "turbo run build",
-    "lint": "turbo run lint",
-    "db:ensure-pos-labels": "pnpm --filter @calcutta/database run db:ensure-pos-label-columns"
+    "lint": "turbo run lint"
   },
   "keywords": [],
   "author": "",

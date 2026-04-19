@@ -328,3 +328,15 @@
   outline: 2px solid var(--ochre-400);
   outline-offset: 2px;
 }
+
+.selectCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+}
+
+.tableSlot :global(.tabulator .inventory-col-select) {
+  padding-left: 4px;
+  padding-right: 4px;
+}

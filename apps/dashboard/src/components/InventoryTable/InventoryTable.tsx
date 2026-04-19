@@ -1,6 +1,6 @@
 "use client";
 
-import { App, Button, Input } from "antd";
+import { App, Button, Input, Modal } from "antd";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -8,6 +8,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -18,18 +19,33 @@ import {
   type BarcodePrintItem,
 } from "@/components/BarcodePrintModal/BarcodePrintModal";
 import { RefillRequestModal } from "@/components/RefillRequestModal/RefillRequestModal";
-import { getApiBaseUrl, getAuthHeaders, getEffectiveShopCodeForHeader } from "@/lib/api";
+import {
+  apiFetch,
+  apiFetchLong,
+  getApiBaseUrl,
+  getAuthHeaders,
+  getEffectiveShopCodeForHeader,
+} from "@/lib/api";
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
 import { useShop } from "@/contexts/ShopContext";
 import { createTabulatorVariantThumb } from "@/lib/tabulatorVariantThumb";
-import { Printer, PackagePlus, PackageSearch } from "lucide-react";
+import {
+  Copy,
+  Printer,
+  PackagePlus,
+  PackageSearch,
+  Trash2,
+} from "lucide-react";
 import styles from "./InventoryTable.module.css";
 
 type TabulatorPageable = {
   setPage: (page: number) => void;
   setHeight: (height: number) => void;
+  replaceData?: () => Promise<void>;
+  redraw?: (force?: boolean) => void;
+  getPage?: () => number;
 };
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -46,8 +62,77 @@ const PRINT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" heigh
 
 const columns = (
   routerRef: React.RefObject<ReturnType<typeof useRouter> | null>,
-  onPrint: (item: BarcodePrintItem) => void
+  onPrint: (item: BarcodePrintItem) => void,
+  selectionRef: React.MutableRefObject<Set<string>>,
+  bumpSelection: () => void,
 ): ColumnDefinition[] => [
+    {
+      title: "",
+      field: "_select",
+      width: 44,
+      minWidth: 40,
+      maxWidth: 52,
+      hozAlign: "center",
+      headerHozAlign: "center",
+      headerSort: false,
+      resizable: false,
+      responsive: 0,
+      cssClass: "inventory-col-select",
+      titleFormatter: (col) => {
+        const wrap = document.createElement("div");
+        wrap.className = styles.selectCell;
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.title = "Select all on this page";
+        chk.setAttribute("aria-label", "Select all on this page");
+        chk.addEventListener("click", (e) => e.stopPropagation());
+        chk.addEventListener("change", () => {
+          const table = (col as { getTable: () => any }).getTable();
+          if (!table) return;
+          const rows = table.getRows();
+          if (chk.checked) {
+            rows.forEach((r: { getData: () => { id?: string } }) => {
+              const id = r.getData()?.id;
+              if (id) selectionRef.current.add(id);
+            });
+          } else {
+            rows.forEach((r: { getData: () => { id?: string } }) => {
+              const id = r.getData()?.id;
+              if (id) selectionRef.current.delete(id);
+            });
+          }
+          table.redraw(true);
+          bumpSelection();
+        });
+        wrap.appendChild(chk);
+        return wrap;
+      },
+      formatter: (cell) => {
+        const row = cell.getRow();
+        const data = row.getData() as { id?: string };
+        const id = data.id;
+        const wrap = document.createElement("div");
+        wrap.className = styles.selectCell;
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.title = "Select row";
+        chk.setAttribute("aria-label", "Select row");
+        if (id) {
+          chk.checked = selectionRef.current.has(id);
+          chk.addEventListener("click", (e) => e.stopPropagation());
+          chk.addEventListener("change", () => {
+            if (!id) return;
+            if (chk.checked) selectionRef.current.add(id);
+            else selectionRef.current.delete(id);
+            bumpSelection();
+          });
+        } else {
+          chk.disabled = true;
+        }
+        wrap.appendChild(chk);
+        return wrap;
+      },
+    },
     {
       title: "Image",
       field: "imageUrl",
@@ -232,7 +317,6 @@ const columns = (
         container.style.justifyContent = "center";
         container.style.alignItems = "center";
 
-        // Edit button
         const editBtn = document.createElement("button");
         editBtn.className = "inventory-edit-link";
         editBtn.type = "button";
@@ -252,7 +336,6 @@ const columns = (
         });
         container.appendChild(editBtn);
 
-        // Print button (only when row has a barcode)
         if (row.barcode) {
           const printBtn = document.createElement("button");
           printBtn.className = "inventory-edit-link";
@@ -305,6 +388,12 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [isPrintingAll, setIsPrintingAll] = useState(false);
   const [refillModalOpen, setRefillModalOpen] = useState(false);
+  const [cloneCatalogBusy, setCloneCatalogBusy] = useState(false);
+  const [purgeCatalogBusy, setPurgeCatalogBusy] = useState(false);
+  const [deleteSelectedBusy, setDeleteSelectedBusy] = useState(false);
+
+  const selectionRef = useRef<Set<string>>(new Set());
+  const [, bumpSelection] = useReducer((n: number) => n + 1, 0);
 
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
@@ -312,7 +401,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const { loading: tableLoading, onRemoteBusyChange } =
     useRemoteTabulatorLoading(shopKey);
 
-  // Reset to page 1 when search or shop changes
   useEffect(() => {
     const prev = prevFilterKeyRef.current;
     prevFilterKeyRef.current = filterKey;
@@ -323,10 +411,131 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     t.setPage(1);
   }, [filterKey, shopKey]);
 
+  useEffect(() => {
+    selectionRef.current.clear();
+    bumpSelection();
+    queueMicrotask(() => {
+      tableRef.current?.redraw?.(true);
+    });
+  }, [filterKey]);
+
   const handlePrintSingle = useCallback((item: BarcodePrintItem) => {
     setPrintItems([item]);
     setPrintModalOpen(true);
   }, []);
+
+  const handleCloneCatalogFromFactory = useCallback(() => {
+    if (!shopKey || isFactory) return;
+    Modal.confirm({
+      title: "Copy full catalog from Factory?",
+      content:
+        "This shop will get the same products, categories, prices, and barcodes (CS…) as the factory. You can run it again safely. Large catalogs may take several minutes-keep this tab open.",
+      okText: "Start copy",
+      width: 480,
+      onOk: async () => {
+        setCloneCatalogBusy(true);
+        const BATCH = 6;
+        let skip = 0;
+        const acc = {
+          productsCreated: 0,
+          productsUpdated: 0,
+          variantsCreated: 0,
+          variantsUpdated: 0,
+        };
+        const MSG_KEY = "clone-catalog-progress";
+        try {
+          let finished = false;
+          while (!finished) {
+            message.loading({
+              key: MSG_KEY,
+              content: `Copying catalog… (${skip} products started)`,
+              duration: 0,
+            });
+            const res = await apiFetchLong(
+              "/inventory/clone-catalog-from-factory",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ skip, take: BATCH }),
+              },
+            );
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              message.destroy(MSG_KEY);
+              message.error(
+                typeof data?.message === "string"
+                  ? data.message
+                  : "Could not copy catalog.",
+              );
+              return;
+            }
+            acc.productsCreated += Number(data?.productsCreated ?? 0);
+            acc.productsUpdated += Number(data?.productsUpdated ?? 0);
+            acc.variantsCreated += Number(data?.variantsCreated ?? 0);
+            acc.variantsUpdated += Number(data?.variantsUpdated ?? 0);
+            const total = Number(data?.totalFactoryProducts ?? 0);
+            const next = Number(data?.nextSkip ?? skip);
+            message.loading({
+              key: MSG_KEY,
+              content: `Copying catalog… ${Math.min(next, total)} / ${total} factory products`,
+              duration: 0,
+            });
+            if (data?.completed) {
+              finished = true;
+            } else {
+              skip = next;
+            }
+          }
+          message.destroy(MSG_KEY);
+          message.success(
+            `Catalog synced. New variants: ${acc.variantsCreated}. Updated: ${acc.variantsUpdated}. Reloading…`,
+          );
+          window.setTimeout(() => window.location.reload(), 800);
+        } catch {
+          message.destroy(MSG_KEY);
+          message.error("Network error while copying catalog.");
+        } finally {
+          setCloneCatalogBusy(false);
+        }
+      },
+    });
+  }, [shopKey, isFactory, message]);
+
+  const handlePurgeShopCatalog = useCallback(() => {
+    if (!shopKey || isFactory) return;
+    Modal.confirm({
+      title: "Delete all products for this shop?",
+      content:
+        "This permanently removes every product, variant, and stock record for the shop you have selected in the header, and deletes all POS orders for that location. Shared categories used by other shops stay; categories that become empty are removed. This cannot be undone.",
+      okText: "Delete everything",
+      okType: "danger",
+      cancelText: "Cancel",
+      width: 520,
+      onOk: async () => {
+        setPurgeCatalogBusy(true);
+        try {
+          const res = await apiFetch("/inventory/purge-shop-catalog", {
+            method: "POST",
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            message.error(
+              typeof data?.message === "string"
+                ? data.message
+                : "Could not delete catalog.",
+            );
+            return;
+          }
+          message.success("Shop catalog cleared. Reloading…");
+          window.setTimeout(() => window.location.reload(), 600);
+        } catch {
+          message.error("Network error while deleting catalog.");
+        } finally {
+          setPurgeCatalogBusy(false);
+        }
+      },
+    });
+  }, [shopKey, isFactory, message]);
 
   const handlePrintAllFiltered = useCallback(async () => {
     if (!shopKey) return;
@@ -404,9 +613,65 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     }
   }, [shopKey, message]);
 
-  const memoizedColumns = useMemo(() =>
-    columns(routerRef, handlePrintSingle),
-    [handlePrintSingle]
+  const handleDeleteSelected = useCallback(() => {
+    if (!shopKey || isFactory) return;
+    const ids = [...selectionRef.current];
+    if (ids.length === 0) {
+      message.warning("Select at least one row using the checkboxes.");
+      return;
+    }
+    Modal.confirm({
+      title: `Delete ${ids.length} selected variant(s)?`,
+      content:
+        "POS order lines for these variants are removed. Products with no variants left are deleted; empty categories may be removed. This cannot be undone.",
+      okText: "Delete selected",
+      okType: "danger",
+      cancelText: "Cancel",
+      width: 480,
+      onOk: async () => {
+        setDeleteSelectedBusy(true);
+        try {
+          const res = await apiFetch("/inventory/variants/bulk-delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ variantIds: ids }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            message.error(
+              typeof data?.message === "string"
+                ? data.message
+                : Array.isArray(data?.message)
+                  ? data.message.join(", ")
+                  : "Could not delete selected variants.",
+            );
+            return;
+          }
+          selectionRef.current.clear();
+          bumpSelection();
+          const vr = data?.variantsRemoved ?? ids.length;
+          const pr = data?.productsRemoved;
+          message.success(
+            `Removed ${vr} variant(s)${pr ? ` and ${pr} empty product(s)` : ""}.`,
+          );
+          const t = tableRef.current as TabulatorPageable | null;
+          const p =
+            typeof t?.getPage === "function" ? t.getPage() : 1;
+          if (typeof t?.setPage === "function") {
+            t.setPage(p);
+          }
+        } catch {
+          message.error("Network error while deleting variants.");
+        } finally {
+          setDeleteSelectedBusy(false);
+        }
+      },
+    });
+  }, [shopKey, isFactory, message]);
+
+  const memoizedColumns = useMemo(
+    () => columns(routerRef, handlePrintSingle, selectionRef, bumpSelection),
+    [handlePrintSingle],
   );
 
   const options: ReactTabulatorOptions = useMemo(() => {
@@ -421,7 +686,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         "No rows match your search or this shop has no inventory yet.",
 
       rowDblClick: (e: any, row: any) => {
-        if ((e.target as HTMLElement).closest("button")) return;
+        if ((e.target as HTMLElement).closest("button, input")) return;
         const id = row.getData().id as string | undefined;
         if (id) routerRef.current?.push(`/inventory/${id}`);
       },
@@ -497,6 +762,48 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
               onClick={() => setRefillModalOpen(true)}
             >
               Request Refill
+            </Button>
+          )}
+
+          {!shopsLoading && !isFactory && (
+            <Button
+              type="default"
+              className={styles.toolbarBtn}
+              icon={<Copy className="h-4 w-4" aria-hidden />}
+              loading={cloneCatalogBusy}
+              onClick={() => handleCloneCatalogFromFactory()}
+            >
+              Copy catalog from Factory
+            </Button>
+          )}
+
+          {!shopsLoading && !isFactory && (
+            <Button
+              danger
+              type="default"
+              className={styles.toolbarBtn}
+              icon={<Trash2 className="h-4 w-4" aria-hidden />}
+              loading={purgeCatalogBusy}
+              onClick={() => handlePurgeShopCatalog()}
+            >
+              Delete all products
+            </Button>
+          )}
+
+          {!shopsLoading && !isFactory && (
+            <Button
+              danger
+              type="default"
+              className={styles.toolbarBtn}
+              icon={<Trash2 className="h-4 w-4" aria-hidden />}
+              loading={deleteSelectedBusy}
+              disabled={selectionRef.current.size === 0}
+              onClick={() => void handleDeleteSelected()}
+            >
+              Delete selected
+              {selectionRef.current.size > 0
+                ? ` (${selectionRef.current.size})`
+                : ""}
             </Button>
           )}
 

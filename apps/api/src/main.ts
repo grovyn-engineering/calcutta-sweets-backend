@@ -9,7 +9,6 @@ import { PrismaService } from './prisma.service';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Smaller JSON payloads over the wire (helps dashboard + mobile). Does not reduce DB time.
   app.use(
     compression({
       threshold: 1024,
@@ -56,7 +55,11 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`API running on http://localhost:${process.env.PORT ?? 3000}`);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  const httpServer = app.getHttpServer() as import('http').Server;
+  httpServer.setTimeout(600_000);
+  httpServer.headersTimeout = 610_000;
+  console.log(`API running on http://localhost:${port}`);
 }
 bootstrap();

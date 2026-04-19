@@ -12,6 +12,11 @@ export type InvoiceLineInput = {
 export type PrintInvoiceInput = {
   shopName: string;
   shopCode: string;
+  shopAddress?: string | null;
+  shopPhone?: string | null;
+  gstNumber?: string | null;
+  fssaiNumber?: string | null;
+  showGstinOnBill?: boolean;
   invoiceNo: string;
   issuedAt?: string;
   customer: CustomerFormValues | null;
@@ -19,6 +24,10 @@ export type PrintInvoiceInput = {
   subtotal: number;
   gstRate: number;
   gstAmount: number;
+  cgstPercent?: number;
+  sgstPercent?: number;
+  cgstAmountSplit?: number;
+  sgstAmountSplit?: number;
   discount: number;
   total: number;
 };
@@ -103,6 +112,67 @@ function customerBlockReceipt(data: PrintInvoiceInput): string {
   </div>`;
 }
 
+function shopHeaderBlock(
+  data: PrintInvoiceInput,
+  variant: 'receipt' | 'a4',
+): string {
+  const c = variant === 'receipt' ? 'sub' : 'shop-extra';
+  const ca = variant === 'receipt' ? 'sub addr' : 'shop-extra addr';
+  const lines: string[] = [];
+  if (data.shopAddress?.trim()) {
+    lines.push(`<div class="${ca}">${esc(data.shopAddress.trim())}</div>`);
+  }
+  if (data.shopPhone?.trim()) {
+    lines.push(
+      `<div class="${c}">Contact: ${esc(data.shopPhone.trim())}</div>`,
+    );
+  }
+  const showGstin =
+    data.showGstinOnBill !== false && Boolean(data.gstNumber?.trim());
+  if (showGstin) {
+    lines.push(
+      `<div class="${c}">GSTIN: ${esc(data.gstNumber!.trim())}</div>`,
+    );
+  }
+  if (data.fssaiNumber?.trim()) {
+    lines.push(
+      `<div class="${c}">FSSAI No. ${esc(data.fssaiNumber.trim())}</div>`,
+    );
+  }
+  return lines.join('');
+}
+
+function totalsRowsHtml(data: PrintInvoiceInput): string {
+  const hasSplitFields =
+    data.cgstAmountSplit != null &&
+    data.sgstAmountSplit != null &&
+    data.cgstPercent != null &&
+    data.sgstPercent != null;
+  const split =
+    hasSplitFields && (data.gstAmount ?? 0) > 0.005;
+  const base = data.subtotal;
+
+  let taxBlock: string;
+  if (split) {
+    const cgst = data.cgstAmountSplit!;
+    const sgst = data.sgstAmountSplit!;
+    const cp = data.cgstPercent!;
+    const sp = data.sgstPercent!;
+    taxBlock = `<div class="totals-row"><span>Subtotal</span><span>₹${formatMoney(base)}</span></div>
+    <div class="totals-row"><span>CGST (${cp}%)</span><span>₹${formatMoney(cgst)}</span></div>
+    <div class="gst-on">on ₹${formatMoney(base)}</div>
+    <div class="totals-row"><span>SGST (${sp}%)</span><span>₹${formatMoney(sgst)}</span></div>
+    <div class="gst-on">on ₹${formatMoney(base)}</div>`;
+  } else {
+    taxBlock = `<div class="totals-row"><span>Subtotal</span><span>₹${formatMoney(data.subtotal)}</span></div>
+    <div class="totals-row"><span>GST (${(data.gstRate * 100).toFixed(0)}%)</span><span>₹${formatMoney(data.gstAmount)}</span></div>`;
+  }
+
+  return `${taxBlock}
+    <div class="totals-row"><span>Discount</span><span>₹${formatMoney(data.discount)}</span></div>
+    <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>`;
+}
+
 function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): string {
   const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
   const dateStr = when.toLocaleDateString('en-IN', {
@@ -122,6 +192,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
   <title>Receipt ${esc(data.invoiceNo)}</title>
   <style>
     * { box-sizing: border-box; }
@@ -129,6 +200,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       margin: 0;
       padding: 0;
       height: auto;
+      color-scheme: light;
     }
     body {
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -161,6 +233,14 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       text-transform: uppercase;
     }
     .sub { color: #5c4030; font-size: 9px; }
+    .sub.addr { white-space: pre-wrap; }
+    .gst-on {
+      font-size: 7px;
+      color: #5c4030;
+      text-align: right;
+      margin: -3px 0 4px;
+      padding-right: 0;
+    }
     .meta { font-size: 9px; margin: 6px 0; color: #3d2818; }
     .meta div { margin: 1px 0; }
     .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; }
@@ -185,9 +265,9 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     .totals-row { display: flex; justify-content: space-between; padding: 2px 0; gap: 8px; }
     .totals-row.grand { font-size: 11px; font-weight: 700; border-top: 2px solid #1a110c; margin-top: 4px; padding-top: 6px; }
     .footer { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #b8a08a; font-size: 8px; color: #6b4a30; text-align: center; }
-    /* Browsers often ignore custom roll sizes; thermal output is still correct when the printer is chosen. */
     @page { margin: 2mm; size: 80mm auto; }
     @media print {
+      @page { margin: 2mm; size: 80mm auto; }
       .print-hint { display: none !important; }
       html {
         height: auto !important;
@@ -200,6 +280,8 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
         height: auto !important;
         min-height: 0 !important;
         margin: 0 auto;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
     }
   </style>
@@ -211,7 +293,8 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
   </p>
   <div class="head">
     <h1>${esc(data.shopName)}</h1>
-    <div class="sub">Calcutta Sweets · Shop ${esc(data.shopCode)}</div>
+    ${shopHeaderBlock(data, 'receipt')}
+    <div class="sub">Shop ${esc(data.shopCode)} · Calcutta Sweets</div>
   </div>
   <div class="meta">
     <div><strong>Bill</strong> ${esc(data.invoiceNo)}</div>
@@ -230,10 +313,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     </tbody>
   </table>
   <div class="totals">
-    <div class="totals-row"><span>Subtotal</span><span>₹${formatMoney(data.subtotal)}</span></div>
-    <div class="totals-row"><span>GST (${(data.gstRate * 100).toFixed(0)}%)</span><span>₹${formatMoney(data.gstAmount)}</span></div>
-    <div class="totals-row"><span>Discount</span><span>₹${formatMoney(data.discount)}</span></div>
-    <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>
+    ${totalsRowsHtml(data)}
   </div>
   <div class="footer">Thank you. Computer-generated bill.</div>
   <script>
@@ -272,7 +352,9 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .tagline { color: #6b4a30; font-size: 9pt; margin-bottom: 16px; }
+    .tagline { color: #6b4a30; font-size: 9pt; margin-bottom: 8px; }
+    .shop-extra { font-size: 9pt; color: #3d2818; margin-bottom: 4px; }
+    .shop-extra.addr { white-space: pre-wrap; }
     .meta { display: flex; flex-wrap: wrap; gap: 16px 32px; margin-bottom: 14px; font-size: 10pt; color: #3d2818; }
     .meta strong { color: #1a110c; }
     .box {
@@ -300,6 +382,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     td { padding: 8px 6px; border-bottom: 1px solid #e8e2d9; vertical-align: top; }
     .totals { margin-top: 14px; margin-left: auto; width: 100%; max-width: 260px; font-size: 10pt; }
     .totals-row { display: flex; justify-content: space-between; padding: 4px 0; }
+    .gst-on { font-size: 8pt; color: #6b4a30; text-align: right; margin: -4px 0 6px; }
     .totals-row.grand { font-size: 13pt; font-weight: 700; border-top: 2px solid #1a110c; margin-top: 8px; padding-top: 10px; }
     .footer { margin-top: 28px; padding-top: 12px; border-top: 1px dashed #c5ad94; font-size: 9pt; color: #6b4a30; text-align: center; }
     @page { margin: 10mm; size: A4 portrait; }
@@ -310,7 +393,8 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
 </head>
 <body>
   <h1>${esc(data.shopName)}</h1>
-  <div class="tagline">Calcutta Sweets · Est. 2000 · Shop ${esc(data.shopCode)}</div>
+  ${shopHeaderBlock(data, 'a4')}
+  <div class="tagline">Shop ${esc(data.shopCode)} · Calcutta Sweets</div>
   <div class="meta">
     <div><strong>Invoice no.</strong> ${esc(data.invoiceNo)}</div>
     <div><strong>Date</strong> ${esc(dateStr)}</div>
@@ -332,10 +416,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     </tbody>
   </table>
   <div class="totals">
-    <div class="totals-row"><span>Subtotal</span><span>₹${formatMoney(data.subtotal)}</span></div>
-    <div class="totals-row"><span>GST (${(data.gstRate * 100).toFixed(0)}%)</span><span>₹${formatMoney(data.gstAmount)}</span></div>
-    <div class="totals-row"><span>Discount</span><span>₹${formatMoney(data.discount)}</span></div>
-    <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>
+    ${totalsRowsHtml(data)}
   </div>
   <div class="footer">
     Thank you for your visit. For queries, contact the store.<br />

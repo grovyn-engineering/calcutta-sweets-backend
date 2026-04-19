@@ -23,15 +23,40 @@ import {
   RequirePermission,
 } from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
+import { CatalogSyncService } from './catalog-sync.service';
+import { ShopCatalogPurgeService } from './shop-catalog-purge.service';
 import { InventoryService } from './inventory.service';
+import { BulkDeleteVariantsDto } from './dto/bulk-delete-variants.dto';
+import { CloneCatalogDto } from './dto/clone-catalog.dto';
 import { UpdateVariantDto } from './dto/update-variant.dto';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly catalogSyncService: CatalogSyncService,
+    private readonly shopCatalogPurgeService: ShopCatalogPurgeService,
+  ) {}
 
-  /** Declared before `/:id` so paths like `variants/lookup` are not treated as ids. */
+  @Post('clone-catalog-from-factory')
+  @RequirePermission('canAccessInventory')
+  cloneCatalogFromFactory(
+    @Req() req: Request,
+    @Body() body: CloneCatalogDto,
+  ) {
+    return this.catalogSyncService.cloneFactoryCatalogBatch(
+      req.effectiveShopCode!,
+      body || {},
+    );
+  }
+
+  @Post('purge-shop-catalog')
+  @RequirePermission('canAccessInventory')
+  purgeShopCatalog(@Req() req: Request) {
+    return this.shopCatalogPurgeService.purgeCurrentShop(req.effectiveShopCode!);
+  }
+
   @Get('variants/lookup')
   @RequireAnyPermission('canAccessInventory', 'canAccessBilling')
   lookupByBarcode(@Req() req: Request, @Query('barcode') barcode?: string) {
@@ -42,6 +67,18 @@ export class InventoryController {
     return this.inventoryService.findVariantByBarcode(
       b,
       req.effectiveShopCode!,
+    );
+  }
+
+  @Post('variants/bulk-delete')
+  @RequirePermission('canAccessInventory')
+  bulkDeleteVariants(
+    @Req() req: Request,
+    @Body() dto: BulkDeleteVariantsDto,
+  ) {
+    return this.inventoryService.deleteVariantsByIds(
+      req.effectiveShopCode!,
+      dto.variantIds,
     );
   }
 

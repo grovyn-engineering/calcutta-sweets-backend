@@ -1,6 +1,6 @@
 'use client';
 
-import type { Shop } from "@prisma/client";
+import type { Shop } from "@calcutta/database";
 import useFetch from "@/hooks/useFetch";
 import ShopCard from "@/components/ShopCard/ShopCard";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
@@ -49,7 +49,11 @@ export default function ShopsPage() {
           gap: 24 
         }}>
           {shops.map((shop) => (
-            <ShopCard key={shop.id} shop={shop} />
+            <ShopCard
+              key={shop.id}
+              shop={shop}
+              onDeleted={() => void fetchApi()}
+            />
           ))}
         </div>
       )}

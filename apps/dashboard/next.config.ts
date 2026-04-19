@@ -10,7 +10,6 @@ function resolveApiUpstream(): string {
     return origin;
   }
 
-  /** Align with `getApiBaseUrl()` SSR default in `src/lib/api.ts` (Nest often on 3001 when Next uses 3000). */
   return "http://127.0.0.1:3001";
 }
 

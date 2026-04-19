@@ -28,9 +28,16 @@ model Shop {
   pincode String?
 
   gstNumber String?
-  currency  String  @default("INR")
+  /// FSSAI license no. (often printed on bills)
+  fssaiNumber String?
+
+  currency String @default("INR")
 
   upiId String? // UPI ID for payments (e.g. shop@upi)
+
+  bankName            String?
+  bankAccountNumber   String?
+  bankIfsc            String?
 
   isFactory Boolean @default(false)
 
@@ -202,7 +209,7 @@ model ProductVariant {
   price     Float
   costPrice Float?
 
-  barcode String @unique
+  barcode String
   sku     String?
 
   hsnCode String?
@@ -217,6 +224,7 @@ model ProductVariant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([productId, barcode])
   @@index([productId])
 }
 

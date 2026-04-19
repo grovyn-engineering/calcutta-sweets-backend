@@ -45,14 +45,12 @@ export function RefillRequestModal({
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [qty, setQty] = useState<number>(1);
   const [note, setNote] = useState('');
-  /** Raw search from the Select; filtering uses the debounced value. */
   const [searchText, setSearchText] = useState('');
   const debouncedSearchText = useDebouncedValue(searchText, 400);
 
   const factoryShop = shops.find(s => s.isFactory);
   const factoryCode = factoryShop?.shopCode || 'FACTORY01';
 
-  // Load all factory variants (API caps page size at 100; paginate until done).
   useEffect(() => {
     if (!open) {
       setSearchText('');
@@ -121,7 +119,6 @@ export function RefillRequestModal({
     const variant = variantOptions.find((v) => v.id === selectedVariantId);
     if (!variant) return;
 
-    // Check if already added
     if (lines.some((l) => l.barcode === variant.barcode)) {
       message.warning('This product is already in the request.');
       return;
@@ -221,7 +218,6 @@ export function RefillRequestModal({
       destroyOnHidden
     >
       <div className="mt-4 space-y-4">
-        {/* Product picker */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">
@@ -276,7 +272,6 @@ export function RefillRequestModal({
           </Button>
         </div>
 
-        {/* Lines list */}
         {lines.length > 0 && (
           <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--linen-95)]">
             <div className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[var(--bistre-400)] border-b border-[var(--pearl-bush)]">

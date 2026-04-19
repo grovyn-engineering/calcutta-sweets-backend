@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, Unit } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -8,9 +12,12 @@ import { UpdateProductDto } from './dto/update-product.dto';
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async generateBarcode(): Promise<string> {
+  async generateBarcode(shopCode: string): Promise<string> {
     const lastVariant = await this.prisma.productVariant.findFirst({
-      where: { barcode: { startsWith: 'CS' } },
+      where: {
+        barcode: { startsWith: 'CS' },
+        product: { shopCode },
+      },
       orderBy: { barcode: 'desc' },
     });
 
@@ -28,7 +35,7 @@ export class ProductsService {
 
   async create(createProductDto: CreateProductDto, shopCode: string) {
     const barcode =
-      createProductDto.barcode ?? (await this.generateBarcode());
+      createProductDto.barcode ?? (await this.generateBarcode(shopCode));
 
     return this.prisma.product.create({
       data: {
@@ -201,11 +208,26 @@ export class ProductsService {
           orderBy: { createdAt: 'asc' },
         });
         if (variant) {
+          if (barcode !== undefined) {
+            const next = barcode.trim();
+            const taken = await tx.productVariant.findFirst({
+              where: {
+                barcode: next,
+                NOT: { id: variant.id },
+                product: { shopCode },
+              },
+            });
+            if (taken) {
+              throw new ConflictException(
+                'That barcode is already used in this shop',
+              );
+            }
+          }
           await tx.productVariant.update({
             where: { id: variant.id },
             data: {
               ...(price !== undefined ? { price } : {}),
-              ...(barcode !== undefined ? { barcode } : {}),
+              ...(barcode !== undefined ? { barcode: barcode.trim() } : {}),
             },
           });
         }

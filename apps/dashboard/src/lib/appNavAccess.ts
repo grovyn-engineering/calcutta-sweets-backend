@@ -10,12 +10,12 @@ export type AppNavItem = {
   allowedRoles?: string[];
   /** Match `AppLayout`: hide Stock transfers & Shops when the active shop is not factory. */
   factoryOnly?: boolean;
-  /** e.g. `/logout` — any logged-in user */
+  /** e.g. `/logout` - any logged-in user */
   anyAuthenticated?: boolean;
 };
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
-  /** Shown when another route is forbidden — not in sidebar */
+  /** Shown when another route is forbidden - not in sidebar */
   {
     prefix: "/access-denied",
     anyAuthenticated: true,

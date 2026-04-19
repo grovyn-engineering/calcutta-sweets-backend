@@ -116,6 +116,16 @@ export default function OrderBillDetailPage() {
   const currentShop = shops.find((s) => s.shopCode === effectiveShopCode);
   const totalTaxRate = ((currentShop?.cgstRate ?? 2.5) + (currentShop?.sgstRate ?? 2.5)) / 100;
 
+  const shopAddressPrint = useMemo(() => {
+    if (!currentShop) return null;
+    const parts = [
+      currentShop.address,
+      [currentShop.city, currentShop.state].filter(Boolean).join(", "),
+      currentShop.pincode,
+    ].filter((x) => x?.trim());
+    return parts.length ? parts.join(", ") : null;
+  }, [currentShop]);
+
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [linesBodyMaxHeight, setLinesBodyMaxHeight] = useState(400);
@@ -249,10 +259,21 @@ export default function OrderBillDetailPage() {
             : {}),
         }
         : null;
+    const cg = currentShop?.cgstRate ?? 2.5;
+    const sg = currentShop?.sgstRate ?? 2.5;
+    const taxAmt = order.tax ?? 0;
+    const cgstSplit = taxAmt * (cg / (cg + sg));
+    const sgstSplit = taxAmt * (sg / (cg + sg));
+    const taxableBase = order.totalAmount - taxAmt;
+
     const ok = openPrintableInvoice(
       {
         shopName,
         shopCode: effectiveShopCode ?? "-",
+        shopAddress: shopAddressPrint,
+        shopPhone: currentShop?.phone ?? null,
+        gstNumber: currentShop?.gstNumber ?? null,
+        fssaiNumber: currentShop?.fssaiNumber ?? null,
         invoiceNo: orderIdToInvoiceRef(order.id),
         issuedAt: order.createdAt,
         customer,
@@ -264,9 +285,13 @@ export default function OrderBillDetailPage() {
           unit: i.unit ?? "PC",
           unitPrice: i.unitPrice,
         })),
-        subtotal: order.subtotal,
+        subtotal: taxableBase,
         gstRate: totalTaxRate,
-        gstAmount: order.tax,
+        gstAmount: taxAmt,
+        cgstPercent: cg,
+        sgstPercent: sg,
+        cgstAmountSplit: cgstSplit,
+        sgstAmountSplit: sgstSplit,
         discount: order.discount,
         total: order.totalAmount,
       },
