@@ -1,0 +1,43 @@
+.wrap {
+  container-type: inline-size;
+}
+
+.form {
+  max-width: 720px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bistre-400);
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
+
+.rowTwo {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.grow {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 520px) {
+  .rowTwo {
+    grid-template-columns: 1fr minmax(120px, 140px) minmax(100px, 120px);
+  }
+
+  .grow {
+    grid-column: 1 / -1;
+  }
+}
