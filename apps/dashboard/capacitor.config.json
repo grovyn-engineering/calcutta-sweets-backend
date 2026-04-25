@@ -1,0 +1,10 @@
+{
+  "appId": "com.calcuttasweets.pos",
+  "appName": "Calcutta Sweets POS",
+  "webDir": "capacitor-web",
+  "server": {
+    "url": "https://calcutta-sweets.vercel.app",
+    "cleartext": false,
+    "allowNavigation": ["*"]
+  }
+}

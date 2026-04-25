@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useLayoutEffect,
   useEffect,
   useMemo,
   useState,
@@ -63,25 +62,25 @@ function getStoredAuth(): Pick<AuthState, 'token' | 'user' | 'permissions'> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    token: null,
-    user: null,
-    permissions: null,
-    isAuthenticated: false,
-    isLoading: true,
-  });
-
-  /** Runs before paint so AuthGuard is not stuck on a blurred overlay after hydration. */
-  useLayoutEffect(() => {
+  const [state, setState] = useState<AuthState>(() => {
+    if (typeof window === 'undefined') {
+      return {
+        token: null,
+        user: null,
+        permissions: null,
+        isAuthenticated: false,
+        isLoading: true,
+      };
+    }
     const { token, user, permissions } = getStoredAuth();
-    setState({
+    return {
       token,
       user,
       permissions,
       isAuthenticated: !!token,
       isLoading: false,
-    });
-  }, []);
+    };
+  });
 
   const setAuth = useCallback((token: string, user: AuthUser | null, permissions: RolePermissions | null = null) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user, permissions }));

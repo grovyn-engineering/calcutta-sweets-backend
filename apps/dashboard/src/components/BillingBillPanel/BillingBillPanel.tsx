@@ -15,9 +15,7 @@ import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
 import {
   makeInvoiceNo,
-  openPrintableInvoice,
   orderIdToInvoiceRef,
-  type PrintInvoiceInput,
 } from '@/lib/printInvoice';
 import {
   allowedInstantDisplayUnits,
@@ -25,6 +23,11 @@ import {
   billLineSubtotal,
 } from '@/lib/billingInstantPricing';
 import { ProductLineThumb } from '@/components/ProductLineThumb/ProductLineThumb';
+import {
+  isNativeUsbPrinterAvailable,
+  printReceiptViaUsb,
+  type UsbReceiptPayload,
+} from '@/lib/usbPrinter';
 
 export interface BillItem {
   lineId: string;
@@ -60,29 +63,14 @@ export type BillingCustomerBinding = {
   setDetailsOpen: (open: boolean) => void;
 };
 
-function customerForRawOrCatalogPrint(args: {
-  items: BillItem[];
-  customer: CustomerFormValues | null;
-  manualSaleCustomer: ManualSaleCustomer | null;
-}): CustomerFormValues | null {
-  const { items, customer, manualSaleCustomer } = args;
-  const hasRaw = items.some((i) => i.isRaw);
-  if (!hasRaw) return customer;
-
-  const rawName = manualSaleCustomer?.name?.trim();
-  const rawGst = manualSaleCustomer?.gstin?.trim();
-  if (rawName) {
-    return {
-      name: rawName,
-      phone: customer?.phone?.trim() || '',
-      email: customer?.email?.trim() || undefined,
-      address: customer?.address,
-      notes: customer?.notes,
-      gstin: rawGst || customer?.gstin?.trim() || undefined,
-    };
-  }
-  return customer;
-}
+type ThermalPrintPayload = {
+  shopName: string;
+  address: string;
+  items: Array<{ name: string; qty: number; price: number }>;
+  total: number;
+  date: string;
+  billNo: string;
+};
 
 export interface BillingBillPanelProps {
   items: BillItem[];
@@ -143,8 +131,6 @@ export function BillingBillPanel({
   const cgstAmount = total * ((cgstRate / 100) / (1 + totalTaxRate));
   const sgstAmount = total * ((sgstRate / 100) / (1 + totalTaxRate));
 
-  const baseAmount = total - gstAmount;
-
   const shopAddressPrint = useMemo(() => {
     if (!currentShop) return null;
     const parts = [
@@ -171,6 +157,41 @@ export function BillingBillPanel({
   const rawManualNameOnBill =
     items.some((i) => i.isRaw) && Boolean(manualSaleCustomer?.name?.trim());
 
+  const buildThermalPrintPayload = (billNo: string): ThermalPrintPayload => {
+    const fallbackAddress = [currentShop?.city, currentShop?.state]
+      .filter(Boolean)
+      .join(', ');
+    const address = shopAddressPrint?.trim() || fallbackAddress || '-';
+    return {
+      shopName,
+      address,
+      billNo,
+      date: new Date().toISOString(),
+      total,
+      items: items.map((i) => ({
+        name:
+          i.variantLabel && i.variantLabel !== 'Regular'
+            ? `${i.name} (${i.variantLabel})`
+            : i.name,
+        qty: i.displayQuantity,
+        price: billDisplayUnitPrice(
+          i.stockUnitsToDeduct,
+          i.catalogUnitPrice,
+          i.displayQuantity,
+        ),
+      })),
+    };
+  };
+
+  const sendThermalPrint = async (billNo: string) => {
+    if (!isNativeUsbPrinterAvailable()) {
+      throw new Error(
+        'Direct USB thermal print works only in Android APK. Open billing in app, not browser.',
+      );
+    }
+    await printReceiptViaUsb(buildThermalPrintPayload(billNo) as UsbReceiptPayload);
+  };
+
   const handleGenerateBill = async () => {
     if (items.length === 0) {
       message.warning('Add at least one item before generating a bill.');
@@ -194,75 +215,17 @@ export function BillingBillPanel({
       setCheckoutBusy(true);
       try {
         const invoiceNo = makeInvoiceNo('RAW');
-        const customerForPrint = customerForRawOrCatalogPrint({
-          items,
-          customer,
-          manualSaleCustomer,
-        });
-        const printPayload: PrintInvoiceInput = {
-          shopName,
-          shopCode: effectiveShopCode || '-',
-          shopAddress: shopAddressPrint,
-          shopPhone: currentShop?.phone ?? null,
-          gstNumber: currentShop?.gstNumber ?? null,
-          fssaiNumber: currentShop?.fssaiNumber ?? null,
-          showGstinOnBill,
-          invoiceNo,
-          customer: customerForPrint,
-          lines: items.map((i) => ({
-            name: i.name,
-            variantLabel: i.variantLabel,
-            barcode: i.barcode,
-            quantity: i.displayQuantity,
-            unit: i.displayUnit,
-            unitPrice: billDisplayUnitPrice(
-              i.stockUnitsToDeduct,
-              i.catalogUnitPrice,
-              i.displayQuantity,
-            ),
-          })),
-          subtotal: baseAmount,
-          gstRate: totalTaxRate,
-          gstAmount,
-          cgstPercent: cgstRate,
-          sgstPercent: sgstRate,
-          cgstAmountSplit: cgstAmount,
-          sgstAmountSplit: sgstAmount,
-          discount,
-          total,
-        };
-        const receiptOk = openPrintableInvoice(printPayload, 'receipt');
-        if (!receiptOk) {
-          message.error(
-            'Print window was blocked. Allow pop-ups to print the receipt.',
-          );
-        } else {
-          message.success({
-            content: (
-              <span className="flex flex-col items-start gap-0.5 text-left">
-                <span>Raw bill printed (not saved to orders or stock).</span>
-                <Button
-                  type="link"
-                  className="!h-auto !p-0 text-[var(--ochre-700)]"
-                  onClick={() => {
-                    const ok = openPrintableInvoice(printPayload, 'a4');
-                    if (!ok) {
-                      message.error('Pop-up blocked. Allow pop-ups to print the A4 invoice.');
-                    }
-                  }}
-                >
-                  Print full A4 invoice
-                </Button>
-              </span>
-            ),
-            duration: 10,
-          });
-        }
+        await sendThermalPrint(invoiceNo);
+        message.success('Raw bill sent to thermal printer.');
         setPaymentMethod(null);
         setDiscount(0);
         onSaleComplete?.();
-      } catch {
-        message.error('Could not prepare the raw bill for printing.');
+      } catch (error) {
+        message.error(
+          error instanceof Error
+            ? error.message
+            : 'Could not send raw bill to thermal printer.',
+        );
       } finally {
         setCheckoutBusy(false);
       }
@@ -306,75 +269,15 @@ export function BillingBillPanel({
       }
       const saved = payload as { id: string };
       const invoiceNo = orderIdToInvoiceRef(saved.id);
-      const customerForPrint = customerForRawOrCatalogPrint({
-        items,
-        customer,
-        manualSaleCustomer,
-      });
-      const printPayload: PrintInvoiceInput = {
-        shopName,
-        shopCode: effectiveShopCode || '-',
-        shopAddress: shopAddressPrint,
-        shopPhone: currentShop?.phone ?? null,
-        gstNumber: currentShop?.gstNumber ?? null,
-        fssaiNumber: currentShop?.fssaiNumber ?? null,
-        showGstinOnBill,
-        invoiceNo,
-        customer: customerForPrint,
-        lines: items.map((i) => ({
-          name: i.name,
-          variantLabel: i.variantLabel,
-          barcode: i.barcode,
-          quantity: i.displayQuantity,
-          unit: i.displayUnit,
-          unitPrice: billDisplayUnitPrice(
-            i.stockUnitsToDeduct,
-            i.catalogUnitPrice,
-            i.displayQuantity,
-          ),
-        })),
-        subtotal: baseAmount,
-        gstRate: totalTaxRate,
-        gstAmount,
-        cgstPercent: cgstRate,
-        sgstPercent: sgstRate,
-        cgstAmountSplit: cgstAmount,
-        sgstAmountSplit: sgstAmount,
-        discount,
-        total,
-      };
-      const receiptOk = openPrintableInvoice(printPayload, 'receipt');
-      if (!receiptOk) {
-        message.error(
-          'Sale saved, but the print window was blocked. Allow pop-ups to print the receipt.',
-        );
-      } else {
-        message.success({
-          content: (
-            <span className="flex flex-col items-start gap-0.5 text-left">
-              <span>Bill saved. Thermal receipt sent to print.</span>
-              <Button
-                type="link"
-                className="!h-auto !p-0 text-[var(--ochre-700)]"
-                onClick={() => {
-                  const ok = openPrintableInvoice(printPayload, 'a4');
-                  if (!ok) {
-                    message.error('Pop-up blocked. Allow pop-ups to print the A4 invoice.');
-                  }
-                }}
-              >
-                Print full A4 invoice
-              </Button>
-            </span>
-          ),
-          duration: 10,
-        });
-      }
+      await sendThermalPrint(invoiceNo);
+      message.success('Bill saved and sent to thermal printer.');
       setPaymentMethod(null);
       setDiscount(0);
       onSaleComplete?.();
-    } catch {
-      message.error('Network error while saving the sale.');
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : 'Network error while saving the sale.',
+      );
     } finally {
       setCheckoutBusy(false);
     }
