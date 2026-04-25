@@ -38,15 +38,15 @@ export function RuntimeDebugOverlay() {
 
   useEffect(() => {
     if (!enabled) return;
-    setLogs((prev) => [
-      ...prev,
-      {
+    setLogs((prev) => {
+      const entry: DebugLog = {
         id: Date.now(),
         at: new Date().toISOString(),
         level: "info",
         message: `route=${pathname} authLoading=${String(isLoading)} authenticated=${String(isAuthenticated)} user=${user?.email ?? "none"}`,
-      },
-    ].slice(-MAX_LOGS));
+      };
+      return [...prev, entry].slice(-MAX_LOGS);
+    });
   }, [enabled, pathname, isLoading, isAuthenticated, user?.email]);
 
   useEffect(() => {
