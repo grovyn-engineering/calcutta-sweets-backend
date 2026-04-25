@@ -17,19 +17,17 @@ const MAX_LOGS = 80;
 
 function isTabletDebugTarget(): boolean {
   if (typeof window === "undefined") return false;
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("debugOverlay") === "1") return true;
   const ua = window.navigator.userAgent || "";
-  const isAndroid = /Android/i.test(ua);
-  const maybeCapacitor =
-    !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
-      .Capacitor?.isNativePlatform?.() || ua.includes("wv");
-  return isAndroid && maybeCapacitor;
+  return /Android/i.test(ua);
 }
 
 export function RuntimeDebugOverlay() {
   const pathname = usePathname();
   const { isAuthenticated, isLoading, user } = useAuth();
   const [enabled, setEnabled] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [logs, setLogs] = useState<DebugLog[]>([]);
 
   useEffect(() => {

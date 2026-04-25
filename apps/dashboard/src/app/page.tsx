@@ -24,6 +24,18 @@ export default function HomePage() {
     () => ({ user, permissions, isFactory }),
     [user, permissions, isFactory],
   );
+  const loadingDebug = useMemo(() => {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
+    return [
+      `home-loading`,
+      `isLoading=${String(isLoading)}`,
+      `isAuthenticated=${String(isAuthenticated)}`,
+      `user=${user?.email ?? "none"}`,
+      `permissions=${permissions ? "yes" : "no"}`,
+      `shop=${effectiveShopCode || "none"}`,
+      `ua=${ua}`,
+    ].join(" | ");
+  }, [isLoading, isAuthenticated, user?.email, permissions, effectiveShopCode]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -57,6 +69,9 @@ export default function HomePage() {
       aria-label="Loading"
     >
       <ContentSkeleton variant="table" rowCount={8} />
+      <pre style={{ marginTop: 12, padding: 8, background: "#fff8dc", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        {loadingDebug}
+      </pre>
     </div>
   );
 }
