@@ -1,4 +1,5 @@
 const AUTH_KEY = "calcutta_auth";
+const API_REQUEST_TIMEOUT_MS = 15000;
 
 export const EFFECTIVE_SHOP_STORAGE_KEY = "calcutta_effective_shop";
 
@@ -94,7 +95,12 @@ export async function apiFetchLong(
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(fullUrl, { ...init, headers });
+  const { nextInit, cleanup } = withRequestTimeout(init);
+  try {
+    return await fetch(fullUrl, { ...nextInit, headers });
+  } finally {
+    cleanup();
+  }
 }
 
 export function getAuthHeaders(): Record<string, string> {
@@ -111,6 +117,40 @@ export function getAuthHeaders(): Record<string, string> {
     h["X-Shop"] = shop;
   }
   return h;
+}
+
+function withRequestTimeout(
+  init: RequestInit,
+  timeoutMs: number = API_REQUEST_TIMEOUT_MS,
+): { nextInit: RequestInit; cleanup: () => void } {
+  if (typeof AbortController === "undefined") {
+    return { nextInit: init, cleanup: () => {} };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const upstreamSignal = init.signal;
+
+  const abortFromUpstream = () => controller.abort();
+  if (upstreamSignal) {
+    if (upstreamSignal.aborted) {
+      controller.abort();
+    } else {
+      upstreamSignal.addEventListener("abort", abortFromUpstream, {
+        once: true,
+      });
+    }
+  }
+
+  return {
+    nextInit: { ...init, signal: controller.signal },
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      if (upstreamSignal) {
+        upstreamSignal.removeEventListener("abort", abortFromUpstream);
+      }
+    },
+  };
 }
 
 export async function apiFetch(
@@ -138,19 +178,29 @@ export async function apiFetch(
     headers.set("Content-Type", "application/json");
   }
 
+  const { nextInit, cleanup } = withRequestTimeout(init);
+
   if (method === "GET") {
     const shop = headers.get("X-Shop") || "default";
     const dedupeKey = `${method}:${fullUrl}:${shop}`;
     
     const sharedPromise = dedupeInFlight(dedupeKey, () => 
-      fetch(fullUrl, { ...init, headers })
+      fetch(fullUrl, { ...nextInit, headers })
     );
 
-    const response = await sharedPromise;
-    return response.clone();
+    try {
+      const response = await sharedPromise;
+      return response.clone();
+    } finally {
+      cleanup();
+    }
   }
 
-  return fetch(fullUrl, { ...init, headers });
+  try {
+    return await fetch(fullUrl, { ...nextInit, headers });
+  } finally {
+    cleanup();
+  }
 }
 
 const inFlightByKey = new Map<string, Promise<unknown>>();
