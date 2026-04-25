@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Calcutta Sweets POS</string>
+    <string name="title_activity_main">Calcutta Sweets POS</string>
+    <string name="package_name">com.calcuttasweets.pos</string>
+    <string name="custom_url_scheme">com.calcuttasweets.pos</string>
+</resources>

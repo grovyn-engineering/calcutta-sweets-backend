@@ -16,6 +16,7 @@ function resolveApiUpstream(): string {
 const API_UPSTREAM_URL = resolveApiUpstream();
 
 const nextConfig: NextConfig = {
+  productionBrowserSourceMaps: false,
   transpilePackages: ["antd"],
   images: {
     remotePatterns: [
