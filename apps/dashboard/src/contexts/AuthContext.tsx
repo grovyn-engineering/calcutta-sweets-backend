@@ -62,25 +62,27 @@ function getStoredAuth(): Pick<AuthState, 'token' | 'user' | 'permissions'> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>(() => {
-    if (typeof window === 'undefined') {
-      return {
-        token: null,
-        user: null,
-        permissions: null,
-        isAuthenticated: false,
-        isLoading: true,
-      };
-    }
+  // Must match server + client first paint: never read localStorage in useState.
+  // Otherwise the server renders "loading" while the client renders "logged in/out"
+  // and React hydration fails (AuthLayout / AuthGuard skeleton vs real UI).
+  const [state, setState] = useState<AuthState>(() => ({
+    token: null,
+    user: null,
+    permissions: null,
+    isAuthenticated: false,
+    isLoading: true,
+  }));
+
+  useEffect(() => {
     const { token, user, permissions } = getStoredAuth();
-    return {
+    setState({
       token,
       user,
       permissions,
       isAuthenticated: !!token,
       isLoading: false,
-    };
-  });
+    });
+  }, []);
 
   const setAuth = useCallback((token: string, user: AuthUser | null, permissions: RolePermissions | null = null) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user, permissions }));

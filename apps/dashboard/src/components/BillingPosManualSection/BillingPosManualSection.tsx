@@ -461,7 +461,7 @@ function BillingPosManualSectionInner({
                 onChange={(v) => setActiveCategory(v)}
                 options={categorySelectOptions}
                 aria-label="Filter by category"
-                getPopupContainer={(n) => n.parentElement ?? document.body}
+                getPopupContainer={() => document.body}
                 listHeight={280}
               />
             </div>

@@ -4,6 +4,7 @@ import { App, Button, Checkbox, Modal, InputNumber, Select, Tooltip } from 'antd
 import {
   UserPlus,
   Receipt,
+  Printer,
   Banknote,
   CreditCard,
   Pencil,
@@ -15,7 +16,9 @@ import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
 import {
   makeInvoiceNo,
+  openPrintableInvoice,
   orderIdToInvoiceRef,
+  type PrintInvoiceInput,
 } from '@/lib/printInvoice';
 import {
   allowedInstantDisplayUnits,
@@ -225,16 +228,60 @@ export function BillingBillPanel({
     };
   };
 
-  const sendThermalPrint = async (billNo: string) => {
-    if (!isNativeUsbPrinterAvailable()) {
-      throw new Error(
-        'Direct USB thermal print works only in the Calcutta Sweets Android WebView app. Open the dashboard there, not in Chrome.',
-      );
-    }
-    await printBillViaNativeAndroid(buildNativeAndroidBill(billNo));
+  const buildPrintInvoiceInput = (invoiceNo: string): PrintInvoiceInput => {
+    const hasRaw = items.some((i) => i.isRaw);
+    const printCustomer: CustomerFormValues | null = hasRaw
+      ? manualSaleCustomer?.name?.trim()
+        ? {
+            name: manualSaleCustomer.name.trim(),
+            phone: customer?.phone?.trim() ?? '',
+            gstin: rawBillForm?.includeCustomerGstin
+              ? rawBillForm.customerGstin?.trim() || undefined
+              : undefined,
+          }
+        : null
+      : customer;
+
+    const taxableBase = Math.max(0, total - gstAmount);
+
+    return {
+      shopName,
+      shopCode: effectiveShopCode || '-',
+      shopAddress: shopAddressPrint,
+      shopPhone: currentShop?.phone ?? null,
+      gstNumber: currentShop?.gstNumber ?? null,
+      fssaiNumber: currentShop?.fssaiNumber ?? null,
+      showGstinOnBill: showGstinOnBill,
+      invoiceNo,
+      issuedAt: new Date().toISOString(),
+      customer: printCustomer,
+      lines: items.map((i) => ({
+        name: i.name,
+        variantLabel: i.variantLabel,
+        barcode: i.barcode,
+        quantity: i.displayQuantity,
+        unit: i.displayUnit,
+        unitPrice: billDisplayUnitPrice(
+          i.stockUnitsToDeduct,
+          i.catalogUnitPrice,
+          i.displayQuantity,
+        ),
+      })),
+      subtotal: taxableBase,
+      gstRate: totalTaxRate,
+      gstAmount,
+      cgstPercent: cgstRate,
+      sgstPercent: sgstRate,
+      cgstAmountSplit: cgstAmount,
+      sgstAmountSplit: sgstAmount,
+      discount,
+      total,
+    };
   };
 
-  const handleGenerateBill = async () => {
+  type CheckoutPrintMode = 'browser' | 'thermal';
+
+  const completeCheckout = async (printMode: CheckoutPrintMode) => {
     if (items.length === 0) {
       message.warning('Add at least one item before generating a bill.');
       return;
@@ -253,12 +300,31 @@ export function BillingBillPanel({
     }
     const allRaw = hasRaw && items.length > 0;
 
+    if (printMode === 'thermal' && !isNativeUsbPrinterAvailable()) {
+      message.error(
+        'USB thermal printing is only available inside the Calcutta Sweets Android POS app.',
+      );
+      return;
+    }
+
     if (allRaw) {
       setCheckoutBusy(true);
       try {
         const invoiceNo = makeInvoiceNo('RAW');
-        await sendThermalPrint(invoiceNo);
-        message.success('Raw bill sent to thermal printer.');
+        if (printMode === 'browser') {
+          const ok = openPrintableInvoice(
+            buildPrintInvoiceInput(invoiceNo),
+            'receipt',
+          );
+          if (!ok) {
+            message.error('Pop-up blocked. Allow pop-ups to print this bill.');
+            return;
+          }
+          message.success('Raw bill ready — use your device print dialog.');
+        } else {
+          await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
+          message.success('Raw bill sent to USB thermal printer.');
+        }
         setPaymentMethod(null);
         setDiscount(0);
         onSaleComplete?.();
@@ -266,7 +332,7 @@ export function BillingBillPanel({
         message.error(
           error instanceof Error
             ? error.message
-            : 'Could not send raw bill to thermal printer.',
+            : 'Could not complete raw bill checkout.',
         );
       } finally {
         setCheckoutBusy(false);
@@ -311,8 +377,20 @@ export function BillingBillPanel({
       }
       const saved = payload as { id: string };
       const invoiceNo = orderIdToInvoiceRef(saved.id);
-      await sendThermalPrint(invoiceNo);
-      message.success('Bill saved and sent to thermal printer.');
+      if (printMode === 'browser') {
+        const ok = openPrintableInvoice(
+          buildPrintInvoiceInput(invoiceNo),
+          'receipt',
+        );
+        if (!ok) {
+          message.error('Pop-up blocked. Allow pop-ups to print this bill.');
+          return;
+        }
+        message.success('Bill saved — use your device print dialog.');
+      } else {
+        await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
+        message.success('Bill saved and sent to USB thermal printer.');
+      }
       setPaymentMethod(null);
       setDiscount(0);
       onSaleComplete?.();
@@ -762,20 +840,38 @@ export function BillingBillPanel({
               </Button>
             </div>
           </div>
-          <Button
-            type="primary"
-            className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 sm:h-11 sm:text-base"
-            icon={<Receipt className="h-4 w-4 sm:h-5 sm:w-5" />}
-            style={{
-              backgroundColor: 'var(--ochre-600)',
-              borderColor: 'var(--ochre-600)',
-            }}
-            disabled={!paymentMethod || checkoutBusy}
-            loading={checkoutBusy}
-            onClick={() => void handleGenerateBill()}
-          >
-            Generate bill
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Tooltip title="Saves the sale (when applicable) and opens a receipt in a new tab that uses your browser’s Print dialog — choose USB, Bluetooth, Wi‑Fi, or Save as PDF.">
+              <Button
+                type="primary"
+                className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 sm:h-11 sm:text-base"
+                icon={<Receipt className="h-4 w-4 sm:h-5 sm:w-5" />}
+                style={{
+                  backgroundColor: 'var(--ochre-600)',
+                  borderColor: 'var(--ochre-600)',
+                }}
+                disabled={!paymentMethod || checkoutBusy}
+                loading={checkoutBusy}
+                onClick={() => void completeCheckout('browser')}
+              >
+                Generate bill
+              </Button>
+            </Tooltip>
+            {isNativeUsbPrinterAvailable() ? (
+              <Tooltip title="Same checkout, but prints silently to the TVS-style USB thermal printer via the POS app (ESC/POS).">
+                <Button
+                  type="default"
+                  className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
+                  icon={<Printer className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  disabled={!paymentMethod || checkoutBusy}
+                  loading={checkoutBusy}
+                  onClick={() => void completeCheckout('thermal')}
+                >
+                  USB thermal receipt
+                </Button>
+              </Tooltip>
+            ) : null}
+          </div>
         </div>
       )}
 
