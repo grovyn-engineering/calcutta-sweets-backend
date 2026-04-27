@@ -30,6 +30,8 @@ export type PrintInvoiceInput = {
   sgstAmountSplit?: number;
   discount: number;
   total: number;
+  /** Screen receipt only: URL for “Back” (e.g. `${origin}/billing-pos`). */
+  returnHref?: string | null;
 };
 
 export type InvoicePrintFormat = 'a4' | 'receipt';
@@ -188,6 +190,70 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
     <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>`;
 }
 
+/** Plain text for RawBT rawbt:base64, from the same data as the HTML receipt. */
+function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): string {
+  const w = 32;
+  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 1)}…`);
+  const rule = '-'.repeat(w);
+  const lines: string[] = [];
+  lines.push(cut(data.shopName.toUpperCase()));
+  if (data.shopAddress?.trim()) lines.push(cut(data.shopAddress.trim()));
+  if (data.shopPhone?.trim()) lines.push(cut(`Contact: ${data.shopPhone.trim()}`));
+  if (data.showGstinOnBill !== false && data.gstNumber?.trim()) {
+    lines.push(cut(`GSTIN: ${data.gstNumber.trim()}`));
+  }
+  if (data.fssaiNumber?.trim()) lines.push(cut(`FSSAI: ${data.fssaiNumber.trim()}`));
+  lines.push(rule);
+  lines.push(cut(`Bill: ${data.invoiceNo}`));
+  const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
+  lines.push(
+    cut(
+      `${when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} ${when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`,
+    ),
+  );
+  if (data.customer) {
+    lines.push(cut(data.customer.name || 'Customer'));
+    if (data.customer.phone?.trim()) lines.push(cut(data.customer.phone.trim()));
+    if (data.customer.gstin?.trim()) lines.push(cut(`GSTIN ${data.customer.gstin.trim()}`));
+  } else {
+    lines.push('Walk-in');
+  }
+  lines.push(rule);
+  for (const line of data.lines) {
+    const variant =
+      line.variantLabel && line.variantLabel !== 'Regular'
+        ? ` (${line.variantLabel})`
+        : '';
+    const amt = line.quantity * line.unitPrice;
+    lines.push(cut(`${line.name}${variant}`.trim()));
+    lines.push(cut(`  ${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)} = Rs.${formatMoney(amt)}`));
+  }
+  lines.push(rule);
+  const hasSplit =
+    data.cgstAmountSplit != null &&
+    data.sgstAmountSplit != null &&
+    data.cgstPercent != null &&
+    data.sgstPercent != null &&
+    (data.gstAmount ?? 0) > 0.005;
+  if (hasSplit) {
+    lines.push(cut(`Subtotal Rs.${formatMoney(data.subtotal)}`));
+    lines.push(
+      cut(`CGST ${data.cgstPercent}% Rs.${formatMoney(data.cgstAmountSplit!)}`),
+    );
+    lines.push(
+      cut(`SGST ${data.sgstPercent}% Rs.${formatMoney(data.sgstAmountSplit!)}`),
+    );
+  } else {
+    lines.push(cut(`Subtotal Rs.${formatMoney(data.subtotal)}`));
+    lines.push(cut(`GST Rs.${formatMoney(data.gstAmount)}`));
+  }
+  if (data.discount > 0.005) lines.push(cut(`Discount -Rs.${formatMoney(data.discount)}`));
+  lines.push(cut(`TOTAL Rs.${formatMoney(data.total)}`));
+  lines.push(rule);
+  lines.push('Thank you. Calcutta Sweets.');
+  return lines.join('\n');
+}
+
 function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): string {
   const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
   const dateStr = when.toLocaleDateString('en-IN', {
@@ -202,11 +268,16 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
 
   if (format === 'receipt') {
     const rows = buildLineRowsReceipt(data);
+    const rawBtPlain = buildPlainTextReceiptFromPrintInvoiceInput(data);
+    const returnHref = (data.returnHref ?? '').trim();
+    const returnAttr = returnHref
+      ? `href="${esc(returnHref)}"`
+      : `href="#" data-fallback-close="1"`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
   <title>Receipt ${esc(data.invoiceNo)}</title>
   <style>
@@ -220,14 +291,71 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     body {
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       color: #1a110c;
+      margin: 0;
+      padding: 0;
+      min-height: 100dvh;
+      font-size: 10px;
+      line-height: 1.3;
+      background: #ebe4d8;
+    }
+    .page {
+      max-width: 100%;
+      padding-left: max(12px, env(safe-area-inset-left, 0px));
+      padding-right: max(12px, env(safe-area-inset-right, 0px));
+      padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    }
+    .action-bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: max(10px, env(safe-area-inset-top, 0px)) 0 12px;
+      margin-bottom: 8px;
+      background: linear-gradient(180deg, #ebe4d8 70%, rgba(235,228,216,0));
+    }
+    .action-bar a, .action-bar button {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 10px 16px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+    }
+    .action-bar .btn-back {
+      background: #fffef9;
+      color: #3d2818;
+      border: 1px solid rgba(44, 24, 16, 0.15);
+      box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+    }
+    .action-bar .btn-print {
+      background: #c9932d;
+      color: #1a110c;
+      border: 1px solid #a67c23;
+      box-shadow: 0 2px 6px rgba(166, 124, 35, 0.25);
+    }
+    .action-bar .btn-rawbt {
+      background: #fffef9;
+      color: #a67c23;
+      border: 2px solid #c9932d;
+      box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+    }
+    .receipt-paper {
       margin: 0 auto;
       padding: 4mm 3mm;
       width: 72mm;
-      max-width: 72mm;
-      min-height: 0;
-      height: auto !important;
-      font-size: 10px;
-      line-height: 1.3;
+      max-width: 100%;
+      background: #fffef9;
+      border-radius: 8px;
+      box-shadow: 0 4px 24px rgba(44, 24, 16, 0.08);
     }
     .print-hint {
       font-size: 10px;
@@ -284,18 +412,30 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     @page { margin: 2mm; size: 80mm auto; }
     @media print {
       @page { margin: 2mm; size: 80mm auto; }
+      .action-bar { display: none !important; }
       .print-hint { display: none !important; }
       html {
         height: auto !important;
         min-height: 0 !important;
       }
       body {
-        padding: 2mm 2mm 3mm;
-        width: 72mm;
-        max-width: 72mm;
+        background: #fff !important;
+        padding: 0 !important;
+      }
+      .page {
+        padding: 0 !important;
+        max-width: none !important;
+      }
+      .receipt-paper {
+        margin: 0 auto !important;
+        padding: 2mm 2mm 3mm !important;
+        width: 72mm !important;
+        max-width: 72mm !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        background: #fff !important;
         height: auto !important;
         min-height: 0 !important;
-        margin: 0 auto;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -303,9 +443,15 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
   </style>
 </head>
 <body>
+  <div class="page">
+  <div class="action-bar">
+    <a class="btn-back" ${returnAttr}>← Back to POS</a>
+    <button type="button" class="btn-print" id="printBillBtn">Print</button>
+    <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button>
+  </div>
+  <div class="receipt-paper">
   <p class="print-hint">
-    <strong>Testing:</strong> Open <strong>Destination</strong> and pick your <strong>TVS / thermal printer</strong>.
-    &quot;Save as PDF&quot; always uses a full sheet, so the receipt looks tiny with empty space below. If you see paper size, choose 80&nbsp;mm or the driver&apos;s roll option.
+    <strong>Tip:</strong> Tap <strong>Print</strong> for the system print dialog (PDF, network, etc.). On <strong>Android</strong> with the RawBT app, use <strong>RawBT</strong> to send this bill as plain text. For 80&nbsp;mm thermal, pick the matching paper size if the dialog offers it.
   </p>
   <div class="head">
     <h1>${esc(data.shopName)}</h1>
@@ -332,13 +478,45 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     ${totalsRowsHtml(data)}
   </div>
   <div class="footer">Thank you. Computer-generated bill.</div>
+  </div>
+  </div>
   <script>
-    window.onload = function () {
-      setTimeout(function () {
-        window.focus();
-        window.print();
-      }, 150);
-    };
+    (function () {
+      var back = document.querySelector('a[data-fallback-close]');
+      if (back) {
+        back.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (window.history.length > 1) window.history.back();
+          else window.close();
+        });
+      }
+      var btn = document.getElementById('printBillBtn');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          window.focus();
+          window.print();
+        });
+      }
+      var rawBtPlain = ${JSON.stringify(rawBtPlain)};
+      var rawBtBtn = document.getElementById('rawBtReceiptBtn');
+      if (rawBtBtn) {
+        rawBtBtn.addEventListener('click', function () {
+          if (!/Android/i.test(navigator.userAgent)) {
+            alert('RawBT works on Android with the RawBT app. On this computer use Print, or open this receipt on your Android tablet.');
+            return;
+          }
+          var u8 = new TextEncoder().encode(rawBtPlain);
+          var bin = '';
+          for (var i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+          var b64 = btoa(bin);
+          if (b64.length > 45000) {
+            alert('Receipt is too long for RawBT.');
+            return;
+          }
+          window.location.href = 'rawbt:base64,' + b64;
+        });
+      }
+    })();
   </script>
 </body>
 </html>`;

@@ -115,17 +115,19 @@
   background: var(--linen-95) !important;
   border-bottom: 1px solid rgba(44, 24, 16, 0.1);
   padding: 0 16px !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
   flex-shrink: 0;
   display: flex !important;
   align-items: center !important;
-  min-height: 64px !important;
-  height: 64px !important;
+  min-height: calc(64px + env(safe-area-inset-top, 0px)) !important;
+  height: auto !important;
   line-height: 1.25 !important;
 }
 
 @media (min-width: 640px) {
   .header {
-    padding: 0 24px !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
   }
 }
 
@@ -172,8 +174,12 @@
     var(--linen-100) 0%,
     color-mix(in srgb, var(--linen-95) 65%, var(--parchment)) 100%
   ) !important;
-  max-height: calc(100vh - 64px);
+  max-height: calc(
+    100dvh - 64px - env(safe-area-inset-top, 0px) -
+      env(safe-area-inset-bottom, 0px)
+  );
   overflow-y: scroll;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .contentInventoryList {

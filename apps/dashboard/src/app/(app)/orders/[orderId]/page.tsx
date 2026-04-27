@@ -294,6 +294,10 @@ export default function OrderBillDetailPage() {
         sgstAmountSplit: sgstSplit,
         discount: order.discount,
         total: order.totalAmount,
+        returnHref:
+          typeof window !== 'undefined'
+            ? `${window.location.origin}/orders/${order.id}`
+            : null,
       },
       format,
     );

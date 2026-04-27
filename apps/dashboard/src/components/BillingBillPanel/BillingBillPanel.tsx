@@ -5,6 +5,7 @@ import {
   UserPlus,
   Receipt,
   Printer,
+  Bluetooth,
   Banknote,
   CreditCard,
   Pencil,
@@ -32,6 +33,10 @@ import {
   type NativeAndroidBillPayload,
 } from '@/lib/usbPrinter';
 import type { RawBillFormValues } from '@/components/BillingPosRawSection/BillingPosRawSection';
+import {
+  isLikelyAndroidForRawBt,
+  launchRawBtPrintFromBill,
+} from '@/lib/rawBtPrint';
 
 export interface BillItem {
   lineId: string;
@@ -276,10 +281,14 @@ export function BillingBillPanel({
       sgstAmountSplit: sgstAmount,
       discount,
       total,
+      returnHref:
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/billing-pos`
+          : null,
     };
   };
 
-  type CheckoutPrintMode = 'browser' | 'thermal';
+  type CheckoutPrintMode = 'browser' | 'thermal' | 'rawbt';
 
   const completeCheckout = async (printMode: CheckoutPrintMode) => {
     if (items.length === 0) {
@@ -307,6 +316,13 @@ export function BillingBillPanel({
       return;
     }
 
+    if (printMode === 'rawbt' && !isLikelyAndroidForRawBt()) {
+      message.warning(
+        'Print via RawBT only works on Android (tablet/phone) with the RawBT app. On Mac or Windows use Generate bill, or open this site on your Android device.',
+      );
+      return;
+    }
+
     if (allRaw) {
       setCheckoutBusy(true);
       try {
@@ -321,9 +337,16 @@ export function BillingBillPanel({
             return;
           }
           message.success('Raw bill ready — use your device print dialog.');
-        } else {
+        } else if (printMode === 'thermal') {
           await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
           message.success('Raw bill sent to USB thermal printer.');
+        } else {
+          const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo));
+          if (!r.ok) {
+            message.error(r.error);
+            return;
+          }
+          message.success('Opening RawBT…');
         }
         setPaymentMethod(null);
         setDiscount(0);
@@ -387,9 +410,16 @@ export function BillingBillPanel({
           return;
         }
         message.success('Bill saved — use your device print dialog.');
-      } else {
+      } else if (printMode === 'thermal') {
         await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
         message.success('Bill saved and sent to USB thermal printer.');
+      } else {
+        const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo));
+        if (!r.ok) {
+          message.error(r.error);
+          return;
+        }
+        message.success('Bill saved — opening RawBT…');
       }
       setPaymentMethod(null);
       setDiscount(0);
@@ -871,6 +901,22 @@ export function BillingBillPanel({
                 </Button>
               </Tooltip>
             ) : null}
+            <Tooltip
+              title={
+                'Android only: sends this bill as text to the RawBT app (set up USB printer once, then enable Auto print + Skip preview in RawBT). On Mac/PC this button will remind you to use Generate bill or switch to Android.'
+              }
+            >
+              <Button
+                type="default"
+                className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
+                icon={<Bluetooth className="h-4 w-4 sm:h-5 sm:w-5" />}
+                disabled={!paymentMethod || checkoutBusy}
+                loading={checkoutBusy}
+                onClick={() => void completeCheckout('rawbt')}
+              >
+                Print via RawBT (Android)
+              </Button>
+            </Tooltip>
           </div>
         </div>
       )}
