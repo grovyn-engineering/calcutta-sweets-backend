@@ -43,3 +43,6 @@ PUBLIC_API.md
 apps/api/src/seed/run-fix.ts
 apps/api/src/seed/fix-categories.ts
 apps/api/src/seed/list-categories.ts
+
+
+android-app

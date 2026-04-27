@@ -1,80 +1,98 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+/**
+ * Native Android WebView bridge for USB thermal printing (ESC/POS).
+ * The sideloaded app exposes `window.Android.printBill(jsonString)`.
+ */
 
-type UsbPrinterPlugin = {
-  print(options: { data: string }): Promise<void>;
+export type NativeAndroidBillItem = {
+  name: string;
+  qty: number;
+  rate: number;
+  amount: number;
+  discount?: number;
 };
 
-const UsbPrinter = registerPlugin<UsbPrinterPlugin>('UsbPrinter');
-
-export type UsbReceiptPayload = {
+export type NativeAndroidBillPayload = {
   shopName: string;
-  address: string;
-  billNo: string;
-  date: string;
-  items: Array<{ name: string; qty: number; price: number }>;
+  shopAddress: string;
+  shopPhone: string;
+  gstin: string;
+  showShopGstin: boolean;
+  fssaiNumber: string;
+  billNumber: string;
+  billTitle?: string;
+  billerName?: string;
+  customerName: string;
+  customerPhone: string;
+  customerGstin: string;
+  showCustomerGstin: boolean;
+  items: NativeAndroidBillItem[];
+  taxableBase: number;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  taxLabel: string;
+  cgstPercent: number;
+  sgstPercent: number;
+  cgstAmount: number;
+  sgstAmount: number;
   total: number;
+  paymentMode: string;
+  amountPaid: number;
+  footerMessage: string;
+  footerNote?: string;
+  bankAccountNumber: string;
+  bankIfsc: string;
+  poweredBy?: string;
+  /** ISO-8601, e.g. from `new Date().toISOString()` */
+  issuedAt?: string;
 };
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
+type AndroidBridge = {
+  printBill: (json: string) => void;
+  getPrinterStatus?: () => string;
+  scanPrinter?: () => void;
+};
 
-function esc(input: string): string {
-  return String(input ?? '').replace(/\r?\n/g, ' ').trim();
-}
-
-function money(n: number): string {
-  return `Rs ${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+function getAndroidBridge(): AndroidBridge | null {
+  if (typeof window === 'undefined') return null;
+  const a = (window as unknown as { Android?: AndroidBridge }).Android;
+  if (a && typeof a.printBill === 'function') return a;
+  return null;
 }
 
 export function isNativeUsbPrinterAvailable(): boolean {
-  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  return getAndroidBridge() != null;
 }
 
-export function buildEscPosReceipt(payload: UsbReceiptPayload): Uint8Array {
-  let out = '';
-  out += '\x1B\x40'; // init
-  out += '\x1B\x61\x01'; // center
-  out += '\x1B\x45\x01'; // bold on
-  out += '\x1D\x21\x11'; // double width + height
-  out += `${esc(payload.shopName)}\n`;
-  out += '\x1D\x21\x00'; // normal
-  out += '\x1B\x45\x00'; // bold off
-  out += `${esc(payload.address)}\n`;
-  out += '--------------------------------\n';
-  out += '\x1B\x61\x00'; // left
-  out += `Bill: ${esc(payload.billNo)}\n`;
-  out += `${esc(new Date(payload.date).toLocaleString('en-IN'))}\n`;
-  out += '--------------------------------\n';
-
-  for (const item of payload.items) {
-    const line = `${esc(item.name).slice(0, 20)} x ${item.qty}`;
-    const amt = money(item.qty * item.price);
-    out += `${line}\n`;
-    out += `${amt}\n`;
-  }
-
-  out += '--------------------------------\n';
-  out += '\x1B\x45\x01';
-  out += `TOTAL: ${money(payload.total)}\n`;
-  out += '\x1B\x45\x00';
-  out += '--------------------------------\n';
-  out += '\x1B\x61\x01';
-  out += 'Thank You!\n\n';
-  out += '\x1D\x56\x41'; // cut
-
-  return new TextEncoder().encode(out);
+function waitForPrintResult(timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const w = window as unknown as {
+      onPrintResult?: (success: boolean, message: string) => void;
+    };
+    const prev = w.onPrintResult;
+    const timer = window.setTimeout(() => {
+      w.onPrintResult = prev;
+      reject(new Error('Print timed out — check USB printer and permissions.'));
+    }, timeoutMs);
+    w.onPrintResult = (success, message) => {
+      window.clearTimeout(timer);
+      w.onPrintResult = prev;
+      if (success) resolve();
+      else reject(new Error(message || 'Print failed'));
+    };
+  });
 }
 
-export async function printReceiptViaUsb(payload: UsbReceiptPayload): Promise<void> {
-  if (!isNativeUsbPrinterAvailable()) {
-    throw new Error('USB printing is available only in Android app.');
+export async function printBillViaNativeAndroid(
+  payload: NativeAndroidBillPayload,
+): Promise<void> {
+  const bridge = getAndroidBridge();
+  if (!bridge) {
+    throw new Error(
+      'Thermal print needs the Calcutta Sweets Android app (WebView). Open the dashboard there, not in a normal browser.',
+    );
   }
-  const bytes = buildEscPosReceipt(payload);
-  const data = toBase64(bytes);
-  await UsbPrinter.print({ data });
+  const done = waitForPrintResult(25_000);
+  bridge.printBill(JSON.stringify(payload));
+  await done;
 }

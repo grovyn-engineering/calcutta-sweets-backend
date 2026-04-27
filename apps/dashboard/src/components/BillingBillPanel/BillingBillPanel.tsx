@@ -25,9 +25,10 @@ import {
 import { ProductLineThumb } from '@/components/ProductLineThumb/ProductLineThumb';
 import {
   isNativeUsbPrinterAvailable,
-  printReceiptViaUsb,
-  type UsbReceiptPayload,
+  printBillViaNativeAndroid,
+  type NativeAndroidBillPayload,
 } from '@/lib/usbPrinter';
+import type { RawBillFormValues } from '@/components/BillingPosRawSection/BillingPosRawSection';
 
 export interface BillItem {
   lineId: string;
@@ -63,15 +64,6 @@ export type BillingCustomerBinding = {
   setDetailsOpen: (open: boolean) => void;
 };
 
-type ThermalPrintPayload = {
-  shopName: string;
-  address: string;
-  items: Array<{ name: string; qty: number; price: number }>;
-  total: number;
-  date: string;
-  billNo: string;
-};
-
 export interface BillingBillPanelProps {
   items: BillItem[];
   onQuantityChange: (lineId: string, delta: number) => void;
@@ -87,6 +79,8 @@ export interface BillingBillPanelProps {
   customerBinding?: BillingCustomerBinding;
   hideAddCustomerInPanel?: boolean;
   manualSaleCustomer?: ManualSaleCustomer | null;
+  /** Used for raw-tab GSTIN checkbox when building the native thermal payload */
+  rawBillForm?: RawBillFormValues | null;
 }
 
 export function BillingBillPanel({
@@ -101,6 +95,7 @@ export function BillingBillPanel({
   customerBinding,
   hideAddCustomerInPanel = false,
   manualSaleCustomer = null,
+  rawBillForm = null,
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
   const { shops, effectiveShopCode } = useShop();
@@ -157,39 +152,86 @@ export function BillingBillPanel({
   const rawManualNameOnBill =
     items.some((i) => i.isRaw) && Boolean(manualSaleCustomer?.name?.trim());
 
-  const buildThermalPrintPayload = (billNo: string): ThermalPrintPayload => {
+  const buildNativeAndroidBill = (billNo: string): NativeAndroidBillPayload => {
+    const hasRaw = items.some((i) => i.isRaw);
     const fallbackAddress = [currentShop?.city, currentShop?.state]
       .filter(Boolean)
       .join(', ');
-    const address = shopAddressPrint?.trim() || fallbackAddress || '-';
+    const address = shopAddressPrint?.trim() || fallbackAddress || '';
+
+    const customerName = hasRaw
+      ? (manualSaleCustomer?.name?.trim() ?? '')
+      : (customer?.name?.trim() ?? '');
+    const customerPhone = hasRaw ? '' : (customer?.phone?.trim() ?? '');
+    const customerGstinVal = hasRaw
+      ? rawBillForm?.includeCustomerGstin
+        ? (rawBillForm.customerGstin?.trim() ?? '')
+        : ''
+      : (customer?.gstin?.trim() ?? '');
+    const showCustomerGstin = hasRaw
+      ? Boolean(rawBillForm?.includeCustomerGstin && customerGstinVal.length > 0)
+      : customerGstinVal.length > 0;
+
+    const taxableBase = Math.max(0, total - gstAmount);
+
     return {
       shopName,
-      address,
-      billNo,
-      date: new Date().toISOString(),
-      total,
-      items: items.map((i) => ({
-        name:
-          i.variantLabel && i.variantLabel !== 'Regular'
-            ? `${i.name} (${i.variantLabel})`
-            : i.name,
-        qty: i.displayQuantity,
-        price: billDisplayUnitPrice(
+      shopAddress: address,
+      shopPhone: currentShop?.phone?.trim() ?? '',
+      gstin: currentShop?.gstNumber?.trim() ?? '',
+      showShopGstin: showGstinOnBill,
+      fssaiNumber: currentShop?.fssaiNumber?.trim() ?? '',
+      billNumber: billNo,
+      billTitle: 'TAX INVOICE',
+      billerName: '',
+      customerName,
+      customerPhone,
+      customerGstin: customerGstinVal,
+      showCustomerGstin,
+      items: items.map((i) => {
+        const rate = billDisplayUnitPrice(
           i.stockUnitsToDeduct,
           i.catalogUnitPrice,
           i.displayQuantity,
-        ),
-      })),
+        );
+        const amount = billLineSubtotal(
+          i.stockUnitsToDeduct,
+          i.catalogUnitPrice,
+        );
+        const name =
+          i.variantLabel && i.variantLabel !== 'Regular'
+            ? `${i.name} (${i.variantLabel})`
+            : i.name;
+        return { name, qty: i.displayQuantity, rate, amount, discount: 0 };
+      }),
+      taxableBase,
+      subtotal: taxableBase,
+      discount,
+      tax: gstAmount,
+      taxLabel: `GST ${(cgstRate + sgstRate).toFixed(1)}%`,
+      cgstPercent: cgstRate,
+      sgstPercent: sgstRate,
+      cgstAmount,
+      sgstAmount,
+      total,
+      paymentMode: paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
+      amountPaid: total,
+      footerMessage: 'Thank You. Come Again!',
+      footerNote: '* Tax not payable on reverse charge basis',
+      bankAccountNumber: currentShop?.bankAccountNumber?.trim() ?? '',
+      bankIfsc: currentShop?.bankIfsc?.trim() ?? '',
+      poweredBy: 'Calcutta Sweets',
+      issuedAt: new Date().toISOString(),
     };
   };
 
   const sendThermalPrint = async (billNo: string) => {
     if (!isNativeUsbPrinterAvailable()) {
       throw new Error(
-        'Direct USB thermal print works only in Android APK. Open billing in app, not browser.',
+        'Direct USB thermal print works only in the Calcutta Sweets Android WebView app. Open the dashboard there, not in Chrome.',
       );
     }
-    await printReceiptViaUsb(buildThermalPrintPayload(billNo) as UsbReceiptPayload);
+    await printBillViaNativeAndroid(buildNativeAndroidBill(billNo));
   };
 
   const handleGenerateBill = async () => {

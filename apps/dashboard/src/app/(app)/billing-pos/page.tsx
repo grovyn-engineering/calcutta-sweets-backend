@@ -330,6 +330,7 @@ export default function BillingPOSPage() {
     customerBinding,
     hideAddCustomerInPanel: stackedBillingLayout,
     manualSaleCustomer,
+    rawBillForm,
   };
 
   return (

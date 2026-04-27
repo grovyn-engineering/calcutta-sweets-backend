@@ -6,15 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "cap:sync": "sh -c 'mkdir -p capacitor-web; [ -f capacitor-web/index.html ] || printf \"<!doctype html><html><body>Capacitor host shell.</body></html>\" > capacitor-web/index.html' && cap sync android",
-    "cap:open:android": "cap open android"
+    "lint": "eslint"
   },
   "dependencies": {
     "@calcutta/database": "workspace:*",
-    "@capacitor/android": "^8.3.1",
-    "@capacitor/cli": "^8.3.1",
-    "@capacitor/core": "^8.3.1",
     "@types/jsbarcode": "^3.11.4",
     "antd": "^6.3.3",
     "exceljs": "^4.4.0",
