@@ -3,7 +3,6 @@
 import { App, ConfigProvider } from 'antd';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ShopProvider } from '@/contexts/ShopContext';
-import { RuntimeDebugOverlay } from "@/components/RuntimeDebugOverlay";
 
 const theme = {
   token: {
@@ -47,7 +46,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <App>
         <AuthProvider>
           <ShopProvider>{children}</ShopProvider>
-          <RuntimeDebugOverlay />
         </AuthProvider>
       </App>
     </ConfigProvider>
