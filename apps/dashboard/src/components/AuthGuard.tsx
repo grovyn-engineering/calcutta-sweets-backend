@@ -61,18 +61,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     () => ({ user, permissions, isFactory }),
     [user, permissions, isFactory],
   );
-  const loadingDebug = useMemo(() => {
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
-    return [
-      `path=${pathname}`,
-      `isLoading=${String(isLoading)}`,
-      `isAuthenticated=${String(isAuthenticated)}`,
-      `user=${user?.email ?? "none"}`,
-      `permissions=${permissions ? "yes" : "no"}`,
-      `shop=${effectiveShopCode || "none"}`,
-      `ua=${ua}`,
-    ].join(" | ");
-  }, [pathname, isLoading, isAuthenticated, user?.email, permissions, effectiveShopCode]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -131,9 +119,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Loading session">
         <ContentSkeleton variant="table" rowCount={10} />
-        <pre style={{ marginTop: 12, padding: 8, background: "#fff8dc", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {loadingDebug}
-        </pre>
       </div>
     );
   }
@@ -142,9 +127,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
         <ContentSkeleton variant="table" rowCount={6} />
-        <pre style={{ marginTop: 12, padding: 8, background: "#fff8dc", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {loadingDebug}
-        </pre>
       </div>
     );
   }
@@ -161,9 +143,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return (
         <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
           <ContentSkeleton variant="table" rowCount={6} />
-          <pre style={{ marginTop: 12, padding: 8, background: "#fff8dc", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {loadingDebug}
-          </pre>
         </div>
       );
     }

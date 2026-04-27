@@ -17,17 +17,19 @@ const MAX_LOGS = 80;
 
 function isTabletDebugTarget(): boolean {
   if (typeof window === "undefined") return false;
-  const query = new URLSearchParams(window.location.search);
-  if (query.get("debugOverlay") === "1") return true;
   const ua = window.navigator.userAgent || "";
-  return /Android/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  const maybeCapacitor =
+    !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
+      .Capacitor?.isNativePlatform?.() || ua.includes("wv");
+  return isAndroid && maybeCapacitor;
 }
 
 export function RuntimeDebugOverlay() {
   const pathname = usePathname();
   const { isAuthenticated, isLoading, user } = useAuth();
   const [enabled, setEnabled] = useState(false);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState<DebugLog[]>([]);
 
   useEffect(() => {
@@ -36,15 +38,15 @@ export function RuntimeDebugOverlay() {
 
   useEffect(() => {
     if (!enabled) return;
-    setLogs((prev) => {
-      const entry: DebugLog = {
+    setLogs((prev) => [
+      ...prev,
+      {
         id: Date.now(),
         at: new Date().toISOString(),
         level: "info",
         message: `route=${pathname} authLoading=${String(isLoading)} authenticated=${String(isAuthenticated)} user=${user?.email ?? "none"}`,
-      };
-      return [...prev, entry].slice(-MAX_LOGS);
-    });
+      },
+    ].slice(-MAX_LOGS));
   }, [enabled, pathname, isLoading, isAuthenticated, user?.email]);
 
   useEffect(() => {
