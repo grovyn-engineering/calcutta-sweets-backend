@@ -16,21 +16,35 @@ export function isLikelyAndroidForRawBt(): boolean {
 }
 
 function utf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]!);
+  if (typeof TextEncoder !== 'undefined') {
+    const bytes = new TextEncoder().encode(text);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]!);
+    }
+    return btoa(binary);
   }
-  return btoa(binary);
+  // Android 7 WebView fallback.
+  return btoa(unescape(encodeURIComponent(text)));
 }
 
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
   const w = 32;
-  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 1)}…`);
+  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const row = (left: string, right = '') => {
+    const l = cut(left);
+    const r = cut(right);
+    const spaces = Math.max(1, w - l.length - r.length);
+    return `${l}${' '.repeat(spaces)}${r}`;
+  };
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  lines.push(cut(bill.shopName.toUpperCase()));
+  // RawBT formatting tags: force clean state + Latin codepage before content.
+  lines.push('{reset}');
+  lines.push('{codepage:0}');
+  lines.push('{center}{b}' + cut(bill.shopName.toUpperCase()) + '{/b}');
+  lines.push('{left}');
   if (bill.shopAddress.trim()) lines.push(cut(bill.shopAddress.trim()));
   if (bill.shopPhone.trim()) lines.push(cut(`Contact: ${bill.shopPhone.trim()}`));
   if (bill.showShopGstin && bill.gstin.trim()) lines.push(cut(`GSTIN: ${bill.gstin.trim()}`));
@@ -47,19 +61,20 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
   lines.push(rule);
 
   for (const it of bill.items) {
+    const qty = Number.isInteger(it.qty) ? `${it.qty}` : it.qty.toFixed(1);
     const name = it.name.trim().slice(0, 16);
-    lines.push(cut(`${name}  x${it.qty}  Rs.${it.amount.toFixed(2)}`));
+    lines.push(row(name, `x${qty} Rs.${it.amount.toFixed(2)}`));
   }
   lines.push(rule);
-  lines.push(cut(`Taxable: Rs.${bill.taxableBase.toFixed(2)}`));
+  lines.push(row('Taxable:', `Rs.${bill.taxableBase.toFixed(2)}`));
   if (bill.cgstAmount > 0.005 && bill.sgstAmount > 0.005) {
-    lines.push(cut(`CGST ${bill.cgstPercent}%: Rs.${bill.cgstAmount.toFixed(2)}`));
-    lines.push(cut(`SGST ${bill.sgstPercent}%: Rs.${bill.sgstAmount.toFixed(2)}`));
+    lines.push(row(`CGST ${bill.cgstPercent}%:`, `Rs.${bill.cgstAmount.toFixed(2)}`));
+    lines.push(row(`SGST ${bill.sgstPercent}%:`, `Rs.${bill.sgstAmount.toFixed(2)}`));
   } else if (bill.tax > 0.005) {
-    lines.push(cut(`${bill.taxLabel}: Rs.${bill.tax.toFixed(2)}`));
+    lines.push(row(`${bill.taxLabel}:`, `Rs.${bill.tax.toFixed(2)}`));
   }
-  if (bill.discount > 0.005) lines.push(cut(`Discount: -Rs.${bill.discount.toFixed(2)}`));
-  lines.push(cut(`TOTAL: Rs.${bill.total.toFixed(2)}`));
+  if (bill.discount > 0.005) lines.push(row('Discount:', `-Rs.${bill.discount.toFixed(2)}`));
+  lines.push('{b}' + row('TOTAL:', `Rs.${bill.total.toFixed(2)}`) + '{/b}');
   if (bill.paymentMode.trim()) lines.push(cut(bill.paymentMode.trim()));
   lines.push(rule);
   if (bill.footerNote?.trim()) lines.push(cut(bill.footerNote.trim()));
@@ -67,7 +82,8 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
   if (bill.bankAccountNumber.trim()) lines.push(cut(`A/c: ${bill.bankAccountNumber.trim()}`));
   if (bill.bankIfsc.trim()) lines.push(cut(`IFSC: ${bill.bankIfsc.trim()}`));
   lines.push('');
-  lines.push('Calcutta Sweets');
+  lines.push('Thank you. Come again!');
+  lines.push('{cut}');
   return lines.join('\n');
 }
 

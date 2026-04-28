@@ -193,10 +193,19 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
 /** Plain text for RawBT rawbt:base64, from the same data as the HTML receipt. */
 function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): string {
   const w = 32;
-  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 1)}…`);
+  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const row = (left: string, right = '') => {
+    const l = cut(left);
+    const r = cut(right);
+    const spaces = Math.max(1, w - l.length - r.length);
+    return `${l}${' '.repeat(spaces)}${r}`;
+  };
   const rule = '-'.repeat(w);
   const lines: string[] = [];
-  lines.push(cut(data.shopName.toUpperCase()));
+  lines.push('{reset}');
+  lines.push('{codepage:0}');
+  lines.push('{center}{b}' + cut(data.shopName.toUpperCase()) + '{/b}');
+  lines.push('{left}');
   if (data.shopAddress?.trim()) lines.push(cut(data.shopAddress.trim()));
   if (data.shopPhone?.trim()) lines.push(cut(`Contact: ${data.shopPhone.trim()}`));
   if (data.showGstinOnBill !== false && data.gstNumber?.trim()) {
@@ -226,7 +235,12 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
         : '';
     const amt = line.quantity * line.unitPrice;
     lines.push(cut(`${line.name}${variant}`.trim()));
-    lines.push(cut(`  ${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)} = Rs.${formatMoney(amt)}`));
+    lines.push(
+      row(
+        `  ${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)}`,
+        `Rs.${formatMoney(amt)}`,
+      ),
+    );
   }
   lines.push(rule);
   const hasSplit =
@@ -236,21 +250,22 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
     data.sgstPercent != null &&
     (data.gstAmount ?? 0) > 0.005;
   if (hasSplit) {
-    lines.push(cut(`Subtotal Rs.${formatMoney(data.subtotal)}`));
+    lines.push(row('Subtotal', `Rs.${formatMoney(data.subtotal)}`));
     lines.push(
-      cut(`CGST ${data.cgstPercent}% Rs.${formatMoney(data.cgstAmountSplit!)}`),
+      row(`CGST ${data.cgstPercent}%`, `Rs.${formatMoney(data.cgstAmountSplit!)}`),
     );
     lines.push(
-      cut(`SGST ${data.sgstPercent}% Rs.${formatMoney(data.sgstAmountSplit!)}`),
+      row(`SGST ${data.sgstPercent}%`, `Rs.${formatMoney(data.sgstAmountSplit!)}`),
     );
   } else {
-    lines.push(cut(`Subtotal Rs.${formatMoney(data.subtotal)}`));
-    lines.push(cut(`GST Rs.${formatMoney(data.gstAmount)}`));
+    lines.push(row('Subtotal', `Rs.${formatMoney(data.subtotal)}`));
+    lines.push(row('GST', `Rs.${formatMoney(data.gstAmount)}`));
   }
-  if (data.discount > 0.005) lines.push(cut(`Discount -Rs.${formatMoney(data.discount)}`));
-  lines.push(cut(`TOTAL Rs.${formatMoney(data.total)}`));
+  if (data.discount > 0.005) lines.push(row('Discount', `-Rs.${formatMoney(data.discount)}`));
+  lines.push('{b}' + row('TOTAL', `Rs.${formatMoney(data.total)}`) + '{/b}');
   lines.push(rule);
   lines.push('Thank you. Calcutta Sweets.');
+  lines.push('{cut}');
   return lines.join('\n');
 }
 
@@ -505,10 +520,15 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
             alert('RawBT works on Android with the RawBT app. On this computer use Print, or open this receipt on your Android tablet.');
             return;
           }
-          var u8 = new TextEncoder().encode(rawBtPlain);
-          var bin = '';
-          for (var i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
-          var b64 = btoa(bin);
+          var b64;
+          if (typeof TextEncoder !== 'undefined') {
+            var u8 = new TextEncoder().encode(rawBtPlain);
+            var bin = '';
+            for (var i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+            b64 = btoa(bin);
+          } else {
+            b64 = btoa(unescape(encodeURIComponent(rawBtPlain)));
+          }
           if (b64.length > 45000) {
             alert('Receipt is too long for RawBT.');
             return;

@@ -8,6 +8,15 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "browserslist": {
+    "production": [
+      "chrome >= 61",
+      "android >= 7"
+    ],
+    "development": [
+      "last 1 chrome version"
+    ]
+  },
   "dependencies": {
     "@calcutta/database": "workspace:*",
     "@types/jsbarcode": "^3.11.4",
