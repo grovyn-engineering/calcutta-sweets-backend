@@ -194,6 +194,20 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
 function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): string {
   const w = 32;
   const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const wrap = (s: string): string[] => {
+    const input = s.trimEnd();
+    if (!input) return [''];
+    const out: string[] = [];
+    let idx = 0;
+    while (idx < input.length) {
+      out.push(input.slice(idx, idx + w));
+      idx += w;
+    }
+    return out;
+  };
+  const pushWrapped = (arr: string[], s: string) => {
+    wrap(s).forEach((x) => arr.push(x));
+  };
   const row = (left: string, right = '') => {
     const l = cut(left);
     const r = cut(right);
@@ -206,14 +220,14 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
   lines.push('{codepage:0}');
   lines.push('{center}{b}' + cut(data.shopName.toUpperCase()) + '{/b}');
   lines.push('{left}');
-  if (data.shopAddress?.trim()) lines.push(cut(data.shopAddress.trim()));
-  if (data.shopPhone?.trim()) lines.push(cut(`Contact: ${data.shopPhone.trim()}`));
+  if (data.shopAddress?.trim()) pushWrapped(lines, data.shopAddress.trim());
+  if (data.shopPhone?.trim()) pushWrapped(lines, `Contact: ${data.shopPhone.trim()}`);
   if (data.showGstinOnBill !== false && data.gstNumber?.trim()) {
-    lines.push(cut(`GSTIN: ${data.gstNumber.trim()}`));
+    pushWrapped(lines, `GSTIN: ${data.gstNumber.trim()}`);
   }
-  if (data.fssaiNumber?.trim()) lines.push(cut(`FSSAI: ${data.fssaiNumber.trim()}`));
+  if (data.fssaiNumber?.trim()) pushWrapped(lines, `FSSAI: ${data.fssaiNumber.trim()}`);
   lines.push(rule);
-  lines.push(cut(`Bill: ${data.invoiceNo}`));
+  pushWrapped(lines, `Bill: ${data.invoiceNo}`);
   const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
   lines.push(
     cut(
@@ -221,9 +235,9 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
     ),
   );
   if (data.customer) {
-    lines.push(cut(data.customer.name || 'Customer'));
-    if (data.customer.phone?.trim()) lines.push(cut(data.customer.phone.trim()));
-    if (data.customer.gstin?.trim()) lines.push(cut(`GSTIN ${data.customer.gstin.trim()}`));
+    pushWrapped(lines, data.customer.name || 'Customer');
+    if (data.customer.phone?.trim()) pushWrapped(lines, data.customer.phone.trim());
+    if (data.customer.gstin?.trim()) pushWrapped(lines, `GSTIN ${data.customer.gstin.trim()}`);
   } else {
     lines.push('Walk-in');
   }
@@ -234,7 +248,7 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
         ? ` (${line.variantLabel})`
         : '';
     const amt = line.quantity * line.unitPrice;
-    lines.push(cut(`${line.name}${variant}`.trim()));
+    pushWrapped(lines, `${line.name}${variant}`.trim());
     lines.push(
       row(
         `  ${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)}`,
@@ -265,6 +279,9 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
   lines.push('{b}' + row('TOTAL', `Rs.${formatMoney(data.total)}`) + '{/b}');
   lines.push(rule);
   lines.push('Thank you. Calcutta Sweets.');
+  // Feed buffer reduces clipping on some thermal printers in RawBT flow.
+  lines.push('');
+  lines.push('');
   lines.push('{cut}');
   return lines.join('\n');
 }

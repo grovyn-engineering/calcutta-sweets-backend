@@ -31,6 +31,20 @@ function utf8ToBase64(text: string): string {
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
   const w = 32;
   const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const wrap = (s: string): string[] => {
+    const input = s.trimEnd();
+    if (!input) return [''];
+    const out: string[] = [];
+    let idx = 0;
+    while (idx < input.length) {
+      out.push(input.slice(idx, idx + w));
+      idx += w;
+    }
+    return out;
+  };
+  const pushWrapped = (arr: string[], s: string) => {
+    wrap(s).forEach((x) => arr.push(x));
+  };
   const row = (left: string, right = '') => {
     const l = cut(left);
     const r = cut(right);
@@ -45,19 +59,19 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
   lines.push('{codepage:0}');
   lines.push('{center}{b}' + cut(bill.shopName.toUpperCase()) + '{/b}');
   lines.push('{left}');
-  if (bill.shopAddress.trim()) lines.push(cut(bill.shopAddress.trim()));
-  if (bill.shopPhone.trim()) lines.push(cut(`Contact: ${bill.shopPhone.trim()}`));
-  if (bill.showShopGstin && bill.gstin.trim()) lines.push(cut(`GSTIN: ${bill.gstin.trim()}`));
-  if (bill.fssaiNumber.trim()) lines.push(cut(`FSSAI: ${bill.fssaiNumber.trim()}`));
+  if (bill.shopAddress.trim()) pushWrapped(lines, bill.shopAddress.trim());
+  if (bill.shopPhone.trim()) pushWrapped(lines, `Contact: ${bill.shopPhone.trim()}`);
+  if (bill.showShopGstin && bill.gstin.trim()) pushWrapped(lines, `GSTIN: ${bill.gstin.trim()}`);
+  if (bill.fssaiNumber.trim()) pushWrapped(lines, `FSSAI: ${bill.fssaiNumber.trim()}`);
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
-    lines.push(cut(`Cust GSTIN: ${bill.customerGstin.trim()}`));
+    pushWrapped(lines, `Cust GSTIN: ${bill.customerGstin.trim()}`);
   }
   lines.push(rule);
-  lines.push(cut((bill.billTitle || 'TAX INVOICE').toUpperCase()));
-  lines.push(cut(`Bill: ${bill.billNumber}`));
-  if (bill.billerName?.trim()) lines.push(cut(`Biller: ${bill.billerName.trim()}`));
-  if (bill.customerName.trim()) lines.push(cut(`Customer: ${bill.customerName.trim()}`));
-  if (bill.customerPhone.trim()) lines.push(cut(`Phone: ${bill.customerPhone.trim()}`));
+  pushWrapped(lines, (bill.billTitle || 'TAX INVOICE').toUpperCase());
+  pushWrapped(lines, `Bill: ${bill.billNumber}`);
+  if (bill.billerName?.trim()) pushWrapped(lines, `Biller: ${bill.billerName.trim()}`);
+  if (bill.customerName.trim()) pushWrapped(lines, `Customer: ${bill.customerName.trim()}`);
+  if (bill.customerPhone.trim()) pushWrapped(lines, `Phone: ${bill.customerPhone.trim()}`);
   lines.push(rule);
 
   for (const it of bill.items) {
@@ -75,14 +89,17 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
   }
   if (bill.discount > 0.005) lines.push(row('Discount:', `-Rs.${bill.discount.toFixed(2)}`));
   lines.push('{b}' + row('TOTAL:', `Rs.${bill.total.toFixed(2)}`) + '{/b}');
-  if (bill.paymentMode.trim()) lines.push(cut(bill.paymentMode.trim()));
+  if (bill.paymentMode.trim()) pushWrapped(lines, bill.paymentMode.trim());
   lines.push(rule);
-  if (bill.footerNote?.trim()) lines.push(cut(bill.footerNote.trim()));
-  if (bill.footerMessage.trim()) lines.push(cut(bill.footerMessage.trim()));
-  if (bill.bankAccountNumber.trim()) lines.push(cut(`A/c: ${bill.bankAccountNumber.trim()}`));
-  if (bill.bankIfsc.trim()) lines.push(cut(`IFSC: ${bill.bankIfsc.trim()}`));
+  if (bill.footerNote?.trim()) pushWrapped(lines, bill.footerNote.trim());
+  if (bill.footerMessage.trim()) pushWrapped(lines, bill.footerMessage.trim());
+  if (bill.bankAccountNumber.trim()) pushWrapped(lines, `A/c: ${bill.bankAccountNumber.trim()}`);
+  if (bill.bankIfsc.trim()) pushWrapped(lines, `IFSC: ${bill.bankIfsc.trim()}`);
   lines.push('');
   lines.push('Thank you. Come again!');
+  // Feed buffer reduces top/bottom clipping on some thermal mechanisms.
+  lines.push('');
+  lines.push('');
   lines.push('{cut}');
   return lines.join('\n');
 }
