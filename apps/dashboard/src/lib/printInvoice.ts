@@ -1,4 +1,5 @@
 import type { CustomerFormValues } from '@/components/CustomerDetails';
+import { encodeRawBtBase64Payload } from '@/lib/rawBtPrint';
 
 export type InvoiceLineInput = {
   name: string;
@@ -190,10 +191,10 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
     <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>`;
 }
 
-/** Plain text for RawBT rawbt:base64, from the same data as the HTML receipt. */
+/** Plain text body for RawBT (ESC/POS feed+cut appended by encodeRawBtBase64Payload). */
 function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): string {
   const w = 32;
-  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const cutStr = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
   const wrap = (s: string): string[] => {
     const input = s.trimEnd();
     if (!input) return [''];
@@ -209,17 +210,15 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
     wrap(s).forEach((x) => arr.push(x));
   };
   const row = (left: string, right = '') => {
-    const l = cut(left);
-    const r = cut(right);
+    const l = cutStr(left);
+    const r = cutStr(right);
     const spaces = Math.max(1, w - l.length - r.length);
     return `${l}${' '.repeat(spaces)}${r}`;
   };
   const rule = '-'.repeat(w);
   const lines: string[] = [];
-  lines.push('{reset}');
-  lines.push('{codepage:0}');
-  lines.push('{center}{b}' + cut(data.shopName.toUpperCase()) + '{/b}');
-  lines.push('{left}');
+
+  pushWrapped(lines, data.shopName.toUpperCase());
   if (data.shopAddress?.trim()) pushWrapped(lines, data.shopAddress.trim());
   if (data.shopPhone?.trim()) pushWrapped(lines, `Contact: ${data.shopPhone.trim()}`);
   if (data.showGstinOnBill !== false && data.gstNumber?.trim()) {
@@ -229,10 +228,9 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
   lines.push(rule);
   pushWrapped(lines, `Bill: ${data.invoiceNo}`);
   const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
-  lines.push(
-    cut(
-      `${when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} ${when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`,
-    ),
+  pushWrapped(
+    lines,
+    `${when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} ${when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`,
   );
   if (data.customer) {
     pushWrapped(lines, data.customer.name || 'Customer');
@@ -248,13 +246,15 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
         ? ` (${line.variantLabel})`
         : '';
     const amt = line.quantity * line.unitPrice;
-    pushWrapped(lines, `${line.name}${variant}`.trim());
-    lines.push(
-      row(
-        `  ${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)}`,
-        `Rs.${formatMoney(amt)}`,
-      ),
-    );
+    const label = `${line.name}${variant}`.trim();
+    const right = `Rs.${formatMoney(amt)}`;
+    const meta = `${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)}`;
+    if (label.length <= 14) {
+      lines.push(row(label.slice(0, 14), right));
+    } else {
+      pushWrapped(lines, label);
+      lines.push(row(`  ${meta}`, right));
+    }
   }
   lines.push(rule);
   const hasSplit =
@@ -276,13 +276,9 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
     lines.push(row('GST', `Rs.${formatMoney(data.gstAmount)}`));
   }
   if (data.discount > 0.005) lines.push(row('Discount', `-Rs.${formatMoney(data.discount)}`));
-  lines.push('{b}' + row('TOTAL', `Rs.${formatMoney(data.total)}`) + '{/b}');
+  lines.push(row('TOTAL', `Rs.${formatMoney(data.total)}`));
   lines.push(rule);
   lines.push('Thank you. Calcutta Sweets.');
-  // Feed buffer reduces clipping on some thermal printers in RawBT flow.
-  lines.push('');
-  lines.push('');
-  lines.push('{cut}');
   return lines.join('\n');
 }
 
@@ -301,6 +297,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
   if (format === 'receipt') {
     const rows = buildLineRowsReceipt(data);
     const rawBtPlain = buildPlainTextReceiptFromPrintInvoiceInput(data);
+    const rawBtPayloadB64 = encodeRawBtBase64Payload(rawBtPlain);
     const returnHref = (data.returnHref ?? '').trim();
     const returnAttr = returnHref
       ? `href="${esc(returnHref)}"`
@@ -325,7 +322,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       color: #1a110c;
       margin: 0;
       padding: 0;
-      min-height: 100dvh;
+      min-height: 100vh;
       font-size: 10px;
       line-height: 1.3;
       background: #ebe4d8;
@@ -382,9 +379,9 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     }
     .receipt-paper {
       margin: 0 auto;
-      padding: 4mm 3mm;
-      width: 72mm;
-      max-width: 100%;
+      padding: 4mm 4mm;
+      width: 100%;
+      max-width: 72mm;
       background: #fffef9;
       border-radius: 8px;
       box-shadow: 0 4px 24px rgba(44, 24, 16, 0.08);
@@ -421,7 +418,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; }
     .cust-meta { font-size: 8px; color: #5c4030; margin-top: 2px; font-weight: normal; }
     .cust.muted { color: #6b4a30; font-style: italic; }
-    table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8px; table-layout: fixed; }
     th {
       text-align: left;
       border-bottom: 1px solid #1a110c;
@@ -432,18 +429,20 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       color: #3d2818;
     }
     th.num { text-align: right; }
-    td { padding: 3px 2px 4px 0; vertical-align: top; border-bottom: 1px dotted #e0d5c8; }
-    td.num { text-align: right; white-space: nowrap; }
+    td { padding: 3px 2px 4px 0; vertical-align: top; border-bottom: 1px dotted #e0d5c8; word-wrap: break-word; overflow-wrap: anywhere; }
+    td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .item-name { font-weight: 600; }
     .item-meta { color: #5c4030; font-size: 8px; margin-top: 1px; }
     .item-block:last-child td { border-bottom: none; }
     .totals { margin-top: 8px; font-size: 9px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 2px 0; gap: 8px; }
-    .totals-row.grand { font-size: 11px; font-weight: 700; border-top: 2px solid #1a110c; margin-top: 4px; padding-top: 6px; }
+    .totals-row { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; gap: 6px; }
+    .totals-row span:first-child { min-width: 0; flex: 1; padding-right: 4px; }
+    .totals-row span:last-child { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+    .totals-row.grand { font-size: 10px; font-weight: 700; border-top: 2px solid #1a110c; margin-top: 4px; padding-top: 6px; }
     .footer { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #b8a08a; font-size: 8px; color: #6b4a30; text-align: center; }
-    @page { margin: 2mm; size: 80mm auto; }
+    @page { margin: 3mm 3mm 12mm 3mm; size: 80mm auto; }
     @media print {
-      @page { margin: 2mm; size: 80mm auto; }
+      @page { margin: 3mm 3mm 12mm 3mm; size: 80mm auto; }
       .action-bar { display: none !important; }
       .print-hint { display: none !important; }
       html {
@@ -460,9 +459,9 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       }
       .receipt-paper {
         margin: 0 auto !important;
-        padding: 2mm 2mm 3mm !important;
-        width: 72mm !important;
-        max-width: 72mm !important;
+        padding: 2mm 3mm 10mm !important;
+        width: 70mm !important;
+        max-width: 70mm !important;
         box-shadow: none !important;
         border-radius: 0 !important;
         background: #fff !important;
@@ -529,7 +528,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
           window.print();
         });
       }
-      var rawBtPlain = ${JSON.stringify(rawBtPlain)};
+      var rawBtB64 = ${JSON.stringify(rawBtPayloadB64)};
       var rawBtBtn = document.getElementById('rawBtReceiptBtn');
       if (rawBtBtn) {
         rawBtBtn.addEventListener('click', function () {
@@ -537,20 +536,11 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
             alert('RawBT works on Android with the RawBT app. On this computer use Print, or open this receipt on your Android tablet.');
             return;
           }
-          var b64;
-          if (typeof TextEncoder !== 'undefined') {
-            var u8 = new TextEncoder().encode(rawBtPlain);
-            var bin = '';
-            for (var i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
-            b64 = btoa(bin);
-          } else {
-            b64 = btoa(unescape(encodeURIComponent(rawBtPlain)));
-          }
-          if (b64.length > 45000) {
+          if (rawBtB64.length > 45000) {
             alert('Receipt is too long for RawBT.');
             return;
           }
-          window.location.href = 'rawbt:base64,' + b64;
+          window.location.href = 'rawbt:base64,' + rawBtB64;
         });
       }
     })();

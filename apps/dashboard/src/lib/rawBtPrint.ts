@@ -2,6 +2,10 @@
  * RawBT (ru.a402d.rawbtprinter) — fallback printing on Android via intent URL.
  * @see https://github.com/402d/DemoRawBtPrinter — rawbt:base64,<data>
  *
+ * `rawbt:base64` sends a **raw byte stream** to the printer. RawBT `{tags}` are for
+ * template mode and are often printed as plain text in this path — we use plain
+ * ASCII/UTF-8 lines plus real ESC/POS feed + cut bytes at the end (like SnapBizz-style drivers).
+ *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
 
@@ -10,27 +14,73 @@ import type { NativeAndroidBillPayload } from '@/lib/usbPrinter';
 /** Conservative limit; very long receipts may need Generate bill instead. */
 const MAX_RAWBT_HREF_CHARS = 48_000;
 
+const ESC = 0x1b;
+const GS = 0x1d;
+
+function utf8Encode(s: string): Uint8Array {
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(s);
+  }
+  const utf8 = unescape(encodeURIComponent(s));
+  const arr = new Uint8Array(utf8.length);
+  for (let i = 0; i < utf8.length; i += 1) {
+    arr[i] = utf8.charCodeAt(i) & 0xff;
+  }
+  return arr;
+}
+
+/**
+ * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
+ * Matches common thermal behaviour (TVS / ESC/POS) better than `{cut}` text.
+ */
+export function textToRawBtPrinterBytes(body: string): Uint8Array {
+  const bodyBytes = utf8Encode(body);
+  const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
+  const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
+  const feedLines = 10;
+  const feed = new Uint8Array([ESC, 0x64, feedLines & 0xff]); // ESC d n
+  const cut = new Uint8Array([GS, 0x56, 0x01]); // GS V 1 partial cut
+
+  const total =
+    prefix.length + bodyBytes.length + nl.length + feed.length + cut.length;
+  const out = new Uint8Array(total);
+  let o = 0;
+  out.set(prefix, o);
+  o += prefix.length;
+  out.set(bodyBytes, o);
+  o += bodyBytes.length;
+  out.set(nl, o);
+  o += nl.length;
+  out.set(feed, o);
+  o += feed.length;
+  out.set(cut, o);
+  return out;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
+}
+
+/** Base64 payload for `rawbt:base64,<...>` including ESC/POS trailer. */
+export function encodeRawBtBase64Payload(plainTextBody: string): string {
+  return bytesToBase64(textToRawBtPrinterBytes(plainTextBody));
+}
+
 export function isLikelyAndroidForRawBt(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android/i.test(navigator.userAgent);
 }
 
-function utf8ToBase64(text: string): string {
-  if (typeof TextEncoder !== 'undefined') {
-    const bytes = new TextEncoder().encode(text);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i += 1) {
-      binary += String.fromCharCode(bytes[i]!);
-    }
-    return btoa(binary);
-  }
-  // Android 7 WebView fallback.
-  return btoa(unescape(encodeURIComponent(text)));
-}
+/** 32 columns — safe on 58mm and avoids double-width clipping on 80mm. */
+const LINE_CHARS = 32;
 
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
-  const w = 32;
-  const cut = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const w = LINE_CHARS;
+  const cutStr = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
   const wrap = (s: string): string[] => {
     const input = s.trimEnd();
     if (!input) return [''];
@@ -46,22 +96,20 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
     wrap(s).forEach((x) => arr.push(x));
   };
   const row = (left: string, right = '') => {
-    const l = cut(left);
-    const r = cut(right);
+    const l = cutStr(left);
+    const r = cutStr(right);
     const spaces = Math.max(1, w - l.length - r.length);
     return `${l}${' '.repeat(spaces)}${r}`;
   };
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  // RawBT formatting tags: force clean state + Latin codepage before content.
-  lines.push('{reset}');
-  lines.push('{codepage:0}');
-  lines.push('{center}{b}' + cut(bill.shopName.toUpperCase()) + '{/b}');
-  lines.push('{left}');
+  pushWrapped(lines, bill.shopName.toUpperCase());
   if (bill.shopAddress.trim()) pushWrapped(lines, bill.shopAddress.trim());
   if (bill.shopPhone.trim()) pushWrapped(lines, `Contact: ${bill.shopPhone.trim()}`);
-  if (bill.showShopGstin && bill.gstin.trim()) pushWrapped(lines, `GSTIN: ${bill.gstin.trim()}`);
+  if (bill.showShopGstin && bill.gstin.trim()) {
+    pushWrapped(lines, `GSTIN: ${bill.gstin.trim()}`);
+  }
   if (bill.fssaiNumber.trim()) pushWrapped(lines, `FSSAI: ${bill.fssaiNumber.trim()}`);
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
     pushWrapped(lines, `Cust GSTIN: ${bill.customerGstin.trim()}`);
@@ -76,8 +124,13 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
 
   for (const it of bill.items) {
     const qty = Number.isInteger(it.qty) ? `${it.qty}` : it.qty.toFixed(1);
-    const name = it.name.trim().slice(0, 16);
-    lines.push(row(name, `x${qty} Rs.${it.amount.toFixed(2)}`));
+    const rawName = it.name.trim();
+    if (rawName.length <= 14) {
+      lines.push(row(rawName.slice(0, 14), `x${qty} Rs.${it.amount.toFixed(2)}`));
+    } else {
+      pushWrapped(lines, rawName);
+      lines.push(row('', `x${qty} Rs.${it.amount.toFixed(2)}`));
+    }
   }
   lines.push(rule);
   lines.push(row('Taxable:', `Rs.${bill.taxableBase.toFixed(2)}`));
@@ -88,26 +141,24 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
     lines.push(row(`${bill.taxLabel}:`, `Rs.${bill.tax.toFixed(2)}`));
   }
   if (bill.discount > 0.005) lines.push(row('Discount:', `-Rs.${bill.discount.toFixed(2)}`));
-  lines.push('{b}' + row('TOTAL:', `Rs.${bill.total.toFixed(2)}`) + '{/b}');
+  lines.push(row('TOTAL:', `Rs.${bill.total.toFixed(2)}`));
   if (bill.paymentMode.trim()) pushWrapped(lines, bill.paymentMode.trim());
   lines.push(rule);
   if (bill.footerNote?.trim()) pushWrapped(lines, bill.footerNote.trim());
   if (bill.footerMessage.trim()) pushWrapped(lines, bill.footerMessage.trim());
-  if (bill.bankAccountNumber.trim()) pushWrapped(lines, `A/c: ${bill.bankAccountNumber.trim()}`);
+  if (bill.bankAccountNumber.trim()) {
+    pushWrapped(lines, `A/c: ${bill.bankAccountNumber.trim()}`);
+  }
   if (bill.bankIfsc.trim()) pushWrapped(lines, `IFSC: ${bill.bankIfsc.trim()}`);
-  lines.push('');
-  lines.push('Thank you. Come again!');
-  // Feed buffer reduces top/bottom clipping on some thermal mechanisms.
-  lines.push('');
-  lines.push('');
-  lines.push('{cut}');
+  if (bill.poweredBy.trim()) pushWrapped(lines, bill.poweredBy.trim());
+
   return lines.join('\n');
 }
 
 export type RawBtLaunchResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Sends UTF-8 receipt text as base64 (RawBT raw stream — plain text on 58/80mm).
+ * Sends receipt as base64 raw stream: UTF-8 text + ESC/POS feed + cut.
  */
 export function launchRawBtPrintFromText(text: string): RawBtLaunchResult {
   if (typeof window === 'undefined') {
@@ -120,7 +171,7 @@ export function launchRawBtPrintFromText(text: string): RawBtLaunchResult {
         'RawBT runs on Android. Install “RawBT” from Play Store, set USB printer, enable Auto print + Skip preview.',
     };
   }
-  const b64 = utf8ToBase64(text);
+  const b64 = encodeRawBtBase64Payload(text);
   const href = `rawbt:base64,${b64}`;
   if (href.length > MAX_RAWBT_HREF_CHARS) {
     return {

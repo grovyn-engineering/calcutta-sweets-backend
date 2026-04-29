@@ -16,6 +16,7 @@ import {
   BillingBillPanel,
   type BillItem,
   type BillingCustomerBinding,
+  type BillingPosCheckoutApi,
   type ManualSaleCustomer,
 } from '@/components/BillingBillPanel/BillingBillPanel';
 import {
@@ -83,6 +84,9 @@ export default function BillingPOSPage() {
   );
   const [rawBillForm, setRawBillForm] =
     useState<RawBillFormValues>(RAW_BILL_FORM_INITIAL);
+  const [checkoutApi, setCheckoutApi] = useState<BillingPosCheckoutApi | null>(
+    null,
+  );
 
   useLayoutEffect(() => {
     const el = billingShellRef.current;
@@ -331,6 +335,7 @@ export default function BillingPOSPage() {
     hideAddCustomerInPanel: stackedBillingLayout,
     manualSaleCustomer,
     rawBillForm,
+    onCheckoutApi: setCheckoutApi,
   };
 
   return (
@@ -411,6 +416,8 @@ export default function BillingPOSPage() {
                     showToolbarAddCustomer={stackedBillingLayout}
                     onToolbarAddCustomer={openCustomerDetails}
                     showSaleCheckoutHint={stackedBillingLayout}
+                    checkoutApi={checkoutApi}
+                    showCheckoutButtons={billingTab === 'raw'}
                   />
                 ),
               },

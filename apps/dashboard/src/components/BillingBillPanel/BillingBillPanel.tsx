@@ -11,7 +11,7 @@ import {
   Pencil,
   UserRound,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomerFormValues } from '../CustomerDetails';
 import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
@@ -72,6 +72,16 @@ export type BillingCustomerBinding = {
   setDetailsOpen: (open: boolean) => void;
 };
 
+/** Exposes the same checkout actions as the sale panel (for Raw tab quick actions). */
+export type BillingPosCheckoutApi = {
+  printBrowser: () => void;
+  printThermal: () => void;
+  printRawBt: () => void;
+  busy: boolean;
+  canPrint: boolean;
+  showUsbThermal: boolean;
+};
+
 export interface BillingBillPanelProps {
   items: BillItem[];
   onQuantityChange: (lineId: string, delta: number) => void;
@@ -89,6 +99,8 @@ export interface BillingBillPanelProps {
   manualSaleCustomer?: ManualSaleCustomer | null;
   /** Used for raw-tab GSTIN checkbox when building the native thermal payload */
   rawBillForm?: RawBillFormValues | null;
+  /** Register checkout handlers (e.g. Raw billing tab duplicate buttons). */
+  onCheckoutApi?: (api: BillingPosCheckoutApi | null) => void;
 }
 
 export function BillingBillPanel({
@@ -104,6 +116,7 @@ export function BillingBillPanel({
   hideAddCustomerInPanel = false,
   manualSaleCustomer = null,
   rawBillForm = null,
+  onCheckoutApi,
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
   const { shops, effectiveShopCode } = useShop();
@@ -290,6 +303,10 @@ export function BillingBillPanel({
 
   type CheckoutPrintMode = 'browser' | 'thermal' | 'rawbt';
 
+  const completeCheckoutRef = useRef<
+    (printMode: CheckoutPrintMode) => Promise<void>
+  >(async () => {});
+
   const completeCheckout = async (printMode: CheckoutPrintMode) => {
     if (items.length === 0) {
       message.warning('Add at least one item before generating a bill.');
@@ -432,6 +449,29 @@ export function BillingBillPanel({
       setCheckoutBusy(false);
     }
   };
+
+  completeCheckoutRef.current = completeCheckout;
+
+  useEffect(() => {
+    if (!onCheckoutApi) return;
+    onCheckoutApi({
+      printBrowser: () => {
+        void completeCheckoutRef.current('browser');
+      },
+      printThermal: () => {
+        void completeCheckoutRef.current('thermal');
+      },
+      printRawBt: () => {
+        void completeCheckoutRef.current('rawbt');
+      },
+      busy: checkoutBusy,
+      canPrint: lineCount > 0 && paymentMethod != null,
+      showUsbThermal: isNativeUsbPrinterAvailable(),
+    });
+    return () => {
+      onCheckoutApi(null);
+    };
+  }, [onCheckoutApi, checkoutBusy, lineCount, paymentMethod]);
 
   return (
     <div

@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Checkbox, Form, Input, InputNumber } from 'antd';
-import { FileText } from 'lucide-react';
+import { App, Button, Checkbox, Form, Input, InputNumber, Tooltip } from 'antd';
+import { Bluetooth, FileText, Printer, Receipt } from 'lucide-react';
 import { memo, useCallback } from 'react';
+import type { BillingPosCheckoutApi } from '@/components/BillingBillPanel/BillingBillPanel';
 import styles from './BillingPosRawSection.module.css';
 
 export type RawBillFormValues = {
@@ -30,6 +31,10 @@ export type BillingPosRawSectionProps = {
   showToolbarAddCustomer?: boolean;
   onToolbarAddCustomer?: () => void;
   showSaleCheckoutHint?: boolean;
+  /** Same checkout actions as the sale panel (Generate bill / USB / RawBT). */
+  checkoutApi?: BillingPosCheckoutApi | null;
+  /** When true, show the three print shortcuts on this tab. */
+  showCheckoutButtons?: boolean;
 };
 
 function BillingPosRawSectionInner({
@@ -39,7 +44,11 @@ function BillingPosRawSectionInner({
   showToolbarAddCustomer,
   onToolbarAddCustomer,
   showSaleCheckoutHint,
+  checkoutApi,
+  showCheckoutButtons,
 }: BillingPosRawSectionProps) {
+  const { message } = App.useApp();
+
   const patch = useCallback(
     (partial: Partial<RawBillFormValues>) => {
       onFormChange({ ...formValues, ...partial });
@@ -171,6 +180,87 @@ function BillingPosRawSectionInner({
           Add line to sale
         </Button>
       </Form>
+
+      {showCheckoutButtons && checkoutApi ? (
+        <div className="mt-5 rounded-xl border border-[var(--pearl-bush)] bg-[var(--linen-95)] p-3 sm:p-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+            Print this raw sale
+          </p>
+          <p className="mb-3 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
+            Choose payment (Cash / UPI) in the sale panel first. Prefer{' '}
+            <strong>USB thermal</strong> in the POS app for reliable cut and no RawBT quirks. RawBT
+            can lose the USB device until you reconnect it in RawBT.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Tooltip title="Opens the receipt in a new tab — use the system Print dialog (80 mm / PDF).">
+              <Button
+                type="primary"
+                className="flex h-10 w-full items-center justify-center gap-2"
+                icon={<Receipt className="h-4 w-4" />}
+                disabled={!checkoutApi.canPrint || checkoutApi.busy}
+                loading={checkoutApi.busy}
+                onClick={() => {
+                  if (!checkoutApi.canPrint) {
+                    message.warning(
+                      'Add lines and select Cash or UPI / Card in the sale panel first.',
+                    );
+                    return;
+                  }
+                  checkoutApi.printBrowser();
+                }}
+                style={{
+                  backgroundColor: 'var(--ochre-600)',
+                  borderColor: 'var(--ochre-600)',
+                }}
+              >
+                Generate bill
+              </Button>
+            </Tooltip>
+            {checkoutApi.showUsbThermal ? (
+              <Tooltip title="Prints via the Android app USB bridge (ESC/POS) — best match to SnapBizz-style cut.">
+                <Button
+                  type="default"
+                  className="flex h-10 w-full items-center justify-center gap-2 border-[var(--pearl-bush)]"
+                  icon={<Printer className="h-4 w-4" />}
+                  disabled={!checkoutApi.canPrint || checkoutApi.busy}
+                  loading={checkoutApi.busy}
+                  onClick={() => {
+                    if (!checkoutApi.canPrint) {
+                      message.warning(
+                        'Add lines and select Cash or UPI / Card in the sale panel first.',
+                      );
+                      return;
+                    }
+                    checkoutApi.printThermal();
+                  }}
+                >
+                  USB thermal receipt
+                </Button>
+              </Tooltip>
+            ) : null}
+            <Tooltip title="Sends raw bytes via RawBT. If the printer stops responding, reconnect USB in RawBT.">
+              <Button
+                type="default"
+                className="flex h-10 w-full items-center justify-center gap-2 border-[var(--pearl-bush)]"
+                icon={<Bluetooth className="h-4 w-4" />}
+                disabled={!checkoutApi.canPrint || checkoutApi.busy}
+                loading={checkoutApi.busy}
+                onClick={() => {
+                  if (!checkoutApi.canPrint) {
+                    message.warning(
+                      'Add lines and select Cash or UPI / Card in the sale panel first.',
+                    );
+                    return;
+                  }
+                  checkoutApi.printRawBt();
+                }}
+              >
+                Print via RawBT (Android)
+              </Button>
+            </Tooltip>
+          </div>
+        </div>
+      ) : null}
 
       {showSaleCheckoutHint ? (
         <p className="mt-4 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
