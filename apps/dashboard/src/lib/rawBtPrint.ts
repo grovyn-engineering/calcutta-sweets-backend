@@ -150,7 +150,8 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
     pushWrapped(lines, `A/c: ${bill.bankAccountNumber.trim()}`);
   }
   if (bill.bankIfsc.trim()) pushWrapped(lines, `IFSC: ${bill.bankIfsc.trim()}`);
-  if (bill.poweredBy.trim()) pushWrapped(lines, bill.poweredBy.trim());
+  const powered = bill.poweredBy?.trim();
+  if (powered) pushWrapped(lines, powered);
 
   return lines.join('\n');
 }
