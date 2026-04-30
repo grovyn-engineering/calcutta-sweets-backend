@@ -34,8 +34,10 @@ import {
 } from '@/lib/usbPrinter';
 import type { RawBillFormValues } from '@/components/BillingPosRawSection/BillingPosRawSection';
 import {
+  buildPlainTextReceiptForRawBt,
   isLikelyAndroidForRawBt,
   launchRawBtPrintFromBill,
+  THERMAL_POWERED_BY_LINE,
 } from '@/lib/rawBtPrint';
 
 export interface BillItem {
@@ -195,7 +197,7 @@ export function BillingBillPanel({
 
     const taxableBase = Math.max(0, total - gstAmount);
 
-    return {
+    const base: NativeAndroidBillPayload = {
       shopName,
       shopAddress: address,
       shopPhone: currentShop?.phone?.trim() ?? '',
@@ -241,8 +243,12 @@ export function BillingBillPanel({
       footerNote: '* Tax not payable on reverse charge basis',
       bankAccountNumber: currentShop?.bankAccountNumber?.trim() ?? '',
       bankIfsc: currentShop?.bankIfsc?.trim() ?? '',
-      poweredBy: 'Calcutta Sweets',
+      poweredBy: THERMAL_POWERED_BY_LINE,
       issuedAt: new Date().toISOString(),
+    };
+    return {
+      ...base,
+      thermalPlainText: buildPlainTextReceiptForRawBt(base),
     };
   };
 

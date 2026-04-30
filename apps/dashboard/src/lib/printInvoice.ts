@@ -1,5 +1,10 @@
 import type { CustomerFormValues } from '@/components/CustomerDetails';
-import { encodeRawBtBase64Payload } from '@/lib/rawBtPrint';
+import {
+  buildPlainTextReceiptForRawBt,
+  encodeRawBtBase64Payload,
+  THERMAL_POWERED_BY_LINE,
+} from '@/lib/rawBtPrint';
+import type { NativeAndroidBillPayload } from '@/lib/usbPrinter';
 
 export type InvoiceLineInput = {
   name: string;
@@ -191,95 +196,65 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
     <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>`;
 }
 
-/** Plain text body for RawBT (ESC/POS feed+cut appended by encodeRawBtBase64Payload). */
-function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): string {
-  const w = 32;
-  const cutStr = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
-  const wrap = (s: string): string[] => {
-    const input = s.trimEnd();
-    if (!input) return [''];
-    const out: string[] = [];
-    let idx = 0;
-    while (idx < input.length) {
-      out.push(input.slice(idx, idx + w));
-      idx += w;
-    }
-    return out;
-  };
-  const pushWrapped = (arr: string[], s: string) => {
-    wrap(s).forEach((x) => arr.push(x));
-  };
-  const row = (left: string, right = '') => {
-    const l = cutStr(left);
-    const r = cutStr(right);
-    const spaces = Math.max(1, w - l.length - r.length);
-    return `${l}${' '.repeat(spaces)}${r}`;
-  };
-  const rule = '-'.repeat(w);
-  const lines: string[] = [];
-
-  pushWrapped(lines, data.shopName.toUpperCase());
-  if (data.shopAddress?.trim()) pushWrapped(lines, data.shopAddress.trim());
-  if (data.shopPhone?.trim()) pushWrapped(lines, `Contact: ${data.shopPhone.trim()}`);
-  if (data.showGstinOnBill !== false && data.gstNumber?.trim()) {
-    pushWrapped(lines, `GSTIN: ${data.gstNumber.trim()}`);
-  }
-  if (data.fssaiNumber?.trim()) pushWrapped(lines, `FSSAI: ${data.fssaiNumber.trim()}`);
-  lines.push(rule);
-  pushWrapped(lines, `Bill: ${data.invoiceNo}`);
-  const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
-  pushWrapped(
-    lines,
-    `${when.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} ${when.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`,
-  );
-  if (data.customer) {
-    pushWrapped(lines, data.customer.name || 'Customer');
-    if (data.customer.phone?.trim()) pushWrapped(lines, data.customer.phone.trim());
-    if (data.customer.gstin?.trim()) pushWrapped(lines, `GSTIN ${data.customer.gstin.trim()}`);
-  } else {
-    lines.push('Walk-in');
-  }
-  lines.push(rule);
-  for (const line of data.lines) {
-    const variant =
-      line.variantLabel && line.variantLabel !== 'Regular'
-        ? ` (${line.variantLabel})`
-        : '';
-    const amt = line.quantity * line.unitPrice;
-    const label = `${line.name}${variant}`.trim();
-    const right = `Rs.${formatMoney(amt)}`;
-    const meta = `${line.quantity} ${line.unit} x Rs.${formatMoney(line.unitPrice)}`;
-    if (label.length <= 14) {
-      lines.push(row(label.slice(0, 14), right));
-    } else {
-      pushWrapped(lines, label);
-      lines.push(row(`  ${meta}`, right));
-    }
-  }
-  lines.push(rule);
+function printInvoiceInputToNativeBill(data: PrintInvoiceInput): NativeAndroidBillPayload {
   const hasSplit =
     data.cgstAmountSplit != null &&
     data.sgstAmountSplit != null &&
     data.cgstPercent != null &&
     data.sgstPercent != null &&
     (data.gstAmount ?? 0) > 0.005;
-  if (hasSplit) {
-    lines.push(row('Subtotal', `Rs.${formatMoney(data.subtotal)}`));
-    lines.push(
-      row(`CGST ${data.cgstPercent}%`, `Rs.${formatMoney(data.cgstAmountSplit!)}`),
-    );
-    lines.push(
-      row(`SGST ${data.sgstPercent}%`, `Rs.${formatMoney(data.sgstAmountSplit!)}`),
-    );
-  } else {
-    lines.push(row('Subtotal', `Rs.${formatMoney(data.subtotal)}`));
-    lines.push(row('GST', `Rs.${formatMoney(data.gstAmount)}`));
-  }
-  if (data.discount > 0.005) lines.push(row('Discount', `-Rs.${formatMoney(data.discount)}`));
-  lines.push(row('TOTAL', `Rs.${formatMoney(data.total)}`));
-  lines.push(rule);
-  lines.push('Thank you. Calcutta Sweets.');
-  return lines.join('\n');
+
+  return {
+    shopName: data.shopName,
+    shopAddress: data.shopAddress?.trim() ?? '',
+    shopPhone: data.shopPhone?.trim() ?? '',
+    gstin: data.gstNumber?.trim() ?? '',
+    showShopGstin: data.showGstinOnBill !== false,
+    fssaiNumber: data.fssaiNumber?.trim() ?? '',
+    billNumber: data.invoiceNo,
+    billTitle: 'TAX INVOICE',
+    billerName: '',
+    customerName: data.customer?.name?.trim() ?? '',
+    customerPhone: data.customer?.phone?.trim() ?? '',
+    customerGstin: data.customer?.gstin?.trim() ?? '',
+    showCustomerGstin: Boolean(data.customer?.gstin?.trim()),
+    items: data.lines.map((line) => {
+      const variant =
+        line.variantLabel && line.variantLabel !== 'Regular'
+          ? ` (${line.variantLabel})`
+          : '';
+      const name = `${line.name}${variant}`.trim();
+      return {
+        name,
+        qty: line.quantity,
+        rate: line.unitPrice,
+        amount: line.quantity * line.unitPrice,
+      };
+    }),
+    taxableBase: data.subtotal,
+    subtotal: data.subtotal,
+    discount: data.discount,
+    tax: data.gstAmount,
+    taxLabel: `GST ${(data.gstRate * 100).toFixed(1)}%`,
+    cgstPercent: data.cgstPercent ?? 0,
+    sgstPercent: data.sgstPercent ?? 0,
+    cgstAmount: hasSplit ? (data.cgstAmountSplit ?? 0) : 0,
+    sgstAmount: hasSplit ? (data.sgstAmountSplit ?? 0) : 0,
+    total: data.total,
+    paymentMode: 'Cash',
+    amountPaid: data.total,
+    footerMessage: 'Thank You. Come Again!',
+    footerNote: '* Tax not payable on reverse charge basis',
+    bankAccountNumber: '',
+    bankIfsc: '',
+    poweredBy: THERMAL_POWERED_BY_LINE,
+    issuedAt: data.issuedAt,
+  };
+}
+
+/** Plain text body for RawBT (ESC/POS feed+cut appended by encodeRawBtBase64Payload). */
+function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): string {
+  return buildPlainTextReceiptForRawBt(printInvoiceInputToNativeBill(data));
 }
 
 function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): string {

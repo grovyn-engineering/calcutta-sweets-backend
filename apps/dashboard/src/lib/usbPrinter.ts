@@ -45,6 +45,11 @@ export type NativeAndroidBillPayload = {
   poweredBy?: string;
   /** ISO-8601, e.g. from `new Date().toISOString()` */
   issuedAt?: string;
+  /**
+   * Pre-formatted 80mm plain text (42 cols). If the Android bridge supports it,
+   * print this body with ESC/POS feed+cut instead of rebuilding from fields.
+   */
+  thermalPlainText?: string;
 };
 
 type AndroidBridge = {
