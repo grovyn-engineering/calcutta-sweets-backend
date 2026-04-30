@@ -80,7 +80,9 @@ const LINE_CHARS = 32;
 
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
   const w = LINE_CHARS;
-  const cutStr = (s: string) => (s.length <= w ? s : `${s.slice(0, w - 3)}...`);
+  const rule = '-'.repeat(w);
+  const lines: string[] = [];
+
   const wrap = (s: string): string[] => {
     const input = s.trimEnd();
     if (!input) return [''];
@@ -92,66 +94,126 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
     }
     return out;
   };
+
+  const center = (s: string): string => {
+    const t = s.trim();
+    if (t.length >= w) return t;
+    const pad = Math.floor((w - t.length) / 2);
+    return ' '.repeat(pad) + t;
+  };
+
+  const pushCentered = (arr: string[], s: string) => {
+    wrap(s).forEach((chunk) => arr.push(center(chunk)));
+  };
+
   const pushWrapped = (arr: string[], s: string) => {
     wrap(s).forEach((x) => arr.push(x));
   };
-  const row = (left: string, right = '') => {
-    const l = cutStr(left);
-    const r = cutStr(right);
-    const spaces = Math.max(1, w - l.length - r.length);
-    return `${l}${' '.repeat(spaces)}${r}`;
+
+  const row = (left: string, right: string): string => {
+    const spaces = Math.max(1, w - left.length - right.length);
+    return `${left}${' '.repeat(spaces)}${right}`;
   };
-  const rule = '-'.repeat(w);
-  const lines: string[] = [];
 
-  pushWrapped(lines, bill.shopName.toUpperCase());
-  if (bill.shopAddress.trim()) pushWrapped(lines, bill.shopAddress.trim());
-  if (bill.shopPhone.trim()) pushWrapped(lines, `Contact: ${bill.shopPhone.trim()}`);
+  // --- Header (centered) ---
+  pushCentered(lines, bill.shopName.toUpperCase());
+  if (bill.shopAddress.trim()) pushCentered(lines, bill.shopAddress.trim());
+  if (bill.shopPhone.trim()) pushCentered(lines, `Contact No. :- ${bill.shopPhone.trim()}`);
   if (bill.showShopGstin && bill.gstin.trim()) {
-    pushWrapped(lines, `GSTIN: ${bill.gstin.trim()}`);
+    pushCentered(lines, `GSTIN: ${bill.gstin.trim()}`);
   }
-  if (bill.fssaiNumber.trim()) pushWrapped(lines, `FSSAI: ${bill.fssaiNumber.trim()}`);
+  if (bill.fssaiNumber.trim()) pushCentered(lines, `FSSAI No.${bill.fssaiNumber.trim()}`);
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
-    pushWrapped(lines, `Cust GSTIN: ${bill.customerGstin.trim()}`);
+    pushCentered(lines, `Cust GSTIN: ${bill.customerGstin.trim()}`);
   }
-  lines.push(rule);
-  pushWrapped(lines, (bill.billTitle || 'TAX INVOICE').toUpperCase());
-  pushWrapped(lines, `Bill: ${bill.billNumber}`);
-  if (bill.billerName?.trim()) pushWrapped(lines, `Biller: ${bill.billerName.trim()}`);
-  if (bill.customerName.trim()) pushWrapped(lines, `Customer: ${bill.customerName.trim()}`);
-  if (bill.customerPhone.trim()) pushWrapped(lines, `Phone: ${bill.customerPhone.trim()}`);
   lines.push(rule);
 
+  // --- Bill info ---
+  pushCentered(lines, (bill.billTitle || 'TAX INVOICE').toUpperCase());
+
+  const dt = bill.issuedAt ? new Date(bill.issuedAt) : new Date();
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mo = String(dt.getMonth() + 1).padStart(2, '0');
+  const h = dt.getHours();
+  const mins = String(dt.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  lines.push(row(`${dd}/${mo}/${dt.getFullYear()}`, `${h}:${mins} ${ampm}`));
+
+  lines.push(`Bill No:${bill.billNumber}`);
+  if (bill.billerName?.trim()) lines.push(`Biller Name:${bill.billerName.trim()}`);
+  if (bill.customerName.trim()) lines.push(`Customer: ${bill.customerName.trim()}`);
+  if (bill.customerPhone.trim()) lines.push(`Phone: ${bill.customerPhone.trim()}`);
+  lines.push(rule);
+
+  // --- Items (4 columns: Name | Qty | SP | Amt) ---
+  // widths: name=14, space+qty=4, space+sp=7, space+amt=7  → total 32
+  const C_NAME = 14;
+  lines.push(
+    'Item Name'.padEnd(C_NAME) +
+    ' ' + 'Qty'.padStart(3) +
+    ' ' + 'SP'.padStart(6) +
+    ' ' + 'Amt'.padStart(6),
+  );
+  lines.push(rule);
+
+  let totalQty = 0;
   for (const it of bill.items) {
-    const qty = Number.isInteger(it.qty) ? `${it.qty}` : it.qty.toFixed(1);
+    totalQty += it.qty;
+    const qtyFmt = Number.isInteger(it.qty) ? `${it.qty}` : it.qty.toFixed(1);
+    const spFmt = it.rate.toFixed(2);
+    const amtFmt = it.amount.toFixed(2);
     const rawName = it.name.trim();
-    if (rawName.length <= 14) {
-      lines.push(row(rawName.slice(0, 14), `x${qty} Rs.${it.amount.toFixed(2)}`));
+    if (rawName.length <= C_NAME) {
+      lines.push(
+        rawName.padEnd(C_NAME) +
+        ' ' + qtyFmt.padStart(3) +
+        ' ' + spFmt.padStart(6) +
+        ' ' + amtFmt.padStart(6),
+      );
     } else {
       pushWrapped(lines, rawName);
-      lines.push(row('', `x${qty} Rs.${it.amount.toFixed(2)}`));
+      lines.push(
+        ''.padEnd(C_NAME) +
+        ' ' + qtyFmt.padStart(3) +
+        ' ' + spFmt.padStart(6) +
+        ' ' + amtFmt.padStart(6),
+      );
     }
   }
   lines.push(rule);
-  lines.push(row('Taxable:', `Rs.${bill.taxableBase.toFixed(2)}`));
+
+  // --- Totals ---
+  const itemCount = bill.items.length;
+  const totalQtyFmt = Number.isInteger(totalQty) ? `${totalQty}` : totalQty.toFixed(1);
+  lines.push(`Items/Qty:${itemCount}/${totalQtyFmt}`);
+  lines.push('');
+
   if (bill.cgstAmount > 0.005 && bill.sgstAmount > 0.005) {
-    lines.push(row(`CGST ${bill.cgstPercent}%:`, `Rs.${bill.cgstAmount.toFixed(2)}`));
-    lines.push(row(`SGST ${bill.sgstPercent}%:`, `Rs.${bill.sgstAmount.toFixed(2)}`));
+    lines.push(row('Taxable:', bill.taxableBase.toFixed(2)));
+    lines.push(row(`CGST ${bill.cgstPercent}%:`, bill.cgstAmount.toFixed(2)));
+    lines.push(row(`SGST ${bill.sgstPercent}%:`, bill.sgstAmount.toFixed(2)));
   } else if (bill.tax > 0.005) {
-    lines.push(row(`${bill.taxLabel}:`, `Rs.${bill.tax.toFixed(2)}`));
+    lines.push(row('Taxable:', bill.taxableBase.toFixed(2)));
+    lines.push(row(`${bill.taxLabel}:`, bill.tax.toFixed(2)));
   }
-  if (bill.discount > 0.005) lines.push(row('Discount:', `-Rs.${bill.discount.toFixed(2)}`));
-  lines.push(row('TOTAL:', `Rs.${bill.total.toFixed(2)}`));
-  if (bill.paymentMode.trim()) pushWrapped(lines, bill.paymentMode.trim());
+  if (bill.discount > 0.005) lines.push(row('Discount:', `-${bill.discount.toFixed(2)}`));
+
+  lines.push(row('Net Amount:', bill.total.toFixed(2)));
   lines.push(rule);
+  lines.push(row('Cash Paid:', bill.amountPaid.toFixed(2)));
+  lines.push('');
+  lines.push(row('', 'Signature'));
+  lines.push(rule);
+
+  // --- Footer ---
+  lines.push('* Tax not payable on reverse charge basis');
   if (bill.footerNote?.trim()) pushWrapped(lines, bill.footerNote.trim());
   if (bill.footerMessage.trim()) pushWrapped(lines, bill.footerMessage.trim());
   if (bill.bankAccountNumber.trim()) {
-    pushWrapped(lines, `A/c: ${bill.bankAccountNumber.trim()}`);
+    pushWrapped(lines, `A/c. No. : ${bill.bankAccountNumber.trim()}`);
   }
-  if (bill.bankIfsc.trim()) pushWrapped(lines, `IFSC: ${bill.bankIfsc.trim()}`);
-  const powered = bill.poweredBy?.trim();
-  if (powered) pushWrapped(lines, powered);
+  if (bill.bankIfsc.trim()) pushWrapped(lines, `IFSC : ${bill.bankIfsc.trim()}`);
+  lines.push('E&OE');
 
   return lines.join('\n');
 }
