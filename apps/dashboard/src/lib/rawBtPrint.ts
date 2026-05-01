@@ -141,6 +141,15 @@ function wrapWords(text: string, maxWidth: number): string[] {
 
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = THERMAL_RECEIPT_WIDTH;
+  const centerLineFull = (s: string) => {
+    const t = s.trim();
+    if (!t) return '';
+    if (t.length >= w) return t.slice(0, w);
+    const pad = w - t.length;
+    const left = Math.floor(pad / 2);
+    const right = pad - left;
+    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
+  };
   const centerLine = (s: string) => {
     const t = s.trim();
     if (!t) return '';
@@ -178,10 +187,10 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
+  /** Blank first — some drivers clip the very first non-empty line; keeps the shop title intact. */
   lines.push('');
-  lines.push(
-    `${String.fromCharCode(ESC, 0x61, 0x01)}${shopName.toUpperCase()}\n${String.fromCharCode(ESC, 0x61, 0x00)}`,
-  );
+  lines.push('');
+  lines.push(centerLineFull(shopName.toUpperCase()));
   lines.push('');
   for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
   lines.push(centerLine(`Contact No. :- ${shopPhone}`));
