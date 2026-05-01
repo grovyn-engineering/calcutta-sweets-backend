@@ -151,11 +151,35 @@ export function BillingBillPanel({
 
   const shopAddressPrint = useMemo(() => {
     if (!currentShop) return null;
+    const addr = currentShop.address?.trim() ?? '';
+    const cityState = [currentShop.city, currentShop.state]
+      .filter(Boolean)
+      .join(', ');
+    const pin = currentShop.pincode?.trim() ?? '';
+    const a = addr.toLowerCase();
+    const stateLc = (currentShop.state ?? '').trim().toLowerCase();
+    const cityLc = (currentShop.city ?? '').trim().toLowerCase();
+    const hasStateInAddr = stateLc.length > 0 && a.includes(stateLc);
+    const hasCityStateInAddr =
+      cityLc.length > 0 &&
+      stateLc.length > 0 &&
+      a.includes(cityLc) &&
+      a.includes(stateLc);
+    const addrHasRaipurCg = /\bRaipur\s*\(\s*C\.G\s*\)/i.test(addr);
+    const cityStateDuplicatesCgBlock =
+      addrHasRaipurCg &&
+      cityLc === 'raipur' &&
+      stateLc === 'chhattisgarh';
+    const extraLocality =
+      cityState &&
+      !cityStateDuplicatesCgBlock &&
+      !hasCityStateInAddr &&
+      !(hasStateInAddr && a.includes(cityLc));
     const parts = [
-      currentShop.address,
-      [currentShop.city, currentShop.state].filter(Boolean).join(', '),
-      currentShop.pincode,
-    ].filter((x) => x?.trim());
+      addr || undefined,
+      extraLocality ? cityState : undefined,
+      pin || undefined,
+    ].filter(Boolean) as string[];
     return parts.length ? parts.join(', ') : null;
   }, [currentShop]);
 
