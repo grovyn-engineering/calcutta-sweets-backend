@@ -4,11 +4,7 @@
  *
  * `rawbt:base64` sends a **raw byte stream** to the printer. RawBT `{tags}` are for
  * template mode and are often printed as plain text in this path — we use plain
- * UTF-8 lines plus ESC/POS alignment + feed + cut.
- *
- * Centered header/footer use **ESC a 1** (not space padding). Space-padding looks
- * centered in a text editor but many 80mm drivers clip the left margin, leaving
- * tails like `h, Raipur (C.G).,` on the first line.
+ * UTF-8 lines plus ESC/POS feed + cut.
  *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
@@ -21,11 +17,7 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** ESC/POS line alignment (Star/Epson-compatible). */
-const ESC_ALIGN_LEFT = '\x1b\x61\x00';
-const ESC_ALIGN_CENTER = '\x1b\x61\x01';
-
-/** 80mm thermal, Font A — 48 columns is standard; word-wrap avoids mid-word breaks. */
+/** 80mm thermal profile (Font A): 48 printable columns. */
 export const THERMAL_RECEIPT_WIDTH = 48;
 
 /** When shop profile fields are empty, match printed stationery defaults. */
@@ -54,13 +46,13 @@ function utf8Encode(s: string): Uint8Array {
 
 /**
  * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
- * Short tail after last line (reference slip style), then cut.
+ * Small tail after last line (reference slip style), then cut.
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
   const bodyBytes = utf8Encode(body);
   const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
-  const nl = new Uint8Array([0x0a, 0x0a]);
-  const feedLines = 3;
+  const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
+  const feedLines = 4;
   const feed = new Uint8Array([ESC, 0x64, feedLines & 0xff]); // ESC d n
   const cut = new Uint8Array([GS, 0x56, 0x01]); // GS V 1 partial cut
 
@@ -147,20 +139,15 @@ function wrapWords(text: string, maxWidth: number): string[] {
   return lines;
 }
 
-function emitCentered(out: string[], line: string, w: number) {
-  const t = line.trim();
-  if (!t) return;
-  for (const seg of wrapWords(t, w)) {
-    out.push(`${ESC_ALIGN_CENTER}${seg}\n${ESC_ALIGN_LEFT}`);
-  }
-}
-
-function emitLeft(out: string[], line: string) {
-  out.push(`${ESC_ALIGN_LEFT}${line}\n`);
-}
-
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = THERMAL_RECEIPT_WIDTH;
+  const centerLine = (s: string) => {
+    const t = s.trim();
+    if (!t) return '';
+    if (t.length >= w) return t.slice(0, w);
+    const left = Math.floor((w - t.length) / 2);
+    return `${' '.repeat(left)}${t}`;
+  };
   const cutStr = (s: string, max: number) =>
     s.length <= max ? s : `${s.slice(0, Math.max(0, max - 3))}...`;
   const row = (left: string, right = '', leftMax = w) => {
@@ -189,21 +176,19 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const bankIfsc = bill.bankIfsc.trim() || THERMAL_FALLBACK_IFSC;
 
   const rule = '-'.repeat(w);
-  const out: string[] = [];
+  const lines: string[] = [];
 
-  out.push('\n\n');
-
-  emitCentered(out, shopName.toUpperCase(), w);
-  emitCentered(out, shopAddress, w);
-  emitCentered(out, `Contact No. :- ${shopPhone}`, w);
-  if (gstin) emitCentered(out, `GSTIN: ${gstin}`, w);
-  emitCentered(out, `FSSAI No.${fssai}`, w);
+  lines.push('');
+  lines.push(centerLine(shopName.toUpperCase()));
+  for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
+  lines.push(centerLine(`Contact No. :- ${shopPhone}`));
+  if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
+  lines.push(centerLine(`FSSAI No.${fssai}`));
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
-    emitCentered(out, `Cust GSTIN: ${bill.customerGstin.trim()}`, w);
+    lines.push(centerLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
   }
-  emitLeft(out, rule);
-
-  emitCentered(out, (bill.billTitle || 'TAX INVOICE').toUpperCase(), w);
+  lines.push(rule);
+  lines.push(centerLine((bill.billTitle || 'TAX INVOICE').toUpperCase()));
 
   const issued = bill.issuedAt ? new Date(bill.issuedAt) : new Date();
   const dateStr = issued.toLocaleDateString('en-GB', {
@@ -218,29 +203,26 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
       hour12: true,
     })
     .replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase());
-  emitLeft(out, row(dateStr, timeStr));
-  for (const bn of wrapWords(`Bill No:${bill.billNumber}`, w)) {
-    emitLeft(out, bn);
-  }
+  lines.push(row(dateStr, timeStr));
+  lines.push(`Bill No:${bill.billNumber}`);
   if (bill.billerName?.trim()) {
-    emitLeft(out, `Biller Name:${bill.billerName.trim()}`);
+    lines.push(`Biller Name:${bill.billerName.trim()}`);
   }
   if (bill.customerName.trim()) {
     for (const ln of wrapWords(`Customer: ${bill.customerName.trim()}`, w)) {
-      emitLeft(out, ln);
+      lines.push(ln);
     }
   }
   if (bill.customerPhone.trim()) {
-    emitLeft(out, `Phone: ${bill.customerPhone.trim()}`);
+    lines.push(`Phone: ${bill.customerPhone.trim()}`);
   }
-  emitLeft(out, rule);
+  lines.push(rule);
 
   const nameW = 27;
   const qtyW = 4;
   const spW = 7;
   const amtW = 7;
-  emitLeft(
-    out,
+  lines.push(
     `${'Item Name'.padEnd(nameW)} ${'Qty'.padStart(qtyW)} ${'SP'.padStart(spW)} ${'Amt'.padStart(amtW)}`,
   );
 
@@ -255,13 +237,13 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
     const suffix = ` ${qtyStr.padStart(qtyW)} ${spS.padStart(spW)} ${amtS.padStart(amtW)}`;
     const maxName = nameW;
     if (name.length <= maxName) {
-      emitLeft(out, `${name.padEnd(nameW)}${suffix}`);
+      lines.push(`${name.padEnd(nameW)}${suffix}`);
       return;
     }
-    emitLeft(out, `${name.slice(0, maxName)}${suffix}`);
+    lines.push(`${name.slice(0, maxName)}${suffix}`);
     let rest = name.slice(maxName);
     while (rest.length > 0) {
-      emitLeft(out, `  ${rest.slice(0, w - 2)}`);
+      lines.push(`  ${rest.slice(0, w - 2)}`);
       rest = rest.slice(w - 2);
     }
   };
@@ -270,7 +252,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
     const qty = Number.isInteger(it.qty) ? `${it.qty}` : it.qty.toFixed(1);
     pushItemRows(it.name.trim(), qty, it.rate, it.amount);
   }
-  emitLeft(out, rule);
+  lines.push(rule);
 
   const itemKinds = bill.items.length;
   const qtySum = bill.items.reduce((s, x) => s + x.qty, 0);
@@ -278,28 +260,21 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const qtyPart = allIntQty
     ? String(Math.round(qtySum))
     : qtySum.toFixed(2);
-  emitLeft(out, `Items/Qty:${itemKinds}/${qtyPart}`);
-  emitLeft(out, rule);
+  lines.push(`Items/Qty:${itemKinds}/${qtyPart}`);
+  lines.push(rule);
 
-  emitLeft(out, row('Taxable:', `Rs.${bill.taxableBase.toFixed(2)}`));
+  lines.push(row('Taxable:', `Rs.${bill.taxableBase.toFixed(2)}`));
   if (bill.cgstAmount > 0.005 && bill.sgstAmount > 0.005) {
-    emitLeft(
-      out,
-      row(`CGST ${bill.cgstPercent}%:`, `Rs.${bill.cgstAmount.toFixed(2)}`),
-    );
-    emitLeft(
-      out,
-      row(`SGST ${bill.sgstPercent}%:`, `Rs.${bill.sgstAmount.toFixed(2)}`),
-    );
+    lines.push(row(`CGST ${bill.cgstPercent}%:`, `Rs.${bill.cgstAmount.toFixed(2)}`));
+    lines.push(row(`SGST ${bill.sgstPercent}%:`, `Rs.${bill.sgstAmount.toFixed(2)}`));
   } else if (bill.tax > 0.005) {
-    emitLeft(out, row(`${bill.taxLabel}:`, `Rs.${bill.tax.toFixed(2)}`));
+    lines.push(row(`${bill.taxLabel}:`, `Rs.${bill.tax.toFixed(2)}`));
   }
   if (bill.discount > 0.005) {
-    emitLeft(out, row('Discount:', `-Rs.${bill.discount.toFixed(2)}`));
+    lines.push(row('Discount:', `-Rs.${bill.discount.toFixed(2)}`));
   }
-  /** Reference slip: plain amount on the right (no `Rs.`). */
-  emitLeft(out, row('Net Amount:', bill.total.toFixed(2)));
-  emitLeft(out, rule);
+  lines.push(row('Net Amount:', bill.total.toFixed(2)));
+  lines.push(rule);
 
   const mode = bill.paymentMode.trim();
   const payLabel =
@@ -308,31 +283,32 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
       : mode
         ? `${cutStr(mode, 18)} Paid:`
         : 'Paid:';
-  emitLeft(out, row(payLabel, bill.amountPaid.toFixed(2)));
+  lines.push(row(payLabel, bill.amountPaid.toFixed(2)));
 
-  out.push('\n\n');
-  emitLeft(out, row('', 'Signature'));
+  lines.push('');
+  lines.push('');
+  lines.push(row('', 'Signature'));
 
-  emitLeft(out, rule);
+  lines.push(rule);
   if (bill.footerNote?.trim()) {
     for (const ln of wrapWords(bill.footerNote.trim(), w)) {
-      emitLeft(out, ln);
+      lines.push(ln);
     }
   }
   if (bill.footerMessage.trim()) {
-    emitCentered(out, bill.footerMessage.trim(), w);
+    lines.push(centerLine(bill.footerMessage.trim()));
   }
-  emitCentered(out, `A/c. No. : ${bankAc}`, w);
-  emitCentered(out, `IFSC : ${bankIfsc}`, w);
-  emitCentered(out, shopName, w);
+  lines.push(centerLine(`A/c. No. : ${bankAc}`));
+  lines.push(centerLine(`IFSC : ${bankIfsc}`));
+  lines.push(centerLine(shopName));
 
   const powered = (bill.poweredBy?.trim() || THERMAL_POWERED_BY_LINE).slice(
     0,
     w,
   );
-  emitLeft(out, row('E&OE', powered));
+  lines.push(row('E&OE', powered));
 
-  return out.join('');
+  return lines.join('\n');
 }
 
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
