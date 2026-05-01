@@ -179,7 +179,10 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const lines: string[] = [];
 
   lines.push('');
-  lines.push(centerLine(shopName.toUpperCase()));
+  lines.push(
+    `${String.fromCharCode(ESC, 0x61, 0x01)}${shopName.toUpperCase()}\n${String.fromCharCode(ESC, 0x61, 0x00)}`,
+  );
+  lines.push('');
   for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
   lines.push(centerLine(`Contact No. :- ${shopPhone}`));
   if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
