@@ -55,9 +55,6 @@ export class PublicService {
         };
     }
 
-    /**
-     * Flat list of active website-listed products in the "Sweets" category for the marketing site admin sync.
-     */
     async getMarketingSweetsItems(shopCode: string) {
         const shop = await this.prisma.shop.findUnique({
             where: { shopCode },
@@ -84,7 +81,6 @@ export class PublicService {
                 shopCode,
                 categoryId: sweetsCategory.id,
                 isActive: true,
-                isListedOnWebsite: true,
             },
             include: {
                 variants: { orderBy: { price: 'asc' } },
