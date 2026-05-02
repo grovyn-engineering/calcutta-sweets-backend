@@ -238,8 +238,20 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
 
   /** Top margin — TVS/RawBT often clip the first lines under the grip. */
   for (let i = 0; i < RECEIPT_TOP_BLANK_LINES; i += 1) lines.push('');
-  /** Shop line: plain space-centered text only. TVS often skips the first `ESC a 1` line after feeds. */
-  lines.push(centerLine(shopName.toUpperCase()));
+  /**
+   * Shop line: space-centered in full nominal width (48). `centerLine` used only left pad + `w` (44),
+   * which skews vs firmware-centered header lines — pad left+right to 48 cols to match paper center.
+   */
+  {
+    const title = shopName.toUpperCase();
+    const cw = THERMAL_RECEIPT_WIDTH;
+    if (title.length >= cw) lines.push(title.slice(0, cw));
+    else {
+      const padL = Math.floor((cw - title.length) / 2);
+      const padR = cw - title.length - padL;
+      lines.push(`${' '.repeat(padL)}${title}${' '.repeat(padR)}`);
+    }
+  }
   lines.push('');
   for (const ln of wrapWords(shopAddress, HEADER_NATIVE_CENTER_WRAP)) {
     lines.push(escPosCenteredLine(ln));

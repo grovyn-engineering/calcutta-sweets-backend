@@ -35,8 +35,12 @@ async function bootstrap() {
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'health', method: RequestMethod.GET }],
   });
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    : null;
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
+    origin: corsOrigins && corsOrigins.length > 0 ? corsOrigins : true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
@@ -44,6 +48,8 @@ async function bootstrap() {
       'X-Requested-With',
       'Accept',
       'X-Shop',
+      'Cache-Control',
+      'Pragma',
     ],
     credentials: true,
   });
