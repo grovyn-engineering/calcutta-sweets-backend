@@ -30,7 +30,7 @@ const GS = 0x1d;
 const RAWBT_TOP_MARGIN_LINE_FEEDS = 34;
 
 /** Blank lines at the start of the receipt body (preview + print). */
-const RECEIPT_TOP_BLANK_LINES = 12;
+const RECEIPT_TOP_BLANK_LINES = 9;
 
 /** Max chars per native-centered address line (TVS handles long `ESC a 1` lines poorly). */
 const HEADER_NATIVE_CENTER_WRAP = 36;
