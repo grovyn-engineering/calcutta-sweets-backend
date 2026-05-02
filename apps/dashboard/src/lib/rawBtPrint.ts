@@ -6,6 +6,10 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
+ * **TVS RP 3230:** Space-centered lines need a small `GS L` inset **and** lines built at
+ * {@link thermalReceiptEffectiveWidth} — otherwise the left dead zone clips “Gurudwara…”
+ * to “ibandh…”. Top feeds avoid the shop title touching the tear bar.
+ *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
 
@@ -17,14 +21,28 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** Line feeds sent right after `ESC @` so the first text clears the platen / top edge (TVS). */
-const RAWBT_TOP_MARGIN_LINE_FEEDS = 4;
+/** Line feeds after `ESC @` before the UTF-8 body (hardware top margin). */
+const RAWBT_TOP_MARGIN_LINE_FEEDS = 8;
 
-/** Extra empty lines at the start of the receipt body (same count in preview + print). */
-const RECEIPT_TOP_BLANK_LINES = 5;
+/** Empty lines at the start of the receipt body (preview + print). */
+const RECEIPT_TOP_BLANK_LINES = 8;
 
-/** 80mm thermal profile (Font A): 48 printable columns. */
+/** Nominal 80mm Font A width (columns). */
 export const THERMAL_RECEIPT_WIDTH = 48;
+
+/** ~12 dots per column at default Font A. */
+const DOTS_PER_FONT_A_COLUMN = 12;
+
+/**
+ * Left inset (dots) so text clears the TVS non-print strip. Body line width shrinks by
+ * the matching column count — do **not** keep 48-char lines while using a large inset.
+ */
+export const THERMAL_LEFT_MARGIN_DOTS = 48;
+
+export function thermalReceiptEffectiveWidth(): number {
+  const lost = Math.ceil(THERMAL_LEFT_MARGIN_DOTS / DOTS_PER_FONT_A_COLUMN);
+  return Math.max(36, THERMAL_RECEIPT_WIDTH - lost);
+}
 
 /** When shop profile fields are empty, match printed stationery defaults. */
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
@@ -55,8 +73,20 @@ function utf8Encode(s: string): Uint8Array {
  * Small tail after last line (reference slip style), then cut.
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
-  const bodyBytes = utf8Encode(body);
-  const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
+  const normalized = body.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+  const bodyBytes = utf8Encode(normalized);
+  const m = THERMAL_LEFT_MARGIN_DOTS;
+  const prefix = new Uint8Array([
+    ESC,
+    0x40, // ESC @ init
+    ESC,
+    0x61,
+    0x00, // left align
+    GS,
+    0x21,
+    0x00, // normal size
+    ...(m > 0 ? [GS, 0x4c, m & 0xff, (m >> 8) & 0xff] : []),
+  ]);
   const topMargin = new Uint8Array(RAWBT_TOP_MARGIN_LINE_FEEDS).fill(0x0a);
   const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
   const feedLines = 4;
@@ -154,7 +184,7 @@ function wrapWords(text: string, maxWidth: number): string[] {
 }
 
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
-  const w = THERMAL_RECEIPT_WIDTH;
+  const w = thermalReceiptEffectiveWidth();
   const centerLineFull = (s: string) => {
     const t = s.trim();
     if (!t) return '';
@@ -229,7 +259,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
     })
     .replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase());
   lines.push(row(dateStr, timeStr));
-  lines.push(`Bill No:${bill.billNumber}`);
+  lines.push(`Bill No: ${bill.billNumber}`);
   if (bill.billerName?.trim()) {
     lines.push(`Biller Name:${bill.billerName.trim()}`);
   }
@@ -243,10 +273,10 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   }
   lines.push(rule);
 
-  const nameW = 27;
   const qtyW = 4;
   const spW = 7;
   const amtW = 7;
+  const nameW = w - qtyW - spW - amtW - 3;
   lines.push(
     `${'Item Name'.padEnd(nameW)} ${'Qty'.padStart(qtyW)} ${'SP'.padStart(spW)} ${'Amt'.padStart(amtW)}`,
   );
