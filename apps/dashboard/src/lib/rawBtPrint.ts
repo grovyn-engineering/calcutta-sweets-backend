@@ -16,6 +16,7 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 
 const ESC = 0x1b;
 const GS = 0x1d;
+const LF = 0x0a;
 
 /** 80mm thermal profile (Font A): 48 printable columns. */
 export const THERMAL_RECEIPT_WIDTH = 48;
@@ -45,13 +46,20 @@ function utf8Encode(s: string): Uint8Array {
 }
 
 /**
- * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
- * Small tail after last line (reference slip style), then cut.
+ * Init + 2 blank LF bytes (printer warm-up, not text lines) + UTF-8 body
+ * + line feeds + ESC/POS feed + partial cut.
+ *
+ * The 2 LF bytes after ESC @ are sent as raw ESC/POS bytes — not as text —
+ * so the printer finishes its reset cycle before the shop name arrives.
+ * This prevents the top lines from being clipped on USB/RawBT combos.
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
   const bodyBytes = utf8Encode(body);
-  const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
-  const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
+  const prefix = new Uint8Array([
+    ESC, 0x40,  // ESC @ — init/reset
+    LF, LF,     // 2 blank lines as raw bytes — printer warm-up buffer
+  ]);
+  const nl = new Uint8Array([LF, LF, LF]);
   const feedLines = 4;
   const feed = new Uint8Array([ESC, 0x64, feedLines & 0xff]); // ESC d n
   const cut = new Uint8Array([GS, 0x56, 0x01]); // GS V 1 partial cut
@@ -157,8 +165,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
     return `${l}${' '.repeat(spaces)}${r}`;
   };
 
-  const shopName =
-    bill.shopName.trim() || THERMAL_FALLBACK_SHOP_NAME;
+  const shopName = bill.shopName.trim() || THERMAL_FALLBACK_SHOP_NAME;
   const shopAddress = normalizeShopAddressForThermal(
     bill.shopAddress.trim() || THERMAL_FALLBACK_ADDRESS,
   );
@@ -169,17 +176,16 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
       : bill.showShopGstin
         ? THERMAL_FALLBACK_GSTIN
         : '';
-  const fssai =
-    bill.fssaiNumber.trim() || THERMAL_FALLBACK_FSSAI;
-  const bankAc =
-    bill.bankAccountNumber.trim() || THERMAL_FALLBACK_BANK_AC;
+  const fssai = bill.fssaiNumber.trim() || THERMAL_FALLBACK_FSSAI;
+  const bankAc = bill.bankAccountNumber.trim() || THERMAL_FALLBACK_BANK_AC;
   const bankIfsc = bill.bankIfsc.trim() || THERMAL_FALLBACK_IFSC;
 
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  // ESC @ init already resets the printer; leading blanks risk clipping on
-  // some RawBT/driver combos — put them AFTER the header block instead.
+  // No leading blank text lines here — warm-up LFs are in the ESC/POS byte
+  // prefix inside textToRawBtPrinterBytes(), so the printer is ready by the
+  // time the shop name bytes arrive.
   lines.push(centerLine(shopName.toUpperCase()));
   lines.push('');
   for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
@@ -259,9 +265,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const itemKinds = bill.items.length;
   const qtySum = bill.items.reduce((s, x) => s + x.qty, 0);
   const allIntQty = bill.items.every((x) => Number.isInteger(x.qty));
-  const qtyPart = allIntQty
-    ? String(Math.round(qtySum))
-    : qtySum.toFixed(2);
+  const qtyPart = allIntQty ? String(Math.round(qtySum)) : qtySum.toFixed(2);
   lines.push(`Items/Qty:${itemKinds}/${qtyPart}`);
   lines.push(rule);
 
@@ -304,10 +308,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   lines.push(centerLine(`IFSC : ${bankIfsc}`));
   lines.push(centerLine(shopName));
 
-  const powered = (bill.poweredBy?.trim() || THERMAL_POWERED_BY_LINE).slice(
-    0,
-    w,
-  );
+  const powered = (bill.poweredBy?.trim() || THERMAL_POWERED_BY_LINE).slice(0, w);
   lines.push(row('E&OE', powered));
 
   return lines.join('\n');
