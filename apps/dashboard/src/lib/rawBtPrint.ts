@@ -20,6 +20,12 @@ const GS = 0x1d;
 /** 80mm thermal profile (Font A): 48 printable columns. */
 export const THERMAL_RECEIPT_WIDTH = 48;
 
+/**
+ * ESC/POS `GS L` left margin in dots (Epson-style). Increase if the shop title /
+ * address still look cut off on the left; set to 0 if your printer mis-handles `GS L`.
+ */
+export const THERMAL_LEFT_MARGIN_DOTS = 24;
+
 /** When shop profile fields are empty, match printed stationery defaults. */
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
 export const THERMAL_FALLBACK_ADDRESS =
@@ -47,10 +53,28 @@ function utf8Encode(s: string): Uint8Array {
 /**
  * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
  * Small tail after last line (reference slip style), then cut.
+ *
+ * Preamble: left align, normal size, small **left margin** (`GS L`). Many 80mm
+ * heads have a dead zone at the leading edge; without margin, space-padded
+ * “center” lines lose their left padding and look left-cut / incomplete.
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
-  const bodyBytes = utf8Encode(body);
-  const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
+  const normalized = body.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+  const bodyBytes = utf8Encode(normalized);
+  const m = THERMAL_LEFT_MARGIN_DOTS;
+  const prefix = new Uint8Array([
+    ESC,
+    0x40, // ESC @ init
+    ESC,
+    0x61,
+    0x00, // ESC a 0 — left align (space-padded lines)
+    GS,
+    0x21,
+    0x00, // GS ! 0 — normal size
+    ...(m > 0
+      ? [GS, 0x4c, m & 0xff, (m >> 8) & 0xff] // GS L — left margin
+      : []),
+  ]);
   const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
   const feedLines = 4;
   const feed = new Uint8Array([ESC, 0x64, feedLines & 0xff]); // ESC d n
@@ -141,12 +165,14 @@ function wrapWords(text: string, maxWidth: number): string[] {
 
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = THERMAL_RECEIPT_WIDTH;
-  const escPosLeft = String.fromCharCode(ESC, 0x61, 0);
-  const escPosCenter = String.fromCharCode(ESC, 0x61, 1);
-  const escPosCenteredLine = (s: string) => {
+  const centerLineFull = (s: string) => {
     const t = s.trim();
     if (!t) return '';
-    return `${escPosCenter}${t.length > w ? t.slice(0, w) : t}${escPosLeft}`;
+    if (t.length >= w) return t.slice(0, w);
+    const pad = w - t.length;
+    const left = Math.floor(pad / 2);
+    const right = pad - left;
+    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
   };
   const centerLine = (s: string) => {
     const t = s.trim();
@@ -185,13 +211,12 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Leading blanks — drivers often clip the first printed lines; avoids losing the shop title. */
+  /** Blank first — some stacks still eat the first line; margin is handled in `textToRawBtPrinterBytes`. */
   lines.push('');
   lines.push('');
+  lines.push(centerLineFull(shopName.toUpperCase()));
   lines.push('');
-  lines.push(escPosCenteredLine(shopName.toUpperCase()));
-  lines.push('');
-  for (const ln of wrapWords(shopAddress, w)) lines.push(escPosCenteredLine(ln));
+  for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
   lines.push(centerLine(`Contact No. :- ${shopPhone}`));
   if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
   lines.push(centerLine(`FSSAI No.${fssai}`));
