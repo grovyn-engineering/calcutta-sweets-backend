@@ -6,10 +6,10 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
- * **TVS RP 3230 (80mm):** ESC/POS-compatible; this model often has a wide non-print
- * strip on the left (~10–15 character widths). `THERMAL_LEFT_MARGIN_DOTS` must be
- * large enough (dozens–100+ dots), not ~30, or centered headers look left-clipped
- * (e.g. “Complex…” → “lex…”).
+ * **TVS RP 3230:** Do **not** combine a large `GS L` margin with 48-column space-padded
+ * lines — the line is wider than the remaining print width, so the printer clips the
+ * **left** (shop name vanishes; “Complex…” → “lex…”). Header shop/address use
+ * `ESC a 1` center + shorter wrapped lines instead; table/footer stay 48-col left.
  *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
@@ -26,11 +26,11 @@ const GS = 0x1d;
 export const THERMAL_RECEIPT_WIDTH = 48;
 
 /**
- * ESC/POS `GS L` left margin in dots (Epson-style; TVS RP 3230 supports this).
- * ~12 horizontal dots per Font A column → a ~14-column dead zone needs ~168 dots.
- * If text wraps on the right, decrease; if the left is still cut off, try 192–216.
+ * ESC/POS `GS L` left margin (dots). Keep **0** with this receipt: a non-zero margin
+ * shrinks the printable width while lines are still 48 columns wide, so the **start**
+ * of padded/centered header lines is clipped on TVS RP 3230.
  */
-export const THERMAL_LEFT_MARGIN_DOTS = 168;
+export const THERMAL_LEFT_MARGIN_DOTS = 0;
 
 /** When shop profile fields are empty, match printed stationery defaults. */
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
@@ -60,9 +60,8 @@ function utf8Encode(s: string): Uint8Array {
  * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
  * Small tail after last line (reference slip style), then cut.
  *
- * Preamble: left align, normal size, small **left margin** (`GS L`). Many 80mm
- * heads have a dead zone at the leading edge; without margin, space-padded
- * “center” lines lose their left padding and look left-cut / incomplete.
+ * Preamble: init, left align, normal size; optional `GS L` only if you tune width
+ * to match (otherwise header lines overflow and clip on the left).
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
   const normalized = body.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
@@ -169,16 +168,19 @@ function wrapWords(text: string, maxWidth: number): string[] {
   return lines;
 }
 
+/** Max chars per centered header line on TVS (native `ESC a 1` is unreliable on very long lines). */
+const HEADER_CENTER_WRAP_CHARS = 40;
+
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = THERMAL_RECEIPT_WIDTH;
-  const centerLineFull = (s: string) => {
+  const escPosLeft = String.fromCharCode(ESC, 0x61, 0);
+  const escPosCenter = String.fromCharCode(ESC, 0x61, 1);
+  /** Printer centers text; avoids space-padding that the left edge clips. */
+  const escPosCenteredLine = (s: string) => {
     const t = s.trim();
     if (!t) return '';
-    if (t.length >= w) return t.slice(0, w);
-    const pad = w - t.length;
-    const left = Math.floor(pad / 2);
-    const right = pad - left;
-    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
+    const u = t.length > w ? t.slice(0, w) : t;
+    return `${escPosCenter}${u}${escPosLeft}`;
   };
   const centerLine = (s: string) => {
     const t = s.trim();
@@ -217,20 +219,20 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Extra leading feeds — TVS / RawBT often drop the first few visual lines. */
+  /** Leading blanks — some stacks drop the first line after open. */
   lines.push('');
   lines.push('');
   lines.push('');
+  lines.push(escPosCenteredLine(shopName.toUpperCase()));
   lines.push('');
-  lines.push('');
-  lines.push(centerLineFull(shopName.toUpperCase()));
-  lines.push('');
-  for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
-  lines.push(centerLine(`Contact No. :- ${shopPhone}`));
-  if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
-  lines.push(centerLine(`FSSAI No.${fssai}`));
+  for (const ln of wrapWords(shopAddress, HEADER_CENTER_WRAP_CHARS)) {
+    lines.push(escPosCenteredLine(ln));
+  }
+  lines.push(escPosCenteredLine(`Contact No. :- ${shopPhone}`));
+  if (gstin) lines.push(escPosCenteredLine(`GSTIN: ${gstin}`));
+  lines.push(escPosCenteredLine(`FSSAI No.${fssai}`));
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
-    lines.push(centerLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
+    lines.push(escPosCenteredLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
   }
   lines.push(rule);
   lines.push(centerLine((bill.billTitle || 'TAX INVOICE').toUpperCase()));
@@ -358,6 +360,42 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
 
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
   return buildThermalReceiptBody(bill);
+}
+
+/** `ESC a 1` … text … `ESC a 0` (printer-native center). */
+const ESC_POS_CENTER_LINE_PREFIX = `${String.fromCharCode(ESC, 0x61, 1)}`;
+const ESC_POS_LEFT_ALIGN_SUFFIX = `${String.fromCharCode(ESC, 0x61, 0)}`;
+
+/**
+ * Turns the raw receipt string into something **monospace terminals** can show as
+ * centered — `ESC a 1` / `ESC a 0` bytes are invisible in preview. The TVS print path
+ * still uses {@link buildPlainTextReceiptForRawBt} unchanged.
+ */
+export function formatThermalReceiptForTerminalPreview(body: string): string {
+  const w = THERMAL_RECEIPT_WIDTH;
+  const centerWithSpaces = (s: string) => {
+    const t = s.trim();
+    if (!t) return '';
+    if (t.length >= w) return t.slice(0, w);
+    const left = Math.floor((w - t.length) / 2);
+    return `${' '.repeat(left)}${t}`;
+  };
+  return body
+    .split('\n')
+    .map((line) => {
+      if (
+        line.startsWith(ESC_POS_CENTER_LINE_PREFIX) &&
+        line.endsWith(ESC_POS_LEFT_ALIGN_SUFFIX)
+      ) {
+        const inner = line.slice(
+          ESC_POS_CENTER_LINE_PREFIX.length,
+          line.length - ESC_POS_LEFT_ALIGN_SUFFIX.length,
+        );
+        return centerWithSpaces(inner);
+      }
+      return line.replace(/\u001ba[\u0000\u0001\u0002]/g, '');
+    })
+    .join('\n');
 }
 
 export type RawBtLaunchResult = { ok: true } | { ok: false; error: string };
