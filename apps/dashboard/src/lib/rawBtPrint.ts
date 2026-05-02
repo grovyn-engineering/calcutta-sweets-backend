@@ -141,14 +141,12 @@ function wrapWords(text: string, maxWidth: number): string[] {
 
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = THERMAL_RECEIPT_WIDTH;
-  const centerLineFull = (s: string) => {
+  const escPosLeft = String.fromCharCode(ESC, 0x61, 0);
+  const escPosCenter = String.fromCharCode(ESC, 0x61, 1);
+  const escPosCenteredLine = (s: string) => {
     const t = s.trim();
     if (!t) return '';
-    if (t.length >= w) return t.slice(0, w);
-    const pad = w - t.length;
-    const left = Math.floor(pad / 2);
-    const right = pad - left;
-    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
+    return `${escPosCenter}${t.length > w ? t.slice(0, w) : t}${escPosLeft}`;
   };
   const centerLine = (s: string) => {
     const t = s.trim();
@@ -187,12 +185,13 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Blank first — some drivers clip the very first non-empty line; keeps the shop title intact. */
+  /** Leading blanks — drivers often clip the first printed lines; avoids losing the shop title. */
   lines.push('');
   lines.push('');
-  lines.push(centerLineFull(shopName.toUpperCase()));
   lines.push('');
-  for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
+  lines.push(escPosCenteredLine(shopName.toUpperCase()));
+  lines.push('');
+  for (const ln of wrapWords(shopAddress, w)) lines.push(escPosCenteredLine(ln));
   lines.push(centerLine(`Contact No. :- ${shopPhone}`));
   if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
   lines.push(centerLine(`FSSAI No.${fssai}`));
