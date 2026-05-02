@@ -264,8 +264,9 @@ function BillingPosRawSectionInner({
 
       {showSaleCheckoutHint ? (
         <p className="mt-4 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
-          Open the sale panel, choose payment mode, then Generate bill to print. Raw sales are not
-          written to orders or stock.
+          Open <strong>Review &amp; pay</strong>, pick payment, then use <strong>Generate bill</strong>,{' '}
+          <strong>USB thermal</strong>, or <strong>Print via RawBT</strong> — or the <strong>RawBT</strong>{' '}
+          button in the panel header on Android. Raw sales are not written to orders or stock.
         </p>
       ) : null}
     </div>

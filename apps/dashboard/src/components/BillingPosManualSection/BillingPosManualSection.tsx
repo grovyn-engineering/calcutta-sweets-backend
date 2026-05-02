@@ -480,8 +480,12 @@ function BillingPosManualSectionInner({
           <span className="font-semibold text-[var(--bistre-900)]">
             Current sale &amp; checkout:
           </span>{' '}
-          use the <strong>bar fixed at the bottom</strong> of the screen to see
-          added lines, set payment mode, and tap <strong>Generate bill</strong>.
+          tap <strong>Review &amp; pay</strong> (bottom bar), add a customer if needed, choose{' '}
+          <strong>Cash</strong> or <strong>UPI / Card</strong>, then either{' '}
+          <strong>Generate bill</strong> (opens a printable page) or{' '}
+          <strong>Print via RawBT</strong> / <strong>USB thermal</strong> in the same panel for
+          direct thermal printing. On Android you can also tap <strong>RawBT</strong> in the panel
+          header.
         </p>
       ) : null}
 

@@ -6,9 +6,10 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
- * **TVS RP 3230:** Space-centered lines need a small `GS L` inset **and** lines built at
- * {@link thermalReceiptEffectiveWidth} — otherwise the left dead zone clips “Gurudwara…”
- * to “ibandh…”. Top feeds avoid the shop title touching the tear bar.
+ * **TVS RP 3230:** Space-padding for center (`centerLine`) adds many leading spaces that
+ * sit in the non-print strip — shop name vanishes and the address becomes “Complex…”.
+ * Header/footer use `ESC a 1` / `ESC a 0` (no space padding). Table/rows stay 48-col left.
+ * Keep {@link THERMAL_LEFT_MARGIN_DOTS} at **0** unless you verify `GS L` on your unit.
  *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
@@ -22,10 +23,13 @@ const ESC = 0x1b;
 const GS = 0x1d;
 
 /** Line feeds after `ESC @` before the UTF-8 body (hardware top margin). */
-const RAWBT_TOP_MARGIN_LINE_FEEDS = 8;
+const RAWBT_TOP_MARGIN_LINE_FEEDS = 10;
 
 /** Empty lines at the start of the receipt body (preview + print). */
-const RECEIPT_TOP_BLANK_LINES = 8;
+const RECEIPT_TOP_BLANK_LINES = 10;
+
+/** Max chars per native-centered address line (TVS handles long `ESC a 1` lines poorly). */
+const HEADER_NATIVE_CENTER_WRAP = 36;
 
 /** Nominal 80mm Font A width (columns). */
 export const THERMAL_RECEIPT_WIDTH = 48;
@@ -33,11 +37,8 @@ export const THERMAL_RECEIPT_WIDTH = 48;
 /** ~12 dots per column at default Font A. */
 const DOTS_PER_FONT_A_COLUMN = 12;
 
-/**
- * Left inset (dots) so text clears the TVS non-print strip. Body line width shrinks by
- * the matching column count — do **not** keep 48-char lines while using a large inset.
- */
-export const THERMAL_LEFT_MARGIN_DOTS = 48;
+/** Extra left margin in dots (`GS L`). **0** recommended for TVS + ESC-centered headers. */
+export const THERMAL_LEFT_MARGIN_DOTS = 0;
 
 export function thermalReceiptEffectiveWidth(): number {
   const lost = Math.ceil(THERMAL_LEFT_MARGIN_DOTS / DOTS_PER_FONT_A_COLUMN);
@@ -185,14 +186,14 @@ function wrapWords(text: string, maxWidth: number): string[] {
 
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = thermalReceiptEffectiveWidth();
-  const centerLineFull = (s: string) => {
+  const escLeft = String.fromCharCode(ESC, 0x61, 0);
+  const escCenter = String.fromCharCode(ESC, 0x61, 1);
+  /** TVS: center in firmware — avoids leading spaces that the left edge clips. */
+  const escPosCenteredLine = (s: string) => {
     const t = s.trim();
     if (!t) return '';
-    if (t.length >= w) return t.slice(0, w);
-    const pad = w - t.length;
-    const left = Math.floor(pad / 2);
-    const right = pad - left;
-    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
+    const u = t.length > w ? t.slice(0, w) : t;
+    return `${escCenter}${u}${escLeft}`;
   };
   const centerLine = (s: string) => {
     const t = s.trim();
@@ -231,19 +232,21 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Top margin — TVS/RawBT often clip the first lines under the grip; match reference slip spacing. */
+  /** Top margin — TVS/RawBT often clip the first lines under the grip. */
   for (let i = 0; i < RECEIPT_TOP_BLANK_LINES; i += 1) lines.push('');
-  lines.push(centerLineFull(shopName.toUpperCase()));
+  lines.push(escPosCenteredLine(shopName.toUpperCase()));
   lines.push('');
-  for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
-  lines.push(centerLine(`Contact No. :- ${shopPhone}`));
-  if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
-  lines.push(centerLine(`FSSAI No.${fssai}`));
+  for (const ln of wrapWords(shopAddress, HEADER_NATIVE_CENTER_WRAP)) {
+    lines.push(escPosCenteredLine(ln));
+  }
+  lines.push(escPosCenteredLine(`Contact No. :- ${shopPhone}`));
+  if (gstin) lines.push(escPosCenteredLine(`GSTIN: ${gstin}`));
+  lines.push(escPosCenteredLine(`FSSAI No.${fssai}`));
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
-    lines.push(centerLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
+    lines.push(escPosCenteredLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
   }
   lines.push(rule);
-  lines.push(centerLine((bill.billTitle || 'TAX INVOICE').toUpperCase()));
+  lines.push(escPosCenteredLine((bill.billTitle || 'TAX INVOICE').toUpperCase()));
 
   const issued = bill.issuedAt ? new Date(bill.issuedAt) : new Date();
   const dateStr = issued.toLocaleDateString('en-GB', {
@@ -346,16 +349,16 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
 
   lines.push(rule);
   if (bill.footerNote?.trim()) {
-    for (const ln of wrapWords(bill.footerNote.trim(), w)) {
-      lines.push(ln);
+    for (const ln of wrapWords(bill.footerNote.trim(), HEADER_NATIVE_CENTER_WRAP)) {
+      lines.push(escPosCenteredLine(ln));
     }
   }
   if (bill.footerMessage.trim()) {
-    lines.push(centerLine(bill.footerMessage.trim()));
+    lines.push(escPosCenteredLine(bill.footerMessage.trim()));
   }
-  lines.push(centerLine(`A/c. No. : ${bankAc}`));
-  lines.push(centerLine(`IFSC : ${bankIfsc}`));
-  lines.push(centerLine(shopName));
+  lines.push(escPosCenteredLine(`A/c. No. : ${bankAc}`));
+  lines.push(escPosCenteredLine(`IFSC : ${bankIfsc}`));
+  lines.push(escPosCenteredLine(shopName.toUpperCase()));
 
   const powered = (bill.poweredBy?.trim() || THERMAL_POWERED_BY_LINE).slice(
     0,
@@ -368,6 +371,34 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
 
 export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): string {
   return buildThermalReceiptBody(bill);
+}
+
+const ESC_POS_CENTER_PREFIX = `${String.fromCharCode(ESC, 0x61, 1)}`;
+const ESC_POS_LEFT_SUFFIX = `${String.fromCharCode(ESC, 0x61, 0)}`;
+
+/** Expand printer center sequences for monospace terminal preview (see `escPosCenteredLine`). */
+export function formatThermalReceiptForTerminalPreview(body: string): string {
+  const wp = THERMAL_RECEIPT_WIDTH;
+  const padCenter = (s: string) => {
+    const t = s.trim();
+    if (!t) return '';
+    if (t.length >= wp) return t.slice(0, wp);
+    const left = Math.floor((wp - t.length) / 2);
+    return `${' '.repeat(left)}${t}`;
+  };
+  return body
+    .split('\n')
+    .map((line) => {
+      if (line.startsWith(ESC_POS_CENTER_PREFIX) && line.endsWith(ESC_POS_LEFT_SUFFIX)) {
+        const inner = line.slice(
+          ESC_POS_CENTER_PREFIX.length,
+          line.length - ESC_POS_LEFT_SUFFIX.length,
+        );
+        return padCenter(inner);
+      }
+      return line.replace(/\u001ba[\u0000\u0001\u0002]/g, '');
+    })
+    .join('\n');
 }
 
 export type RawBtLaunchResult = { ok: true } | { ok: false; error: string };

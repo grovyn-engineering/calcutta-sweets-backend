@@ -8,8 +8,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { App, Drawer, Tabs } from 'antd';
-import { Receipt, ScanBarcode } from 'lucide-react';
+import { App, Button, Drawer, Tabs, Tooltip } from 'antd';
+import { Bluetooth, Receipt, ScanBarcode } from 'lucide-react';
 import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
 import { BarcodeScannerInput } from '@/components/BarcodeScannerInput/BarcodeScannerInput';
 import {
@@ -34,6 +34,7 @@ import {
   computeInstantStockDeduction,
   defaultInstantDisplay,
 } from '@/lib/billingInstantPricing';
+import { isLikelyAndroidForRawBt } from '@/lib/rawBtPrint';
 import { useShop } from '@/contexts/ShopContext';
 import styles from './page.module.css';
 
@@ -468,6 +469,23 @@ export default function BillingPOSPage() {
           open={billDrawerOpen}
           onClose={() => setBillDrawerOpen(false)}
           destroyOnClose={false}
+          extra={
+            isLikelyAndroidForRawBt() && checkoutApi ? (
+              <Tooltip title="Saves the sale and sends thermal text to RawBT (same as Print via RawBT below). Choose Cash or UPI / Card first.">
+                <Button
+                  type="default"
+                  size="small"
+                  className="border-[var(--pearl-bush)]"
+                  icon={<Bluetooth className="h-3.5 w-3.5" aria-hidden />}
+                  disabled={!checkoutApi.canPrint || checkoutApi.busy}
+                  loading={checkoutApi.busy}
+                  onClick={() => checkoutApi.printRawBt()}
+                >
+                  RawBT
+                </Button>
+              </Tooltip>
+            ) : null
+          }
           styles={{
             body: {
               padding: 0,
