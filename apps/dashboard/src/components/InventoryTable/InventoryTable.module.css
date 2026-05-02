@@ -191,6 +191,18 @@
   }
 }
 
+.tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-col-select) {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
+@media (max-width: 500px) {
+  .tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-col-select) {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+  }
+}
+
 .tableSlot :global(.tabulator .tabulator-cell.inventory-thumb-cell) {
   justify-content: center !important;
   align-items: center !important;

@@ -39,7 +39,7 @@ type TabRow = {
   firstVariantId: string | null;
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 40;
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",

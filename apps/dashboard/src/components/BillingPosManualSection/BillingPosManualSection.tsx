@@ -50,7 +50,7 @@ type InventoryVariantsPageJson = {
   hasMore?: boolean;
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 40;
 const PAGE_SIZE_OPTIONS = [10, 20, 40, 60, 100] as const;
 
 function coalesceStr(v: unknown): string {
