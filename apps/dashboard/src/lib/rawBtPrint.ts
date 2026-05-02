@@ -6,6 +6,11 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
+ * **TVS RP 3230 (80mm):** ESC/POS-compatible; this model often has a wide non-print
+ * strip on the left (~10–15 character widths). `THERMAL_LEFT_MARGIN_DOTS` must be
+ * large enough (dozens–100+ dots), not ~30, or centered headers look left-clipped
+ * (e.g. “Complex…” → “lex…”).
+ *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
 
@@ -17,14 +22,15 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** 80mm thermal profile (Font A): 48 printable columns. */
+/** 80mm thermal profile (Font A), TVS RP 3230 / ESC/POS: 48 columns. */
 export const THERMAL_RECEIPT_WIDTH = 48;
 
 /**
- * ESC/POS `GS L` left margin in dots (Epson-style). Increase if the shop title /
- * address still look cut off on the left; set to 0 if your printer mis-handles `GS L`.
+ * ESC/POS `GS L` left margin in dots (Epson-style; TVS RP 3230 supports this).
+ * ~12 horizontal dots per Font A column → a ~14-column dead zone needs ~168 dots.
+ * If text wraps on the right, decrease; if the left is still cut off, try 192–216.
  */
-export const THERMAL_LEFT_MARGIN_DOTS = 24;
+export const THERMAL_LEFT_MARGIN_DOTS = 168;
 
 /** When shop profile fields are empty, match printed stationery defaults. */
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
@@ -211,7 +217,10 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Blank first — some stacks still eat the first line; margin is handled in `textToRawBtPrinterBytes`. */
+  /** Extra leading feeds — TVS / RawBT often drop the first few visual lines. */
+  lines.push('');
+  lines.push('');
+  lines.push('');
   lines.push('');
   lines.push('');
   lines.push(centerLineFull(shopName.toUpperCase()));
