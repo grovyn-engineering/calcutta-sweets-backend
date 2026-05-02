@@ -22,11 +22,15 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** Line feeds after `ESC @` before the UTF-8 body (hardware top margin). */
-const RAWBT_TOP_MARGIN_LINE_FEEDS = 10;
+/**
+ * Line feeds after `ESC @` before the UTF-8 body (hardware top margin).
+ * TVS/RawBT often eat the first visible lines under the tear bar — keep this high
+ * enough that “CALCUTTA SWEETS” and the first address line still print.
+ */
+const RAWBT_TOP_MARGIN_LINE_FEEDS = 26;
 
 /** Empty lines at the start of the receipt body (preview + print). */
-const RECEIPT_TOP_BLANK_LINES = 10;
+const RECEIPT_TOP_BLANK_LINES = 12;
 
 /** Max chars per native-centered address line (TVS handles long `ESC a 1` lines poorly). */
 const HEADER_NATIVE_CENTER_WRAP = 36;
