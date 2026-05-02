@@ -6,10 +6,10 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
- * **TVS RP 3230:** Do **not** combine a large `GS L` margin with 48-column space-padded
- * lines — the line is wider than the remaining print width, so the printer clips the
- * **left** (shop name vanishes; “Complex…” → “lex…”). Header shop/address use
- * `ESC a 1` center + shorter wrapped lines instead; table/footer stay 48-col left.
+ * **TVS RP 3230:** Use **space-centered** header lines (like a monospace 48-col layout),
+ * not `ESC a 1` (it shifts/clips badly on this firmware). Apply a modest `GS L` inset and
+ * build every line at **effective width** = 48 − margin columns so lines are not wider
+ * than the printable area (avoids left clipping on headers and item names).
  *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
@@ -22,15 +22,24 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** 80mm thermal profile (Font A), TVS RP 3230 / ESC/POS: 48 columns. */
+/** Nominal 80mm Font A width (columns) before inset. */
 export const THERMAL_RECEIPT_WIDTH = 48;
 
+/** ~12 dots per Font A column on 203dpi-class 80mm printers. */
+const DOTS_PER_FONT_A_COLUMN = 12;
+
 /**
- * ESC/POS `GS L` left margin (dots). Keep **0** with this receipt: a non-zero margin
- * shrinks the printable width while lines are still 48 columns wide, so the **start**
- * of padded/centered header lines is clipped on TVS RP 3230.
+ * ESC/POS `GS L` left margin (dots). Insets content from the TVS non-print strip; line
+ * length is reduced by {@link thermalReceiptEffectiveWidth} so text does not overflow.
  */
-export const THERMAL_LEFT_MARGIN_DOTS = 0;
+/** 48 dots ≈ 4 columns inset → effective width 44 (fits one-line shop address ~43 chars). */
+export const THERMAL_LEFT_MARGIN_DOTS = 48;
+
+/** Printable columns after accounting for {@link THERMAL_LEFT_MARGIN_DOTS}. */
+export function thermalReceiptEffectiveWidth(): number {
+  const lost = Math.ceil(THERMAL_LEFT_MARGIN_DOTS / DOTS_PER_FONT_A_COLUMN);
+  return Math.max(36, THERMAL_RECEIPT_WIDTH - lost);
+}
 
 /** When shop profile fields are empty, match printed stationery defaults. */
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
@@ -60,8 +69,7 @@ function utf8Encode(s: string): Uint8Array {
  * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
  * Small tail after last line (reference slip style), then cut.
  *
- * Preamble: init, left align, normal size; optional `GS L` only if you tune width
- * to match (otherwise header lines overflow and clip on the left).
+ * Preamble: init, left align, normal size, optional `GS L` (must match body line width).
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
   const normalized = body.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
@@ -168,19 +176,16 @@ function wrapWords(text: string, maxWidth: number): string[] {
   return lines;
 }
 
-/** Max chars per centered header line on TVS (native `ESC a 1` is unreliable on very long lines). */
-const HEADER_CENTER_WRAP_CHARS = 40;
-
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
-  const w = THERMAL_RECEIPT_WIDTH;
-  const escPosLeft = String.fromCharCode(ESC, 0x61, 0);
-  const escPosCenter = String.fromCharCode(ESC, 0x61, 1);
-  /** Printer centers text; avoids space-padding that the left edge clips. */
-  const escPosCenteredLine = (s: string) => {
+  const w = thermalReceiptEffectiveWidth();
+  const centerLineFull = (s: string) => {
     const t = s.trim();
     if (!t) return '';
-    const u = t.length > w ? t.slice(0, w) : t;
-    return `${escPosCenter}${u}${escPosLeft}`;
+    if (t.length >= w) return t.slice(0, w);
+    const pad = w - t.length;
+    const left = Math.floor(pad / 2);
+    const right = pad - left;
+    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
   };
   const centerLine = (s: string) => {
     const t = s.trim();
@@ -222,17 +227,14 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   /** Leading blanks — some stacks drop the first line after open. */
   lines.push('');
   lines.push('');
+  lines.push(centerLineFull(shopName.toUpperCase()));
   lines.push('');
-  lines.push(escPosCenteredLine(shopName.toUpperCase()));
-  lines.push('');
-  for (const ln of wrapWords(shopAddress, HEADER_CENTER_WRAP_CHARS)) {
-    lines.push(escPosCenteredLine(ln));
-  }
-  lines.push(escPosCenteredLine(`Contact No. :- ${shopPhone}`));
-  if (gstin) lines.push(escPosCenteredLine(`GSTIN: ${gstin}`));
-  lines.push(escPosCenteredLine(`FSSAI No.${fssai}`));
+  for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
+  lines.push(centerLine(`Contact No. :- ${shopPhone}`));
+  if (gstin) lines.push(centerLine(`GSTIN: ${gstin}`));
+  lines.push(centerLine(`FSSAI No.${fssai}`));
   if (bill.showCustomerGstin && bill.customerGstin.trim()) {
-    lines.push(escPosCenteredLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
+    lines.push(centerLine(`Cust GSTIN: ${bill.customerGstin.trim()}`));
   }
   lines.push(rule);
   lines.push(centerLine((bill.billTitle || 'TAX INVOICE').toUpperCase()));
@@ -265,10 +267,10 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   }
   lines.push(rule);
 
-  const nameW = 27;
   const qtyW = 4;
   const spW = 7;
   const amtW = 7;
+  const nameW = w - qtyW - spW - amtW - 3;
   lines.push(
     `${'Item Name'.padEnd(nameW)} ${'Qty'.padStart(qtyW)} ${'SP'.padStart(spW)} ${'Amt'.padStart(amtW)}`,
   );
@@ -372,7 +374,7 @@ const ESC_POS_LEFT_ALIGN_SUFFIX = `${String.fromCharCode(ESC, 0x61, 0)}`;
  * still uses {@link buildPlainTextReceiptForRawBt} unchanged.
  */
 export function formatThermalReceiptForTerminalPreview(body: string): string {
-  const w = THERMAL_RECEIPT_WIDTH;
+  const w = thermalReceiptEffectiveWidth();
   const centerWithSpaces = (s: string) => {
     const t = s.trim();
     if (!t) return '';
