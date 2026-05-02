@@ -6,10 +6,10 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
- * **TVS RP 3230:** Space-padding for center (`centerLine`) adds many leading spaces that
- * sit in the non-print strip — shop name vanishes and the address becomes “Complex…”.
- * Header/footer use `ESC a 1` / `ESC a 0` (no space padding). Table/rows stay 48-col left.
- * Keep {@link THERMAL_LEFT_MARGIN_DOTS} at **0** unless you verify `GS L` on your unit.
+ * **TVS RP 3230:** Space-padding for center adds leading spaces in the non-print strip.
+ * Header/footer use `ESC a 1` / `ESC a 0`. A small {@link THERMAL_LEFT_MARGIN_DOTS} (`GS L`)
+ * shifts the whole job right so the first glyphs of centered lines (shop name, “Gurudwara…”)
+ * are not clipped; {@link thermalReceiptEffectiveWidth} keeps table width consistent.
  *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
@@ -27,7 +27,7 @@ const GS = 0x1d;
  * TVS/RawBT often eat the first visible lines under the tear bar — keep this high
  * enough that “CALCUTTA SWEETS” and the first address line still print.
  */
-const RAWBT_TOP_MARGIN_LINE_FEEDS = 26;
+const RAWBT_TOP_MARGIN_LINE_FEEDS = 34;
 
 /** Empty lines at the start of the receipt body (preview + print). */
 const RECEIPT_TOP_BLANK_LINES = 12;
@@ -41,8 +41,8 @@ export const THERMAL_RECEIPT_WIDTH = 48;
 /** ~12 dots per column at default Font A. */
 const DOTS_PER_FONT_A_COLUMN = 12;
 
-/** Extra left margin in dots (`GS L`). **0** recommended for TVS + ESC-centered headers. */
-export const THERMAL_LEFT_MARGIN_DOTS = 0;
+/** Extra left margin in dots (`GS L`) — clears ~2–3 mm left dead zone on TVS 80mm. */
+export const THERMAL_LEFT_MARGIN_DOTS = 48;
 
 export function thermalReceiptEffectiveWidth(): number {
   const lost = Math.ceil(THERMAL_LEFT_MARGIN_DOTS / DOTS_PER_FONT_A_COLUMN);
@@ -382,7 +382,7 @@ const ESC_POS_LEFT_SUFFIX = `${String.fromCharCode(ESC, 0x61, 0)}`;
 
 /** Expand printer center sequences for monospace terminal preview (see `escPosCenteredLine`). */
 export function formatThermalReceiptForTerminalPreview(body: string): string {
-  const wp = THERMAL_RECEIPT_WIDTH;
+  const wp = thermalReceiptEffectiveWidth();
   const padCenter = (s: string) => {
     const t = s.trim();
     if (!t) return '';
