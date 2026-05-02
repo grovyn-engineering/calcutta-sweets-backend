@@ -17,6 +17,12 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
+/** Line feeds sent right after `ESC @` so the first text clears the platen / top edge (TVS). */
+const RAWBT_TOP_MARGIN_LINE_FEEDS = 4;
+
+/** Extra empty lines at the start of the receipt body (same count in preview + print). */
+const RECEIPT_TOP_BLANK_LINES = 5;
+
 /** 80mm thermal profile (Font A): 48 printable columns. */
 export const THERMAL_RECEIPT_WIDTH = 48;
 
@@ -45,23 +51,31 @@ function utf8Encode(s: string): Uint8Array {
 }
 
 /**
- * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
+ * Init + top margin feeds + UTF-8 body + line feeds + ESC/POS feed + partial cut.
  * Small tail after last line (reference slip style), then cut.
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
   const bodyBytes = utf8Encode(body);
   const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
+  const topMargin = new Uint8Array(RAWBT_TOP_MARGIN_LINE_FEEDS).fill(0x0a);
   const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
   const feedLines = 4;
   const feed = new Uint8Array([ESC, 0x64, feedLines & 0xff]); // ESC d n
   const cut = new Uint8Array([GS, 0x56, 0x01]); // GS V 1 partial cut
 
   const total =
-    prefix.length + bodyBytes.length + nl.length + feed.length + cut.length;
+    prefix.length +
+    topMargin.length +
+    bodyBytes.length +
+    nl.length +
+    feed.length +
+    cut.length;
   const out = new Uint8Array(total);
   let o = 0;
   out.set(prefix, o);
   o += prefix.length;
+  out.set(topMargin, o);
+  o += topMargin.length;
   out.set(bodyBytes, o);
   o += bodyBytes.length;
   out.set(nl, o);
@@ -187,9 +201,8 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Blank first — some drivers clip the very first non-empty line; keeps the shop title intact. */
-  lines.push('');
-  lines.push('');
+  /** Top margin — TVS/RawBT often clip the first lines under the grip; match reference slip spacing. */
+  for (let i = 0; i < RECEIPT_TOP_BLANK_LINES; i += 1) lines.push('');
   lines.push(centerLineFull(shopName.toUpperCase()));
   lines.push('');
   for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
