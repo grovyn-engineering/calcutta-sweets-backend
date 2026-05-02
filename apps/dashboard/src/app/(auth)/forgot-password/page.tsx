@@ -13,9 +13,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { getApiBaseUrl } from '@/lib/api';
 import styles from './styles.module.css';
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 // ─── OTP digit-input widget ────────────────────────────────────────────────
 const OtpInput = ({
@@ -116,7 +115,7 @@ export default function ForgotPasswordPage() {
     const sendOtp = async (values: { email: string }) => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}/auth/forgot-password`, {
+            const res = await fetch(`${getApiBaseUrl()}/auth/forgot-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: values.email }),
@@ -144,7 +143,7 @@ export default function ForgotPasswordPage() {
         if (remaining > 0) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API}/auth/forgot-password`, {
+            const res = await fetch(`${getApiBaseUrl()}/auth/forgot-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email }),
@@ -170,7 +169,7 @@ export default function ForgotPasswordPage() {
         try {
             // POST reset-password with a placeholder newPassword to just check the OTP
             // Instead, use verify-reset-password which only checks OTP and deletes it
-            const res = await fetch(`${API}/auth/verify-reset-password`, {
+            const res = await fetch(`${getApiBaseUrl()}/auth/verify-reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp }),
@@ -200,7 +199,7 @@ export default function ForgotPasswordPage() {
             // so we pass a special "already-verified" flow - instead we'll call a lightweight
             // PATCH on the user endpoint. For now, use the direct reset with the already-
             // verified token stored server-side via a short-lived "verified" key.
-            const res = await fetch(`${API}/auth/reset-password-verified`, {
+            const res = await fetch(`${getApiBaseUrl()}/auth/reset-password-verified`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, newPassword: values.newPassword }),
