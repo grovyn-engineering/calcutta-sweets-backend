@@ -6,11 +6,6 @@
  * template mode and are often printed as plain text in this path — we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
- * **TVS RP 3230:** Use **space-centered** header lines (like a monospace 48-col layout),
- * not `ESC a 1` (it shifts/clips badly on this firmware). Apply a modest `GS L` inset and
- * build every line at **effective width** = 48 − margin columns so lines are not wider
- * than the printable area (avoids left clipping on headers and item names).
- *
  * One-time in RawBT: pick USB printer → Settings → Auto print + Skip preview → set default printer.
  */
 
@@ -22,24 +17,8 @@ const MAX_RAWBT_HREF_CHARS = 48_000;
 const ESC = 0x1b;
 const GS = 0x1d;
 
-/** Nominal 80mm Font A width (columns) before inset. */
+/** 80mm thermal profile (Font A): 48 printable columns. */
 export const THERMAL_RECEIPT_WIDTH = 48;
-
-/** ~12 dots per Font A column on 203dpi-class 80mm printers. */
-const DOTS_PER_FONT_A_COLUMN = 12;
-
-/**
- * ESC/POS `GS L` left margin (dots). Insets content from the TVS non-print strip; line
- * length is reduced by {@link thermalReceiptEffectiveWidth} so text does not overflow.
- */
-/** 48 dots ≈ 4 columns inset → effective width 44 (fits one-line shop address ~43 chars). */
-export const THERMAL_LEFT_MARGIN_DOTS = 48;
-
-/** Printable columns after accounting for {@link THERMAL_LEFT_MARGIN_DOTS}. */
-export function thermalReceiptEffectiveWidth(): number {
-  const lost = Math.ceil(THERMAL_LEFT_MARGIN_DOTS / DOTS_PER_FONT_A_COLUMN);
-  return Math.max(36, THERMAL_RECEIPT_WIDTH - lost);
-}
 
 /** When shop profile fields are empty, match printed stationery defaults. */
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
@@ -68,26 +47,10 @@ function utf8Encode(s: string): Uint8Array {
 /**
  * Init + UTF-8 body + line feeds + ESC/POS feed + partial cut.
  * Small tail after last line (reference slip style), then cut.
- *
- * Preamble: init, left align, normal size, optional `GS L` (must match body line width).
  */
 export function textToRawBtPrinterBytes(body: string): Uint8Array {
-  const normalized = body.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
-  const bodyBytes = utf8Encode(normalized);
-  const m = THERMAL_LEFT_MARGIN_DOTS;
-  const prefix = new Uint8Array([
-    ESC,
-    0x40, // ESC @ init
-    ESC,
-    0x61,
-    0x00, // ESC a 0 — left align (space-padded lines)
-    GS,
-    0x21,
-    0x00, // GS ! 0 — normal size
-    ...(m > 0
-      ? [GS, 0x4c, m & 0xff, (m >> 8) & 0xff] // GS L — left margin
-      : []),
-  ]);
+  const bodyBytes = utf8Encode(body);
+  const prefix = new Uint8Array([ESC, 0x40]); // ESC @ init
   const nl = new Uint8Array([0x0a, 0x0a, 0x0a]);
   const feedLines = 4;
   const feed = new Uint8Array([ESC, 0x64, feedLines & 0xff]); // ESC d n
@@ -177,16 +140,7 @@ function wrapWords(text: string, maxWidth: number): string[] {
 }
 
 function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
-  const w = thermalReceiptEffectiveWidth();
-  const centerLineFull = (s: string) => {
-    const t = s.trim();
-    if (!t) return '';
-    if (t.length >= w) return t.slice(0, w);
-    const pad = w - t.length;
-    const left = Math.floor(pad / 2);
-    const right = pad - left;
-    return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
-  };
+  const w = THERMAL_RECEIPT_WIDTH;
   const centerLine = (s: string) => {
     const t = s.trim();
     if (!t) return '';
@@ -224,10 +178,9 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Leading blanks — some stacks drop the first line after open. */
-  lines.push('');
-  lines.push('');
-  lines.push(centerLineFull(shopName.toUpperCase()));
+  // ESC @ init already resets the printer; leading blanks risk clipping on
+  // some RawBT/driver combos — put them AFTER the header block instead.
+  lines.push(centerLine(shopName.toUpperCase()));
   lines.push('');
   for (const ln of wrapWords(shopAddress, w)) lines.push(centerLine(ln));
   lines.push(centerLine(`Contact No. :- ${shopPhone}`));
@@ -267,10 +220,10 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   }
   lines.push(rule);
 
+  const nameW = 27;
   const qtyW = 4;
   const spW = 7;
   const amtW = 7;
-  const nameW = w - qtyW - spW - amtW - 3;
   lines.push(
     `${'Item Name'.padEnd(nameW)} ${'Qty'.padStart(qtyW)} ${'SP'.padStart(spW)} ${'Amt'.padStart(amtW)}`,
   );
@@ -364,42 +317,6 @@ export function buildPlainTextReceiptForRawBt(bill: NativeAndroidBillPayload): s
   return buildThermalReceiptBody(bill);
 }
 
-/** `ESC a 1` … text … `ESC a 0` (printer-native center). */
-const ESC_POS_CENTER_LINE_PREFIX = `${String.fromCharCode(ESC, 0x61, 1)}`;
-const ESC_POS_LEFT_ALIGN_SUFFIX = `${String.fromCharCode(ESC, 0x61, 0)}`;
-
-/**
- * Turns the raw receipt string into something **monospace terminals** can show as
- * centered — `ESC a 1` / `ESC a 0` bytes are invisible in preview. The TVS print path
- * still uses {@link buildPlainTextReceiptForRawBt} unchanged.
- */
-export function formatThermalReceiptForTerminalPreview(body: string): string {
-  const w = thermalReceiptEffectiveWidth();
-  const centerWithSpaces = (s: string) => {
-    const t = s.trim();
-    if (!t) return '';
-    if (t.length >= w) return t.slice(0, w);
-    const left = Math.floor((w - t.length) / 2);
-    return `${' '.repeat(left)}${t}`;
-  };
-  return body
-    .split('\n')
-    .map((line) => {
-      if (
-        line.startsWith(ESC_POS_CENTER_LINE_PREFIX) &&
-        line.endsWith(ESC_POS_LEFT_ALIGN_SUFFIX)
-      ) {
-        const inner = line.slice(
-          ESC_POS_CENTER_LINE_PREFIX.length,
-          line.length - ESC_POS_LEFT_ALIGN_SUFFIX.length,
-        );
-        return centerWithSpaces(inner);
-      }
-      return line.replace(/\u001ba[\u0000\u0001\u0002]/g, '');
-    })
-    .join('\n');
-}
-
 export type RawBtLaunchResult = { ok: true } | { ok: false; error: string };
 
 /**
@@ -413,7 +330,7 @@ export function launchRawBtPrintFromText(text: string): RawBtLaunchResult {
     return {
       ok: false,
       error:
-        'RawBT runs on Android. Install “RawBT” from Play Store, set USB printer, enable Auto print + Skip preview.',
+        'RawBT runs on Android. Install "RawBT" from Play Store, set USB printer, enable Auto print + Skip preview.',
     };
   }
   const b64 = encodeRawBtBase64Payload(text);
