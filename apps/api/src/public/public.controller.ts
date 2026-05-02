@@ -10,6 +10,11 @@ export class PublicController {
         return this.publicService.getMenu(shopCode);
     }
 
+    @Get('marketing-sweets/:shopCode')
+    getMarketingSweets(@Param('shopCode') shopCode: string) {
+        return this.publicService.getMarketingSweetsItems(shopCode);
+    }
+
     @Post('order')
     createOrder(
         @Body()

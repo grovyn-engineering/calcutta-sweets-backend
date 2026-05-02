@@ -55,6 +55,66 @@ export class PublicService {
         };
     }
 
+    /**
+     * Flat list of active website-listed products in the "Sweets" category for the marketing site admin sync.
+     */
+    async getMarketingSweetsItems(shopCode: string) {
+        const shop = await this.prisma.shop.findUnique({
+            where: { shopCode },
+            select: { shopCode: true, name: true },
+        });
+
+        if (!shop) {
+            throw new NotFoundException('Shop not found');
+        }
+
+        const sweetsCategory = await this.prisma.category.findFirst({
+            where: { name: { equals: 'Sweets', mode: 'insensitive' } },
+        });
+
+        if (!sweetsCategory) {
+            return { shop, items: [] };
+        }
+
+        const publicBase =
+            process.env.INVENTORY_PUBLIC_BASE_URL?.replace(/\/$/, '') ?? '';
+
+        const products = await this.prisma.product.findMany({
+            where: {
+                shopCode,
+                categoryId: sweetsCategory.id,
+                isActive: true,
+                isListedOnWebsite: true,
+            },
+            include: {
+                variants: { orderBy: { price: 'asc' } },
+                images: { orderBy: { createdAt: 'asc' } },
+            },
+            orderBy: { name: 'asc' },
+        });
+
+        const items = products.map((p) => {
+            const variant = p.variants[0];
+            const image = p.images[0];
+            let imageUrl = image?.url ?? null;
+            if (imageUrl && publicBase && imageUrl.startsWith('/')) {
+                imageUrl = `${publicBase}${imageUrl}`;
+            }
+
+            return {
+                inventoryProductId: p.id,
+                name: p.name,
+                description: p.description ?? '',
+                price: variant ? Math.round(variant.price) : 0,
+                unit: variant?.name?.trim() || '200g',
+                categoryLabel: 'Sweets',
+                imageUrl,
+            };
+        });
+
+        return { shop, items };
+    }
+
     async createWebsiteOrder(dto: {
         shopCode: string;
         customerName: string;
