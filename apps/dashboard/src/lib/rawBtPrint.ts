@@ -29,8 +29,12 @@ const GS = 0x1d;
  */
 const RAWBT_TOP_MARGIN_LINE_FEEDS = 34;
 
-/** Empty lines at the start of the receipt body (preview + print). */
-const RECEIPT_TOP_BLANK_LINES = 12;
+/**
+ * Blank lines at the start of the receipt body (preview + print).
+ * TVS/RawBT drops ~14–15 initial body lines; 15 blanks keeps the shop line as the
+ * first visible header if the discard is slightly higher than 14.
+ */
+const RECEIPT_TOP_BLANK_LINES = 15;
 
 /** Max chars per native-centered address line (TVS handles long `ESC a 1` lines poorly). */
 const HEADER_NATIVE_CENTER_WRAP = 36;
@@ -238,7 +242,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
 
   /** Top margin — TVS/RawBT often clip the first lines under the grip. */
   for (let i = 0; i < RECEIPT_TOP_BLANK_LINES; i += 1) lines.push('');
-  lines.push(escPosCenteredLine(shopName.toUpperCase()));
+  lines.push(escPosCenteredLine(' ' + shopName.toUpperCase()));  
   lines.push('');
   for (const ln of wrapWords(shopAddress, HEADER_NATIVE_CENTER_WRAP)) {
     lines.push(escPosCenteredLine(ln));
