@@ -83,9 +83,9 @@ function BillingPosRawSectionInner({
               Raw bill (manual lines)
             </h2>
             <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
-              Enter a label and price for items not in the catalog. Bills print with tax split like
-              other sales, but lines are not saved against stock. Use Standard or Instant billing to
-              deduct inventory.
+              Add manual-priced lines here, then use the <strong>Standard</strong> or{' '}
+              <strong>Instant</strong> tab to add catalog items on the same bill. Catalog lines are
+              saved to stock when you generate the bill; manual lines appear only on the receipt.
             </p>
           </div>
         </div>
@@ -140,6 +140,7 @@ function BillingPosRawSectionInner({
         </Form.Item>
         <div className="mb-3 rounded-lg border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2.5">
           <Checkbox
+            rootClassName={styles.gstinCheckboxRoot}
             checked={formValues.includeCustomerGstin}
             onChange={(e) => patch({ includeCustomerGstin: e.target.checked })}
             className="text-sm text-[var(--text-secondary)]"
@@ -177,7 +178,7 @@ function BillingPosRawSectionInner({
             borderColor: 'var(--ochre-600)',
           }}
         >
-          Add line to sale
+          Add Item for sale
         </Button>
       </Form>
 
@@ -192,13 +193,13 @@ function BillingPosRawSectionInner({
             can lose the USB device until you reconnect it in RawBT.
           </p>
           <div className="flex flex-col gap-2">
-            <Tooltip title="Opens the receipt in a new tab — use the system Print dialog (80 mm / PDF).">
+            <Tooltip title="Saves when needed, then opens a receipt preview on this page — use Print for the system dialog.">
               <Button
                 type="primary"
                 className="flex h-10 w-full items-center justify-center gap-2"
                 icon={<Receipt className="h-4 w-4" />}
                 disabled={!checkoutApi.canPrint || checkoutApi.busy}
-                loading={checkoutApi.busy}
+                loading={checkoutApi.busyMode === 'browser'}
                 onClick={() => {
                   if (!checkoutApi.canPrint) {
                     message.warning(
@@ -223,7 +224,7 @@ function BillingPosRawSectionInner({
                   className="flex h-10 w-full items-center justify-center gap-2 border-[var(--pearl-bush)]"
                   icon={<Printer className="h-4 w-4" />}
                   disabled={!checkoutApi.canPrint || checkoutApi.busy}
-                  loading={checkoutApi.busy}
+                  loading={checkoutApi.busyMode === 'thermal'}
                   onClick={() => {
                     if (!checkoutApi.canPrint) {
                       message.warning(
@@ -244,7 +245,7 @@ function BillingPosRawSectionInner({
                 className="flex h-10 w-full items-center justify-center gap-2 border-[var(--pearl-bush)]"
                 icon={<Bluetooth className="h-4 w-4" />}
                 disabled={!checkoutApi.canPrint || checkoutApi.busy}
-                loading={checkoutApi.busy}
+                loading={checkoutApi.busyMode === 'rawbt'}
                 onClick={() => {
                   if (!checkoutApi.canPrint) {
                     message.warning(
@@ -266,7 +267,8 @@ function BillingPosRawSectionInner({
         <p className="mt-4 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
           Open <strong>Review &amp; pay</strong>, pick payment, then use <strong>Generate bill</strong>,{' '}
           <strong>USB thermal</strong>, or <strong>Print via RawBT</strong> — or the <strong>RawBT</strong>{' '}
-          button in the panel header on Android. Raw sales are not written to orders or stock.
+          button in the panel header on Android. Manual lines are not saved to stock; catalog lines on
+          the same bill are saved when you pay.
         </p>
       ) : null}
     </div>

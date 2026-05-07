@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
-import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
+import { chartDayLabel, formatInrForPdf } from "@/lib/chartFormat";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 
 export type ReportsExportOrderRow = {
@@ -282,11 +282,11 @@ export async function downloadReportsPdf(
     margin: { left: margin, right: margin },
     head: [["Metric", "Value"]],
     body: [
-      ["Total revenue", formatInrFull(p.totals.revenue)],
+      ["Total revenue", formatInrForPdf(p.totals.revenue)],
       ["Bills", String(p.totals.orderCount)],
       [
         "Avg. bill",
-        formatInrFull(
+        formatInrForPdf(
           p.totals.orderCount > 0
             ? p.totals.revenue / p.totals.orderCount
             : 0,
@@ -307,7 +307,7 @@ export async function downloadReportsPdf(
     head: [["Day", "Revenue", "Bills"]],
     body: p.daily.map((d) => [
       chartDayLabel(d.date),
-      formatInrFull(d.revenue),
+      formatInrForPdf(d.revenue),
       String(d.orderCount),
     ]),
     styles: { fontSize: 8 },
@@ -329,7 +329,7 @@ export async function downloadReportsPdf(
     body: p.paymentMix.map((r) => [
       paymentLabel(r.paymentMethod),
       String(r.orderCount),
-      formatInrFull(r.revenue),
+      formatInrForPdf(r.revenue),
     ]),
     styles: { fontSize: 9 },
     headStyles: { fillColor: [44, 24, 16] },
@@ -350,7 +350,7 @@ export async function downloadReportsPdf(
     body: p.topProducts.map((r) => [
       r.productName,
       String(r.qtySold),
-      formatInrFull(r.revenue),
+      formatInrForPdf(r.revenue),
     ]),
     styles: { fontSize: 8 },
     headStyles: { fillColor: [44, 24, 16] },
@@ -397,7 +397,7 @@ export async function downloadReportsPdf(
       paymentLabel(o.paymentMethod),
       (o.customerName ?? "Walk-in").slice(0, 28),
       String(o.itemCount),
-      formatInrFull(o.totalAmount),
+      formatInrForPdf(o.totalAmount),
     ]),
     styles: { fontSize: 7 },
     headStyles: { fillColor: [44, 24, 16] },
@@ -441,8 +441,8 @@ export async function downloadReportsPdf(
       orderIdToInvoiceRef(li.orderId),
       `${li.productName} (${li.variantName ?? "-"})`.slice(0, 40),
       String(li.quantity),
-      formatInrFull(li.unitPrice),
-      formatInrFull(li.lineTotal),
+      formatInrForPdf(li.unitPrice),
+      formatInrForPdf(li.lineTotal),
     ]),
     styles: { fontSize: 7 },
     headStyles: { fillColor: [44, 24, 16] },

@@ -10,9 +10,7 @@ import {
   getFirstAllowedNavHref,
   isDashboardNavAllowed,
 } from "@/lib/appNavAccess";
-import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
-
-import styles from "./AuthGuard.module.css";
+import { PageBootstrapLoader } from "@/components/PageBootstrapLoader/PageBootstrapLoader";
 
 const ACCESS_DENIED_PATH = "/access-denied";
 
@@ -116,19 +114,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   ]);
 
   if (isLoading) {
-    return (
-      <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Loading session">
-        <ContentSkeleton variant="table" rowCount={10} />
-      </div>
-    );
+    return <PageBootstrapLoader label="Loading session" />;
   }
 
   if (!isAuthenticated && isProtectedPath(pathname)) {
-    return (
-      <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
-        <ContentSkeleton variant="table" rowCount={6} />
-      </div>
-    );
+    return <PageBootstrapLoader label="Redirecting" />;
   }
 
   if (
@@ -140,11 +130,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   ) {
     const rule = matchAppNavItem(pathname);
     if (rule && !isAppNavAllowed(rule, navCtx)) {
-      return (
-        <div className={styles.bootstrapShell} role="status" aria-live="polite" aria-label="Redirecting">
-          <ContentSkeleton variant="table" rowCount={6} />
-        </div>
-      );
+      return <PageBootstrapLoader label="Redirecting" />;
     }
   }
 

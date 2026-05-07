@@ -113,50 +113,34 @@ export default function BillingPOSPage() {
     setCustomerDetailsOpen(true);
   }, []);
 
-  const mergeLine = useCallback(
-    (line: BillItem) => {
-      let blockMessage: string | null = null;
-      setBillItems((prev) => {
-        const prevHasRaw = prev.some((i) => i.isRaw);
-        const prevHasCatalog = prev.some((i) => !i.isRaw);
-        if (line.isRaw && prevHasCatalog) {
-          blockMessage =
-            'Remove catalog lines before adding raw (manual) lines.';
-          return prev;
-        }
-        if (!line.isRaw && prevHasRaw) {
-          blockMessage = 'Remove raw lines before adding catalog products.';
-          return prev;
-        }
-        if (line.isRaw) {
-          return [...prev, { ...line }];
-        }
-        if (!line.isInstant) {
-          const existing = prev.find(
-            (i) =>
-              !i.isInstant &&
-              !i.isRaw &&
-              i.variantId === line.variantId,
-          );
-          if (existing) {
-            return prev.map((i) =>
-              i.lineId === existing.lineId
-                ? {
-                    ...i,
-                    stockUnitsToDeduct:
-                      i.stockUnitsToDeduct + line.stockUnitsToDeduct,
-                    displayQuantity: i.displayQuantity + line.displayQuantity,
-                  }
-                : i,
-            );
-          }
-        }
+  const mergeLine = useCallback((line: BillItem) => {
+    setBillItems((prev) => {
+      if (line.isRaw) {
         return [...prev, { ...line }];
-      });
-      if (blockMessage) message.error(blockMessage);
-    },
-    [message],
-  );
+      }
+      if (!line.isInstant) {
+        const existing = prev.find(
+          (i) =>
+            !i.isInstant &&
+            !i.isRaw &&
+            i.variantId === line.variantId,
+        );
+        if (existing) {
+          return prev.map((i) =>
+            i.lineId === existing.lineId
+              ? {
+                  ...i,
+                  stockUnitsToDeduct:
+                    i.stockUnitsToDeduct + line.stockUnitsToDeduct,
+                  displayQuantity: i.displayQuantity + line.displayQuantity,
+                }
+              : i,
+          );
+        }
+      }
+      return [...prev, { ...line }];
+    });
+  }, []);
 
   const addRowManual = useCallback(
     (row: BillingVariantRow) => {
@@ -418,7 +402,7 @@ export default function BillingPOSPage() {
                     onToolbarAddCustomer={openCustomerDetails}
                     showSaleCheckoutHint={stackedBillingLayout}
                     checkoutApi={checkoutApi}
-                    showCheckoutButtons={billingTab === 'raw'}
+                    showCheckoutButtons={false}
                   />
                 ),
               },

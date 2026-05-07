@@ -257,7 +257,11 @@ function buildPlainTextReceiptFromPrintInvoiceInput(data: PrintInvoiceInput): st
   return buildPlainTextReceiptForRawBt(printInvoiceInputToNativeBill(data));
 }
 
-function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): string {
+function buildInvoiceHtml(
+  data: PrintInvoiceInput,
+  format: InvoicePrintFormat,
+  options?: { inlinePreview?: boolean },
+): string {
   const when = data.issuedAt ? new Date(data.issuedAt) : new Date();
   const dateStr = when.toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -277,6 +281,55 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     const returnAttr = returnHref
       ? `href="${esc(returnHref)}"`
       : `href="#" data-fallback-close="1"`;
+    const inlinePreview = Boolean(options?.inlinePreview);
+    const chromeHtml = inlinePreview
+      ? ''
+      : `<div class="action-bar">
+    <a class="btn-back" ${returnAttr}>← Back to POS</a>
+    <button type="button" class="btn-print" id="printBillBtn">Print</button>
+    <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button>
+  </div>`;
+    const hintHtml = inlinePreview
+      ? ''
+      : `<p class="print-hint">
+    <strong>Tip:</strong> Tap <strong>Print</strong> for the system print dialog (PDF, network, etc.). On <strong>Android</strong> with the RawBT app, use <strong>RawBT</strong> to send this bill as plain text. For 80&nbsp;mm thermal, pick the matching paper size if the dialog offers it.
+  </p>`;
+    const scriptHtml = inlinePreview
+      ? ''
+      : `<script>
+    (function () {
+      var back = document.querySelector('a[data-fallback-close]');
+      if (back) {
+        back.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (window.history.length > 1) window.history.back();
+          else window.close();
+        });
+      }
+      var btn = document.getElementById('printBillBtn');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          window.focus();
+          window.print();
+        });
+      }
+      var rawBtB64 = ${JSON.stringify(rawBtPayloadB64)};
+      var rawBtBtn = document.getElementById('rawBtReceiptBtn');
+      if (rawBtBtn) {
+        rawBtBtn.addEventListener('click', function () {
+          if (!/Android/i.test(navigator.userAgent)) {
+            alert('RawBT works on Android with the RawBT app. On this computer use Print, or open this receipt on your Android tablet.');
+            return;
+          }
+          if (rawBtB64.length > 45000) {
+            alert('Receipt is too long for RawBT.');
+            return;
+          }
+          window.location.href = 'rawbt:base64,' + rawBtB64;
+        });
+      }
+    })();
+  </script>`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -301,6 +354,12 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
       font-size: 10px;
       line-height: 1.3;
       background: #ebe4d8;
+    }
+    body.receipt-embed {
+      min-height: auto;
+    }
+    body.receipt-embed .page {
+      padding-top: 8px;
     }
     .page {
       max-width: 100%;
@@ -448,17 +507,11 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
     }
   </style>
 </head>
-<body>
+<body class="${inlinePreview ? 'receipt-embed' : ''}">
   <div class="page">
-  <div class="action-bar">
-    <a class="btn-back" ${returnAttr}>← Back to POS</a>
-    <button type="button" class="btn-print" id="printBillBtn">Print</button>
-    <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button>
-  </div>
+  ${chromeHtml}
   <div class="receipt-paper">
-  <p class="print-hint">
-    <strong>Tip:</strong> Tap <strong>Print</strong> for the system print dialog (PDF, network, etc.). On <strong>Android</strong> with the RawBT app, use <strong>RawBT</strong> to send this bill as plain text. For 80&nbsp;mm thermal, pick the matching paper size if the dialog offers it.
-  </p>
+  ${hintHtml}
   <div class="head">
     <h1>${esc(data.shopName)}</h1>
     ${shopHeaderBlock(data, 'receipt')}
@@ -486,40 +539,7 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
   <div class="footer">Thank you. Computer-generated bill.</div>
   </div>
   </div>
-  <script>
-    (function () {
-      var back = document.querySelector('a[data-fallback-close]');
-      if (back) {
-        back.addEventListener('click', function (e) {
-          e.preventDefault();
-          if (window.history.length > 1) window.history.back();
-          else window.close();
-        });
-      }
-      var btn = document.getElementById('printBillBtn');
-      if (btn) {
-        btn.addEventListener('click', function () {
-          window.focus();
-          window.print();
-        });
-      }
-      var rawBtB64 = ${JSON.stringify(rawBtPayloadB64)};
-      var rawBtBtn = document.getElementById('rawBtReceiptBtn');
-      if (rawBtBtn) {
-        rawBtBtn.addEventListener('click', function () {
-          if (!/Android/i.test(navigator.userAgent)) {
-            alert('RawBT works on Android with the RawBT app. On this computer use Print, or open this receipt on your Android tablet.');
-            return;
-          }
-          if (rawBtB64.length > 45000) {
-            alert('Receipt is too long for RawBT.');
-            return;
-          }
-          window.location.href = 'rawbt:base64,' + rawBtB64;
-        });
-      }
-    })();
-  </script>
+  ${scriptHtml}
 </body>
 </html>`;
   }
@@ -630,11 +650,18 @@ function buildInvoiceHtml(data: PrintInvoiceInput, format: InvoicePrintFormat): 
 </html>`;
 }
 
+export function buildPrintReceiptHtml(
+  data: PrintInvoiceInput,
+  options?: { inlinePreview?: boolean },
+): string {
+  return buildInvoiceHtml(data, 'receipt', options);
+}
+
 export function openPrintableInvoice(
   data: PrintInvoiceInput,
   format: InvoicePrintFormat = 'a4',
 ): boolean {
-  const html = buildInvoiceHtml(data, format);
+  const html = buildInvoiceHtml(data, format, undefined);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');

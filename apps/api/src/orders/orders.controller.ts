@@ -33,6 +33,13 @@ export class OrdersController {
     );
   }
 
+  @Get('customer/by-phone')
+  @RequirePermission('canAccessBilling')
+  findCustomerByPhone(@Req() req: Request, @Query('phone') phone?: string) {
+    if (!phone) return null;
+    return this.ordersService.findCustomerByPhone(req.effectiveShopCode!, phone);
+  }
+
   @Get()
   @RequirePermission('canAccessOrders')
   list(

@@ -53,6 +53,7 @@ model Shop {
   users        User[]
   products     Product[]
   orders       Order[]
+  customers    Customer[]
   roleRequests RoleRequest[]
   transfersOut StockTransferRequest[] @relation("TransfersOut")
   transfersIn  StockTransferRequest[] @relation("TransfersIn")
@@ -148,6 +149,26 @@ model Order {
 
   createdAt DateTime    @default(now())
   items     OrderItem[]
+}
+
+model Customer {
+  id String @id @default(uuid())
+
+  shopCode String
+  shop     Shop   @relation(fields: [shopCode], references: [shopCode])
+
+  name    String
+  phone   String
+  email   String?
+  address String?
+  notes   String?
+  gstin   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopCode, phone])
+  @@index([shopCode])
 }
 
 enum OrderSource {

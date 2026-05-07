@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
+import { PageBootstrapLoader } from "@/components/PageBootstrapLoader/PageBootstrapLoader";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -21,13 +21,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   }, [isAuthenticated, isLoading, pathname, router]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen w-full items-start justify-center bg-[var(--linen)] px-4 py-10">
-        <div className="w-full max-w-lg" role="status" aria-live="polite" aria-label="Loading">
-          <ContentSkeleton variant="table" rowCount={6} />
-        </div>
-      </div>
-    );
+    return <PageBootstrapLoader label="Loading" />;
   }
 
   return (

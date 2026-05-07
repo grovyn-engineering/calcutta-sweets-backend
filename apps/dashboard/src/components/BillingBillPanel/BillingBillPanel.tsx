@@ -17,7 +17,7 @@ import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
 import {
   makeInvoiceNo,
-  openPrintableInvoice,
+  buildPrintReceiptHtml,
   orderIdToInvoiceRef,
   type PrintInvoiceInput,
 } from '@/lib/printInvoice';
@@ -74,12 +74,15 @@ export type BillingCustomerBinding = {
   setDetailsOpen: (open: boolean) => void;
 };
 
+export type BillingPosCheckoutPrintMode = 'browser' | 'thermal' | 'rawbt';
+
 /** Exposes the same checkout actions as the sale panel (for Raw tab quick actions). */
 export type BillingPosCheckoutApi = {
   printBrowser: () => void;
   printThermal: () => void;
   printRawBt: () => void;
   busy: boolean;
+  busyMode: BillingPosCheckoutPrintMode | null;
   canPrint: boolean;
   showUsbThermal: boolean;
 };
@@ -193,7 +196,15 @@ export function BillingBillPanel({
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(
     null,
   );
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutBusyMode, setCheckoutBusyMode] = useState<
+    BillingPosCheckoutPrintMode | null
+  >(null);
+  const checkoutBusy = checkoutBusyMode !== null;
+
+  const [receiptPreviewHtml, setReceiptPreviewHtml] = useState<string | null>(
+    null,
+  );
+  const receiptIframeRef = useRef<HTMLIFrameElement | null>(null);
   const lineCount = items.length;
 
   const rawManualNameOnBill =
@@ -201,23 +212,46 @@ export function BillingBillPanel({
 
   const buildNativeAndroidBill = (billNo: string): NativeAndroidBillPayload => {
     const hasRaw = items.some((i) => i.isRaw);
+    const hasCatalog = items.some((i) => !i.isRaw);
+    const isMixed = hasRaw && hasCatalog;
     const fallbackAddress = [currentShop?.city, currentShop?.state]
       .filter(Boolean)
       .join(', ');
     const address = shopAddressPrint?.trim() || fallbackAddress || '';
 
-    const customerName = hasRaw
-      ? (manualSaleCustomer?.name?.trim() ?? '')
-      : (customer?.name?.trim() ?? '');
-    const customerPhone = hasRaw ? '' : (customer?.phone?.trim() ?? '');
-    const customerGstinVal = hasRaw
-      ? rawBillForm?.includeCustomerGstin
+    let customerName: string;
+    let customerPhone: string;
+    let customerGstinVal: string;
+    let showCustomerGstin: boolean;
+
+    if (isMixed) {
+      customerName =
+        customer?.name?.trim() ||
+        manualSaleCustomer?.name?.trim() ||
+        '';
+      customerPhone = customer?.phone?.trim() ?? '';
+      const gstModal = customer?.gstin?.trim() ?? '';
+      const gstRaw =
+        rawBillForm?.includeCustomerGstin
+          ? (rawBillForm.customerGstin?.trim() ?? '')
+          : '';
+      customerGstinVal = gstModal || gstRaw;
+      showCustomerGstin = customerGstinVal.length > 0;
+    } else if (hasRaw) {
+      customerName = manualSaleCustomer?.name?.trim() ?? '';
+      customerPhone = '';
+      customerGstinVal = rawBillForm?.includeCustomerGstin
         ? (rawBillForm.customerGstin?.trim() ?? '')
-        : ''
-      : (customer?.gstin?.trim() ?? '');
-    const showCustomerGstin = hasRaw
-      ? Boolean(rawBillForm?.includeCustomerGstin && customerGstinVal.length > 0)
-      : customerGstinVal.length > 0;
+        : '';
+      showCustomerGstin = Boolean(
+        rawBillForm?.includeCustomerGstin && customerGstinVal.length > 0,
+      );
+    } else {
+      customerName = customer?.name?.trim() ?? '';
+      customerPhone = customer?.phone?.trim() ?? '';
+      customerGstinVal = customer?.gstin?.trim() ?? '';
+      showCustomerGstin = customerGstinVal.length > 0;
+    }
 
     const taxableBase = Math.max(0, total - gstAmount);
 
@@ -278,8 +312,25 @@ export function BillingBillPanel({
 
   const buildPrintInvoiceInput = (invoiceNo: string): PrintInvoiceInput => {
     const hasRaw = items.some((i) => i.isRaw);
-    const printCustomer: CustomerFormValues | null = hasRaw
-      ? manualSaleCustomer?.name?.trim()
+    const hasCatalog = items.some((i) => !i.isRaw);
+    const isMixed = hasRaw && hasCatalog;
+
+    const printCustomer: CustomerFormValues | null = (() => {
+      if (!hasRaw) return customer;
+      if (isMixed) {
+        if (customer?.name?.trim()) return customer;
+        if (manualSaleCustomer?.name?.trim()) {
+          return {
+            name: manualSaleCustomer.name.trim(),
+            phone: customer?.phone?.trim() ?? '',
+            gstin: rawBillForm?.includeCustomerGstin
+              ? rawBillForm.customerGstin?.trim() || undefined
+              : undefined,
+          };
+        }
+        return customer;
+      }
+      return manualSaleCustomer?.name?.trim()
         ? {
             name: manualSaleCustomer.name.trim(),
             phone: customer?.phone?.trim() ?? '',
@@ -287,8 +338,8 @@ export function BillingBillPanel({
               ? rawBillForm.customerGstin?.trim() || undefined
               : undefined,
           }
-        : null
-      : customer;
+        : null;
+    })();
 
     const taxableBase = Math.max(0, total - gstAmount);
 
@@ -348,13 +399,7 @@ export function BillingBillPanel({
     }
     const hasRaw = items.some((i) => i.isRaw);
     const hasCatalog = items.some((i) => !i.isRaw);
-    if (hasRaw && hasCatalog) {
-      message.error(
-        'This sale mixes catalog lines with raw (manual) lines. Remove one kind before checkout.',
-      );
-      return;
-    }
-    const allRaw = hasRaw && items.length > 0;
+    const allRaw = hasRaw && !hasCatalog;
 
     if (printMode === 'thermal' && !isNativeUsbPrinterAvailable()) {
       message.error(
@@ -371,19 +416,16 @@ export function BillingBillPanel({
     }
 
     if (allRaw) {
-      setCheckoutBusy(true);
+      setCheckoutBusyMode(printMode);
       try {
         const invoiceNo = makeInvoiceNo('RAW');
         if (printMode === 'browser') {
-          const ok = openPrintableInvoice(
-            buildPrintInvoiceInput(invoiceNo),
-            'receipt',
+          setReceiptPreviewHtml(
+            buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo), {
+              inlinePreview: true,
+            }),
           );
-          if (!ok) {
-            message.error('Pop-up blocked. Allow pop-ups to print this bill.');
-            return;
-          }
-          message.success('Raw bill ready — use your device print dialog.');
+          message.success('Review the receipt, then use Print or your browser.');
         } else if (printMode === 'thermal') {
           await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
           message.success('Raw bill sent to USB thermal printer.');
@@ -405,12 +447,20 @@ export function BillingBillPanel({
             : 'Could not complete raw bill checkout.',
         );
       } finally {
-        setCheckoutBusy(false);
+        setCheckoutBusyMode(null);
       }
       return;
     }
 
-    setCheckoutBusy(true);
+    const catalogLines = items.filter((i) => !i.isRaw);
+    if (catalogLines.length === 0) {
+      message.error(
+        'This sale has no catalog lines to save. Add a Standard or Instant item, or use manual-only checkout.',
+      );
+      return;
+    }
+
+    setCheckoutBusyMode(printMode);
     try {
       const res = await apiFetch('/orders/pos', {
         method: 'POST',
@@ -421,7 +471,10 @@ export function BillingBillPanel({
           customerName: customer?.name,
           customerPhone: customer?.phone,
           customerEmail: customer?.email,
-          items: items.map((i) => ({
+          customerAddress: customer?.address,
+          customerNotes: customer?.notes,
+          customerGstin: customer?.gstin,
+          items: catalogLines.map((i) => ({
             variantId: i.variantId,
             quantity: i.stockUnitsToDeduct,
             unitPrice: i.catalogUnitPrice,
@@ -448,15 +501,12 @@ export function BillingBillPanel({
       const saved = payload as { id: string };
       const invoiceNo = orderIdToInvoiceRef(saved.id);
       if (printMode === 'browser') {
-        const ok = openPrintableInvoice(
-          buildPrintInvoiceInput(invoiceNo),
-          'receipt',
+        setReceiptPreviewHtml(
+          buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo), {
+            inlinePreview: true,
+          }),
         );
-        if (!ok) {
-          message.error('Pop-up blocked. Allow pop-ups to print this bill.');
-          return;
-        }
-        message.success('Bill saved — use your device print dialog.');
+        message.success('Sale saved — review the receipt, then print or close.');
       } else if (printMode === 'thermal') {
         await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
         message.success('Bill saved and sent to USB thermal printer.');
@@ -476,7 +526,7 @@ export function BillingBillPanel({
         error instanceof Error ? error.message : 'Network error while saving the sale.',
       );
     } finally {
-      setCheckoutBusy(false);
+      setCheckoutBusyMode(null);
     }
   };
 
@@ -495,13 +545,14 @@ export function BillingBillPanel({
         void completeCheckoutRef.current('rawbt');
       },
       busy: checkoutBusy,
+      busyMode: checkoutBusyMode,
       canPrint: lineCount > 0 && paymentMethod != null,
       showUsbThermal: isNativeUsbPrinterAvailable(),
     });
     return () => {
       onCheckoutApi(null);
     };
-  }, [onCheckoutApi, checkoutBusy, lineCount, paymentMethod]);
+  }, [onCheckoutApi, checkoutBusy, checkoutBusyMode, lineCount, paymentMethod]);
 
   return (
     <div
@@ -941,7 +992,7 @@ export function BillingBillPanel({
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Tooltip title="Saves the sale (when applicable) and opens a receipt in a new tab that uses your browser’s Print dialog — choose USB, Bluetooth, Wi‑Fi, or Save as PDF.">
+            <Tooltip title="Saves the sale (when applicable), then opens a receipt preview here — use Print for the system dialog (PDF, network printer, etc.).">
               <Button
                 type="primary"
                 className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 sm:h-11 sm:text-base"
@@ -951,7 +1002,7 @@ export function BillingBillPanel({
                   borderColor: 'var(--ochre-600)',
                 }}
                 disabled={!paymentMethod || checkoutBusy}
-                loading={checkoutBusy}
+                loading={checkoutBusyMode === 'browser'}
                 onClick={() => void completeCheckout('browser')}
               >
                 Generate bill
@@ -964,7 +1015,7 @@ export function BillingBillPanel({
                   className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
                   icon={<Printer className="h-4 w-4 sm:h-5 sm:w-5" />}
                   disabled={!paymentMethod || checkoutBusy}
-                  loading={checkoutBusy}
+                  loading={checkoutBusyMode === 'thermal'}
                   onClick={() => void completeCheckout('thermal')}
                 >
                   USB thermal receipt
@@ -981,7 +1032,7 @@ export function BillingBillPanel({
                 className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
                 icon={<Bluetooth className="h-4 w-4 sm:h-5 sm:w-5" />}
                 disabled={!paymentMethod || checkoutBusy}
-                loading={checkoutBusy}
+                loading={checkoutBusyMode === 'rawbt'}
                 onClick={() => void completeCheckout('rawbt')}
               >
                 Print via RawBT (Android)
@@ -990,6 +1041,46 @@ export function BillingBillPanel({
           </div>
         </div>
       )}
+
+      <Modal
+        title="Receipt"
+        open={receiptPreviewHtml != null}
+        onCancel={() => setReceiptPreviewHtml(null)}
+        width={560}
+        centered
+        destroyOnHidden
+        styles={{
+          body: { padding: 0, maxHeight: 'min(78vh, 720px)' },
+        }}
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="default" onClick={() => setReceiptPreviewHtml(null)}>
+              Close
+            </Button>
+            <Button
+              type="primary"
+              style={{
+                backgroundColor: 'var(--ochre-600)',
+                borderColor: 'var(--ochre-600)',
+              }}
+              onClick={() => {
+                const w = receiptIframeRef.current?.contentWindow;
+                w?.focus();
+                w?.print();
+              }}
+            >
+              Print
+            </Button>
+          </div>
+        }
+      >
+        <iframe
+          ref={receiptIframeRef}
+          title="Receipt preview"
+          srcDoc={receiptPreviewHtml ?? ''}
+          className="block h-[min(70vh,640px)] w-full border-0 bg-[#ebe4d8]"
+        />
+      </Modal>
 
       <Modal
         title="Adjust Discount"

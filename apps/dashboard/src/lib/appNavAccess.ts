@@ -30,6 +30,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     anyPermissionKeys: ["canAccessDashboard", "canAccessReports"],
   },
   {
+    prefix: "/reports/gst-summary",
+    sidebarLabel: "GST summary",
+    permissionKey: "canAccessReports",
+  },
+  {
     prefix: "/billing-pos",
     sidebarLabel: "Billing POS",
     permissionKey: "canAccessBilling",

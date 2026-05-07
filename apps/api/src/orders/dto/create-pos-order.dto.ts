@@ -57,6 +57,18 @@ export class CreatePosOrderDto {
   customerEmail?: string;
 
   @IsOptional()
+  @IsString()
+  customerAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  customerNotes?: string;
+
+  @IsOptional()
+  @IsString()
+  customerGstin?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   discount?: number;

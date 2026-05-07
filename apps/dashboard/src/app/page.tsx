@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
+import { PageBootstrapLoader } from "@/components/PageBootstrapLoader/PageBootstrapLoader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
 import {
@@ -43,20 +43,5 @@ export default function HomePage() {
     router.replace(next ?? "/access-denied?reason=no-access");
   }, [isAuthenticated, isLoading, user, permissions, navCtx, router]);
 
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        boxSizing: "border-box",
-        padding: 24,
-        background: "var(--linen-100)",
-      }}
-      role="status"
-      aria-live="polite"
-      aria-label="Loading"
-    >
-      <ContentSkeleton variant="table" rowCount={8} />
-    </div>
-  );
+  return <PageBootstrapLoader label="Loading" />;
 }

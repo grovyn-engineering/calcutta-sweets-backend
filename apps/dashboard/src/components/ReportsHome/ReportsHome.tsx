@@ -5,8 +5,9 @@ import {
   Button,
   Card,
   Col,
-  Dropdown,
+  Drawer,
   Empty,
+  Input,
   Row,
   Segmented,
   Spin,
@@ -14,7 +15,6 @@ import {
   Table,
   Typography,
 } from "antd";
-import type { MenuProps } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -53,6 +53,9 @@ const { Text, Title } = Typography;
 
 type ReportsPayload = {
   days: number;
+  /** New value each successful summary fetch — use to remount charts. */
+  generatedAt: string;
+  bucket: "day" | "month";
   range: { start: string; end: string };
   totals: { orderCount: number; revenue: number };
   daily: { date: string; revenue: number; orderCount: number }[];
@@ -72,6 +75,11 @@ function paymentLabel(raw: string) {
 
 const PIE_COLORS = ["#c9932d", "#6b4a30", "#8b7355", "#a67c23", "#4e3420"];
 
+/** Presets for rolling window reports (API clamps days to 7–180). */
+const REPORT_QUICK_DAY_PRESETS = [7, 30, 90, 180] as const;
+
+type ReportsFilterMode = "quick" | "range" | "month";
+
 export type ReportsHomeProps = {
   variant?: "full" | "embedded";
 };
@@ -86,9 +94,22 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
   const shopKey = effectiveShopCode || defaultShop;
 
   const [days, setDays] = useState<number>(30);
+  const [filterMode, setFilterMode] = useState<ReportsFilterMode>("quick");
+  const [bucket, setBucket] = useState<"day" | "month">("day");
+  const [rangeDraft, setRangeDraft] = useState<{ start: string; end: string }>({
+    start: "",
+    end: "",
+  });
+  const [rangeApplied, setRangeApplied] = useState<{ start: string; end: string }>({
+    start: "",
+    end: "",
+  });
+  const [monthDraft, setMonthDraft] = useState<string>("");
+  const [monthApplied, setMonthApplied] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReportsPayload | null>(null);
   const [exportBusy, setExportBusy] = useState<"xlsx" | "pdf" | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const shopDisplayName = useMemo(() => {
     const row = shops.find((s) => s.shopCode === shopKey);
@@ -99,45 +120,71 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
     if (!shopKey) return;
     setLoading(true);
     try {
+      const q = new URLSearchParams();
+      q.set("bucket", bucket);
+      if (filterMode === "month" && monthApplied) {
+        q.set("month", monthApplied);
+      } else if (
+        filterMode === "range" &&
+        rangeApplied.start &&
+        rangeApplied.end
+      ) {
+        q.set("start", rangeApplied.start);
+        q.set("end", rangeApplied.end);
+      } else {
+        q.set("days", String(days));
+      }
       const res = await apiFetch(
-        `/analytics/reports/summary?days=${encodeURIComponent(String(days))}`,
+        `/analytics/reports/summary?${q.toString()}`,
       );
       if (!res.ok) throw new Error(await res.text());
-      setData((await res.json()) as ReportsPayload);
+      const payload = (await res.json()) as ReportsPayload;
+      setData(payload);
+      setRangeDraft((prev) =>
+        prev.start && prev.end
+          ? prev
+          : { start: payload.range.start, end: payload.range.end },
+      );
     } catch {
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [shopKey, days]);
+  }, [
+    shopKey,
+    bucket,
+    days,
+    filterMode,
+    monthApplied,
+    rangeApplied.end,
+    rangeApplied.start,
+  ]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  const exportMenuItems = useMemo<MenuProps["items"]>(
-    () => [
-      {
-        key: "xlsx",
-        label: "Excel (.xlsx)",
-        icon: <FileSpreadsheet className="h-4 w-4" aria-hidden />,
-      },
-      {
-        key: "pdf",
-        label: "PDF",
-        icon: <FileText className="h-4 w-4" aria-hidden />,
-      },
-    ],
-    [],
-  );
 
   const handleExport = useCallback(
     async (kind: "xlsx" | "pdf") => {
       if (!shopKey) return;
       setExportBusy(kind);
       try {
+        const q = new URLSearchParams();
+        q.set("bucket", bucket);
+        if (filterMode === "month" && monthApplied) {
+          q.set("month", monthApplied);
+        } else if (
+          filterMode === "range" &&
+          rangeApplied.start &&
+          rangeApplied.end
+        ) {
+          q.set("start", rangeApplied.start);
+          q.set("end", rangeApplied.end);
+        } else {
+          q.set("days", String(days));
+        }
         const res = await apiFetch(
-          `/analytics/reports/export-data?days=${encodeURIComponent(String(days))}`,
+          `/analytics/reports/export-data?${q.toString()}`,
         );
         if (!res.ok) {
           throw new Error((await res.text()) || res.statusText);
@@ -160,14 +207,30 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
         setExportBusy(null);
       }
     },
-    [days, message, shopDisplayName, shopKey],
+    [
+      bucket,
+      days,
+      filterMode,
+      message,
+      monthApplied,
+      rangeApplied.end,
+      rangeApplied.start,
+      shopDisplayName,
+      shopKey,
+    ],
   );
 
   const barData = useMemo(() => {
     if (!data) return [];
     return data.daily.map((d) => ({
       ...d,
-      label: chartDayLabel(d.date),
+      label:
+        data.bucket === "month"
+          ? new Date(`${d.date.slice(0, 7)}-01T00:00:00.000Z`).toLocaleDateString(
+              undefined,
+              { month: "short", year: "2-digit" },
+            )
+          : chartDayLabel(d.date),
     }));
   }, [data]);
 
@@ -180,6 +243,24 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
     }));
   }, [data]);
 
+  const periodLabel = useMemo(() => {
+    if (filterMode === "month" && monthApplied) {
+      return monthApplied;
+    }
+    if (filterMode === "range") {
+      if (rangeApplied.start && rangeApplied.end) {
+        return `${rangeApplied.start} to ${rangeApplied.end}`;
+      }
+      if (data) {
+        return `${data.range.start} to ${data.range.end}`;
+      }
+      return "Custom range";
+    }
+    return `${days}d`;
+  }, [data, days, filterMode, monthApplied, rangeApplied.end, rangeApplied.start]);
+
+  const chartRemountKey = data?.generatedAt ?? "";
+
   if (!shopKey) {
     return (
       <Empty description="Select a shop to load reports." className="py-16" />
@@ -188,8 +269,8 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col gap-6 ${embedded ? "pb-6" : ""}`}>
-      <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <Title
             level={embedded ? 4 : 2}
             className={`!mb-1 !text-[var(--text-primary)] ${embedded ? "!text-lg sm:!text-xl" : ""}`}
@@ -201,36 +282,193 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
               ? "Deep-dive analytics: payment behavior, top products, and searchable order history."
               : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use UTC dates."}
           </Text>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Dropdown
-            menu={{
-              items: exportMenuItems,
-              onClick: ({ key }) =>
-                void handleExport(key as "xlsx" | "pdf"),
-            }}
-            disabled={!shopKey || loading || !data || !!exportBusy}
-            trigger={["click"]}
+          <Text
+            className="mt-2 block text-xs text-[var(--bistre-600)]"
+            type="secondary"
           >
-            <Button
-              type="default"
-              icon={<Download className="h-4 w-4" aria-hidden />}
-              loading={!!exportBusy}
-            >
-              Export report
-            </Button>
-          </Dropdown>
-          <Segmented
-            options={[
-              { label: "7 days", value: 7 },
-              { label: "30 days", value: 30 },
-              { label: "90 days", value: 90 },
-            ]}
-            value={days}
-            onChange={(v) => setDays(v as number)}
-          />
+            <span className="font-medium text-[var(--text-primary)]">
+              Showing:{" "}
+            </span>
+            {!data && loading ? "Loading…" : periodLabel}
+            {data && loading ? (
+              <span className="text-[var(--text-secondary)]"> · refreshing…</span>
+            ) : null}
+            <span className="mx-1.5 text-[var(--pearl-bush)]">·</span>
+            {bucket === "month" ? "Month-wise buckets" : "Day-wise buckets"}
+          </Text>
+          <div className="mt-3 flex max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <Text className="shrink-0 text-xs text-[var(--text-secondary)]">
+              Chart range
+            </Text>
+            <div className="flex flex-wrap gap-1.5">
+              {REPORT_QUICK_DAY_PRESETS.map((d) => (
+                <Button
+                  key={d}
+                  size="small"
+                  type={
+                    filterMode === "quick" && days === d ? "primary" : "default"
+                  }
+                  onClick={() => {
+                    setFilterMode("quick");
+                    setDays(d);
+                  }}
+                >
+                  {d}d
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
+        <Button
+          type="primary"
+          icon={<Download className="h-4 w-4" aria-hidden />}
+          onClick={() => setFilterDrawerOpen(true)}
+          className="shrink-0 self-start sm:self-center"
+        >
+          Export data
+        </Button>
       </div>
+
+      <Drawer
+        title="Report filters & export"
+        placement="right"
+        size={420}
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        styles={{
+          root: { maxWidth: "calc(100vw - 16px)" },
+          body: { paddingTop: 12 },
+          footer: { borderTop: "1px solid var(--pearl-bush)" },
+        }}
+        footer={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button onClick={() => setFilterDrawerOpen(false)}>Close</Button>
+            <Button
+              icon={<FileSpreadsheet className="h-4 w-4" aria-hidden />}
+              loading={exportBusy === "xlsx"}
+              disabled={!shopKey || !!exportBusy}
+              onClick={() => void handleExport("xlsx")}
+            >
+              Excel (.xlsx)
+            </Button>
+            <Button
+              type="primary"
+              icon={<FileText className="h-4 w-4" aria-hidden />}
+              loading={exportBusy === "pdf"}
+              disabled={!shopKey || !!exportBusy}
+              onClick={() => void handleExport("pdf")}
+            >
+              PDF
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-6">
+          <div>
+            <Text className="mb-2 block text-xs font-medium text-[var(--text-secondary)]">
+              Chart grouping
+            </Text>
+            <Segmented
+              block
+              options={[
+                { label: "Day wise", value: "day" },
+                { label: "Month wise", value: "month" },
+              ]}
+              value={bucket}
+              onChange={(v) => setBucket(v as "day" | "month")}
+            />
+          </div>
+
+          <div>
+            <Text className="mb-2 block text-xs font-medium text-[var(--text-secondary)]">
+              Quick range
+            </Text>
+            <div className="flex flex-wrap gap-1.5">
+              {REPORT_QUICK_DAY_PRESETS.map((d) => (
+                <Button
+                  key={d}
+                  size="small"
+                  type={
+                    filterMode === "quick" && days === d ? "primary" : "default"
+                  }
+                  onClick={() => {
+                    setFilterMode("quick");
+                    setDays(d);
+                  }}
+                >
+                  {d}d
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Text className="mb-2 block text-xs font-medium text-[var(--text-secondary)]">
+              Custom date range
+            </Text>
+            <div className="flex w-full flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="date"
+                  value={rangeDraft.start}
+                  onChange={(e) =>
+                    setRangeDraft((p) => ({ ...p, start: e.target.value }))
+                  }
+                  className="min-w-[140px] flex-1"
+                />
+                <Input
+                  type="date"
+                  value={rangeDraft.end}
+                  onChange={(e) =>
+                    setRangeDraft((p) => ({ ...p, end: e.target.value }))
+                  }
+                  className="min-w-[140px] flex-1"
+                />
+              </div>
+              <Button
+                type={filterMode === "range" ? "primary" : "default"}
+                block
+                onClick={() => {
+                  if (!rangeDraft.start || !rangeDraft.end) return;
+                  if (rangeDraft.end < rangeDraft.start) {
+                    message.warning("End date must be after start date.");
+                    return;
+                  }
+                  setFilterMode("range");
+                  setRangeApplied(rangeDraft);
+                }}
+              >
+                Apply date range
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Text className="mb-2 block text-xs font-medium text-[var(--text-secondary)]">
+              Single month
+            </Text>
+            <div className="flex w-full flex-col gap-2">
+              <Input
+                type="month"
+                value={monthDraft}
+                onChange={(e) => setMonthDraft(e.target.value)}
+                className="w-full max-w-full"
+              />
+              <Button
+                type={filterMode === "month" ? "primary" : "default"}
+                block
+                onClick={() => {
+                  if (!monthDraft) return;
+                  setFilterMode("month");
+                  setMonthApplied(monthDraft);
+                }}
+              >
+                Apply month
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Drawer>
 
       {loading && !data ? (
         <div className="flex min-h-[280px] items-center justify-center">
@@ -250,7 +488,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                   className="rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.5)] shadow-sm"
                 >
                   <Statistic
-                    title={`Revenue (${data.days}d)`}
+                    title={`Revenue (${periodLabel})`}
                     value={data.totals.revenue}
                     formatter={(v) => formatInrFull(Number(v))}
                     styles={{
@@ -302,7 +540,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                   title={
                     <span className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4 text-[var(--ochre-600)]" />
-                      Daily revenue
+                      {data.bucket === "month" ? "Month-wise revenue" : "Daily revenue"}
                     </span>
                   }
                   variant="borderless"
@@ -310,7 +548,11 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                   styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
                 >
                   <div className="flex-1 w-full min-w-0 min-h-[320px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer
+                      key={`bar-${chartRemountKey}`}
+                      width="100%"
+                      height="100%"
+                    >
                       <BarChart
                         data={barData}
                         margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -384,7 +626,11 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                       className="py-8"
                     />
                   ) : (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer
+                      key={`pie-${chartRemountKey}`}
+                      width="100%"
+                      height="100%"
+                    >
                       <PieChart>
                         <Pie
                           data={pieData}

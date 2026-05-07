@@ -6,7 +6,10 @@ import {
 import { PrismaService } from '../prisma.service';
 import { CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { OrderStatus, Prisma } from '@calcutta/database';
-import { optionalIndianMobileOrNull } from '../common/indian-mobile';
+import {
+  normalizeIndianMobile,
+  optionalIndianMobileOrNull,
+} from '../common/indian-mobile';
 
 type OrderItemBillRow = {
   quantity: unknown;
@@ -21,9 +24,36 @@ type OrderItemBillRow = {
   } | null;
 };
 
+function isMissingCustomerTableError(error: unknown): boolean {
+  const e = error as { code?: string; meta?: { modelName?: string } };
+  return e?.code === 'P2021' && e?.meta?.modelName === 'Customer';
+}
+
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) { }
+
+  async findCustomerByPhone(shopCode: string, rawPhone: string) {
+    const phone = normalizeIndianMobile(rawPhone);
+    if (!phone) return null;
+    try {
+      const customer = await this.prisma.customer.findUnique({
+        where: { shopCode_phone: { shopCode, phone } },
+        select: {
+          name: true,
+          phone: true,
+          email: true,
+          address: true,
+          notes: true,
+          gstin: true,
+        },
+      });
+      return customer;
+    } catch (error) {
+      if (isMissingCustomerTableError(error)) return null;
+      throw error;
+    }
+  }
 
   async createPosOrder(
     shopCode: string,
@@ -74,6 +104,37 @@ export class OrdersService {
     const tax = totalAmount * (totalTaxRate / (1 + totalTaxRate));
 
     const customerPhone = optionalIndianMobileOrNull(dto.customerPhone);
+    const customerName = dto.customerName?.trim() || null;
+    const customerEmail = dto.customerEmail?.trim() || null;
+    const customerAddress = dto.customerAddress?.trim() || null;
+    const customerNotes = dto.customerNotes?.trim() || null;
+    const customerGstin = dto.customerGstin?.trim().toUpperCase() || null;
+
+    if (customerPhone) {
+      try {
+        await this.prisma.customer.upsert({
+          where: { shopCode_phone: { shopCode, phone: customerPhone } },
+          update: {
+            name: customerName ?? undefined,
+            email: customerEmail,
+            address: customerAddress,
+            notes: customerNotes,
+            gstin: customerGstin,
+          },
+          create: {
+            shopCode,
+            phone: customerPhone,
+            name: customerName ?? 'Walk-in',
+            email: customerEmail,
+            address: customerAddress,
+            notes: customerNotes,
+            gstin: customerGstin,
+          },
+        });
+      } catch (error) {
+        if (!isMissingCustomerTableError(error)) throw error;
+      }
+    }
 
     const order = await this.prisma.$transaction(async (tx) => {
       const o = await tx.order.create({
@@ -85,9 +146,9 @@ export class OrdersService {
           status: 'PAID',
           paymentMethod: dto.paymentMethod,
           createdById: userId ?? null,
-          customerName: dto.customerName?.trim() || null,
+          customerName,
           customerPhone,
-          customerEmail: dto.customerEmail?.trim() || null,
+          customerEmail,
         },
       });
 

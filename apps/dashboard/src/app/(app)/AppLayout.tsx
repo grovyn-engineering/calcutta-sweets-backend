@@ -30,6 +30,7 @@ function sidebarSelectedKey(pathname: string): string {
 const pageTitles: Record<string, string> = {
   '/access-denied': 'Access restricted',
   '/dashboard': 'Dashboard',
+  '/reports/gst-summary': 'GST summary',
   '/billing-pos': 'Billing POS',
   '/orders': 'Orders',
   '/products': 'Products',

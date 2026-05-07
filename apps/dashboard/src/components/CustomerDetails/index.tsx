@@ -2,12 +2,13 @@
 
 import { App, Button, Form, Input, Modal } from 'antd';
 import { UserPlus } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import styles from './styles.module.css';
 import {
   indianMobileRequiredRules,
   normalizeMobileFormValue,
 } from '@/lib/mobileNumber';
+import { apiFetch } from '@/lib/api';
 
 export type CustomerFormValues = {
   name: string;
@@ -38,6 +39,8 @@ function CustomerDetailsForm({
 }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<CustomerFormValues>();
+  const phone = Form.useWatch('phone', form);
+  const lastFetchedPhoneRef = useRef<string | null>(null);
 
   useEffect(() => {
     form.setFieldsValue({
@@ -49,6 +52,43 @@ function CustomerDetailsForm({
       gstin: initialValues?.gstin ?? '',
     });
   }, [form, initialValues]);
+
+  useEffect(() => {
+    const mobile = normalizeMobileFormValue(phone);
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      lastFetchedPhoneRef.current = null;
+      return;
+    }
+    if (lastFetchedPhoneRef.current === mobile) return;
+    lastFetchedPhoneRef.current = mobile;
+
+    let ignore = false;
+    void (async () => {
+      try {
+        const res = await apiFetch(
+          `/orders/customer/by-phone?phone=${encodeURIComponent(mobile)}`,
+        );
+        if (!res.ok || ignore) return;
+        const existing = (await res.json()) as Partial<CustomerFormValues> | null;
+        if (!existing || ignore) return;
+        form.setFieldsValue({
+          name: existing.name ?? '',
+          phone: existing.phone ?? mobile,
+          email: existing.email ?? '',
+          address: existing.address ?? '',
+          notes: existing.notes ?? '',
+          gstin: existing.gstin ?? '',
+        });
+        message.success('Loaded existing customer details');
+      } catch {
+        /* non-blocking prefill */
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [form, message, phone]);
 
   const handleSave = async () => {
     try {
