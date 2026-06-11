@@ -248,6 +248,8 @@ function attachBillingPosProductTooltips(host: HTMLElement | null) {
         mount.dataset.dtBillingLineRestoreText = text;
         mount.dataset.dtBillingLineRestoreClass = cls;
         mount.style.cssText = 'min-width:0;width:100%;';
+        mount.className = cls;
+        mount.textContent = text;
 
         lineEl.replaceWith(mount);
         const prev = billingLineRoots.get(mount);
@@ -255,7 +257,7 @@ function attachBillingPosProductTooltips(host: HTMLElement | null) {
           try {
             prev.unmount();
           } catch {
-            /* noop */
+            console.warn('Failed to unmount previous billing line tooltip root');
           }
           billingLineRoots.delete(mount);
         }

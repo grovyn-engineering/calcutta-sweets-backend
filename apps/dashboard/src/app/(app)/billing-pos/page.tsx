@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { App, Button, Drawer, Tabs, Tooltip } from 'antd';
+import { Button, Drawer, Tabs, Tooltip } from 'antd';
 import { Bluetooth, Receipt, ScanBarcode } from 'lucide-react';
 import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
 import { BarcodeScannerInput } from '@/components/BarcodeScannerInput/BarcodeScannerInput';
@@ -23,6 +23,7 @@ import {
   BillingPosRawSection,
   RAW_BILL_FORM_INITIAL,
   type RawBillFormValues,
+  type RawLineAddValues,
 } from '@/components/BillingPosRawSection/BillingPosRawSection';
 import CustomerDetails, {
   type CustomerFormValues,
@@ -65,7 +66,6 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
 
 
 export default function BillingPOSPage() {
-  const { message } = App.useApp();
   const { effectiveShopCode } = useShop();
   const shopCode =
     effectiveShopCode ||
@@ -150,23 +150,49 @@ export default function BillingPOSPage() {
   );
 
   const addRawBillLine = useCallback(
-    (pick: Pick<RawBillFormValues, 'itemName' | 'unitPrice' | 'quantity'>) => {
+    (pick: RawLineAddValues) => {
       const lineId = crypto.randomUUID();
-      mergeLine({
-        lineId,
-        variantId: `raw:${lineId}`,
-        productId: 'raw-line',
-        name: pick.itemName,
-        variantLabel: 'Regular',
-        barcode: '—',
-        catalogUnitPrice: pick.unitPrice,
-        stockUnitsToDeduct: pick.quantity,
-        displayQuantity: pick.quantity,
-        displayUnit: 'PC',
-        inventoryUnit: 'PC',
-        imageUrl: null,
-        isRaw: true,
-      });
+      if (pick.selectedCatalogItem) {
+        const { variantId, productId, productName, variantName, inventoryUnit, catalogPrice, barcode, imageUrl } =
+          pick.selectedCatalogItem;
+        const stock = computeInstantStockDeduction(
+          variantName,
+          inventoryUnit,
+          pick.quantity,
+          pick.unit,
+        );
+        mergeLine({
+          lineId,
+          variantId,
+          productId,
+          name: productName,
+          variantLabel: variantName,
+          barcode: barcode || '—',
+          catalogUnitPrice: catalogPrice,
+          stockUnitsToDeduct: stock,
+          displayQuantity: pick.quantity,
+          displayUnit: pick.unit,
+          inventoryUnit,
+          imageUrl: imageUrl ?? null,
+          isInstant: true,
+        });
+      } else {
+        mergeLine({
+          lineId,
+          variantId: `raw:${lineId}`,
+          productId: 'raw-line',
+          name: pick.itemName,
+          variantLabel: 'Regular',
+          barcode: '—',
+          catalogUnitPrice: pick.unitPrice,
+          stockUnitsToDeduct: pick.quantity,
+          displayQuantity: pick.quantity,
+          displayUnit: 'PC',
+          inventoryUnit: 'PC',
+          imageUrl: null,
+          isRaw: true,
+        });
+      }
     },
     [mergeLine],
   );
@@ -395,6 +421,7 @@ export default function BillingPOSPage() {
                 label: 'Raw',
                 children: (
                   <BillingPosRawSection
+                    shopCode={shopCode}
                     formValues={rawBillForm}
                     onFormChange={setRawBillForm}
                     onAddLine={addRawBillLine}

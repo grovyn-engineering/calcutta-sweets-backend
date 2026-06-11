@@ -1,43 +1,93 @@
 'use client';
 
-import { App, Button, Checkbox, Form, Input, InputNumber, Tooltip } from 'antd';
-import { Bluetooth, FileText, Printer, Receipt } from 'lucide-react';
-import { memo, useCallback } from 'react';
+import { App, AutoComplete, Button, Checkbox, Form, Input, InputNumber, Select, Tooltip } from 'antd';
+import { Bluetooth, FileText, Printer, Receipt, X } from 'lucide-react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { BillingPosCheckoutApi } from '@/components/BillingBillPanel/BillingBillPanel';
+import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
+import { allowedInstantDisplayUnits } from '@/lib/billingInstantPricing';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import styles from './BillingPosRawSection.module.css';
+
+export type SelectedCatalogItem = {
+  variantId: string;
+  productId: string;
+  productName: string;
+  variantName: string;
+  inventoryUnit: string;
+  catalogPrice: number;
+  barcode: string;
+  imageUrl: string | null;
+};
 
 export type RawBillFormValues = {
   itemName: string;
   unitPrice: number;
   quantity: number;
+  unit: string;
   customerName: string;
   includeCustomerGstin: boolean;
   customerGstin: string;
+  /** Set when user picks a product from the catalog search. Null = free-form manual line. */
+  selectedCatalogItem: SelectedCatalogItem | null;
 };
 
 export const RAW_BILL_FORM_INITIAL: RawBillFormValues = {
   itemName: '',
   unitPrice: 0,
   quantity: 1,
+  unit: 'PC',
   customerName: '',
   includeCustomerGstin: false,
   customerGstin: '',
+  selectedCatalogItem: null,
+};
+
+export type RawLineAddValues = {
+  itemName: string;
+  unitPrice: number;
+  quantity: number;
+  unit: string;
+  selectedCatalogItem: SelectedCatalogItem | null;
 };
 
 export type BillingPosRawSectionProps = {
+  shopCode: string;
   formValues: RawBillFormValues;
   onFormChange: (next: RawBillFormValues) => void;
-  onAddLine: (values: Pick<RawBillFormValues, 'itemName' | 'unitPrice' | 'quantity'>) => void;
+  onAddLine: (values: RawLineAddValues) => void;
   showToolbarAddCustomer?: boolean;
   onToolbarAddCustomer?: () => void;
   showSaleCheckoutHint?: boolean;
-  /** Same checkout actions as the sale panel (Generate bill / USB / RawBT). */
   checkoutApi?: BillingPosCheckoutApi | null;
-  /** When true, show the three print shortcuts on this tab. */
   showCheckoutButtons?: boolean;
 };
 
+type SearchOption = {
+  value: string;
+  label: React.ReactNode;
+  item: SelectedCatalogItem;
+};
+
+type ApiVariantResultRow = {
+  id: string;
+  productId?: string;
+  product_id?: string;
+  product?: { name?: string };
+  productName?: string;
+  product_name?: string;
+  variantName?: string;
+  variant_name?: string;
+  name?: string;
+  barcode?: string;
+  unit?: string;
+  price?: number;
+  imageUrl?: string | null;
+  image_url?: string | null;
+};
+
 function BillingPosRawSectionInner({
+  shopCode,
   formValues,
   onFormChange,
   onAddLine,
@@ -48,6 +98,11 @@ function BillingPosRawSectionInner({
   showCheckoutButtons,
 }: BillingPosRawSectionProps) {
   const { message } = App.useApp();
+  const [searchText, setSearchText] = useState('');
+  const [searchOptions, setSearchOptions] = useState<SearchOption[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchText, 350);
+  const abortRef = useRef<AbortController | null>(null);
 
   const patch = useCallback(
     (partial: Partial<RawBillFormValues>) => {
@@ -56,20 +111,132 @@ function BillingPosRawSectionInner({
     [formValues, onFormChange],
   );
 
-  const handleAdd = useCallback(() => {
-    const name = formValues.itemName.trim();
-    const price = Number(formValues.unitPrice);
-    const qty = Number(formValues.quantity);
-    if (!name) return;
-    if (!Number.isFinite(price) || price < 0) return;
-    if (!Number.isFinite(qty) || qty < 0.000001) return;
-    onAddLine({ itemName: name, unitPrice: price, quantity: qty });
+  useEffect(() => {
+    const q = debouncedSearch.trim();
+    if (!q || !shopCode) {
+      setSearchOptions([]);
+      setSearchLoading(false);
+      return;
+    }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSearchLoading(true);
+
+    const base = getApiBaseUrl();
+    const url = `${base}/inventory/variants?q=${encodeURIComponent(q)}&activeOnly=1&page=1&size=12`;
+
+    fetch(url, {
+      headers: { ...getAuthHeaders(), Accept: 'application/json' },
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json() as Promise<{ data?: ApiVariantResultRow[] }>;
+      })
+      .then((json) => {
+        if (controller.signal.aborted) return;
+        const rows: ApiVariantResultRow[] = json?.data ?? [];
+        const opts: SearchOption[] = rows.map((r) => {
+          const pName = String(
+            r.productName ?? r.product_name ?? (r.product as Record<string, unknown>)?.name ?? '',
+          ).trim();
+          const vName = String(r.variantName ?? r.variant_name ?? r.name ?? '').trim();
+          const displayName =
+            vName && vName !== pName ? `${pName} · ${vName}` : pName || vName;
+          const invUnit = String(r.unit ?? 'PC').toUpperCase();
+          const price = Number(r.price ?? 0);
+          return {
+            value: displayName,
+            label: (
+              <div className="flex items-center justify-between gap-2 py-0.5">
+                <span className="truncate text-sm font-medium text-[var(--bistre-800)]">
+                  {displayName}
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-[var(--ochre-600)]">
+                  ₹{price.toFixed(0)}/{invUnit}
+                </span>
+              </div>
+            ),
+            item: {
+              variantId: String(r.id),
+              productId: String(r.productId ?? r.product_id ?? ''),
+              productName: pName,
+              variantName: vName,
+              inventoryUnit: invUnit,
+              catalogPrice: price,
+              barcode: String(r.barcode ?? ''),
+              imageUrl: (r.imageUrl ?? r.image_url ?? null) as string | null,
+            },
+          };
+        });
+        setSearchOptions(opts);
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        message.error('Could not load product suggestions. Check your connection and try again.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSearchLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [debouncedSearch, shopCode, message]);
+
+  const handleClearSelection = useCallback(() => {
+    setSearchText('');
+    setSearchOptions([]);
     patch({
       itemName: '',
       unitPrice: 0,
       quantity: 1,
+      unit: 'PC',
+      selectedCatalogItem: null,
     });
-  }, [formValues, onAddLine, patch]);
+  }, [patch]);
+
+  const handleAdd = useCallback(() => {
+    const name = formValues.itemName.trim();
+    const price = Number(formValues.unitPrice);
+    const qty = Number(formValues.quantity);
+    if (!name) {
+      message.warning('Enter or select an item name before adding.');
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      message.warning('Enter a valid price (₹0 or more).');
+      return;
+    }
+    if (!Number.isFinite(qty) || qty < 0.000001) {
+      message.warning('Enter a valid quantity.');
+      return;
+    }
+    onAddLine({
+      itemName: name,
+      unitPrice: price,
+      quantity: qty,
+      unit: formValues.unit || 'PC',
+      selectedCatalogItem: formValues.selectedCatalogItem,
+    });
+    setSearchText('');
+    setSearchOptions([]);
+    patch({
+      itemName: '',
+      unitPrice: 0,
+      quantity: 1,
+      unit: 'PC',
+      selectedCatalogItem: null,
+    });
+  }, [formValues, onAddLine, patch, message]);
+
+  const isCatalogSelected = formValues.selectedCatalogItem !== null;
+
+  const unitOptions = isCatalogSelected
+    ? allowedInstantDisplayUnits(
+        formValues.selectedCatalogItem!.variantName,
+        formValues.selectedCatalogItem!.inventoryUnit,
+      ).map((u) => ({ value: u, label: u }))
+    : [];
 
   return (
     <div className={`min-h-0 flex-1 overflow-auto p-3 sm:p-5 ${styles.wrap}`}>
@@ -83,9 +250,8 @@ function BillingPosRawSectionInner({
               Raw bill (manual lines)
             </h2>
             <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
-              Add manual-priced lines here, then use the <strong>Standard</strong> or{' '}
-              <strong>Instant</strong> tab to add catalog items on the same bill. Catalog lines are
-              saved to stock when you generate the bill; manual lines appear only on the receipt.
+              Search your catalog to add a tracked item — it will create an order and deduct stock.
+              Or enter a custom name for an untracked line that appears on the receipt only.
             </p>
           </div>
         </div>
@@ -102,13 +268,57 @@ function BillingPosRawSectionInner({
             label={<span className={styles.label}>Item name</span>}
             className={styles.grow}
           >
-            <Input
-              placeholder="e.g. Custom tray — assorted"
-              value={formValues.itemName}
-              onChange={(e) => patch({ itemName: e.target.value })}
-              maxLength={200}
-            />
+            {isCatalogSelected ? (
+              <Input
+                readOnly
+                value={formValues.itemName}
+                style={{ backgroundColor: 'var(--parchment)', cursor: 'default' }}
+                suffix={
+                  <button
+                    type="button"
+                    onClick={handleClearSelection}
+                    className="flex h-4 w-4 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:text-red-500"
+                    aria-label="Clear catalog selection"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                }
+              />
+            ) : (
+              <AutoComplete
+                className="w-full"
+                options={searchOptions}
+                value={formValues.itemName}
+                onSearch={(text) => {
+                  setSearchText(text);
+                  patch({ itemName: text, selectedCatalogItem: null });
+                }}
+                onSelect={(_val, option) => {
+                  const opt = option as unknown as SearchOption;
+                  setSearchText('');
+                  setSearchOptions([]);
+                  patch({
+                    itemName: opt.value,
+                    unitPrice: opt.item.catalogPrice,
+                    unit: opt.item.inventoryUnit,
+                    quantity: 1,
+                    selectedCatalogItem: opt.item,
+                  });
+                }}
+                placeholder="Search products or enter a custom name"
+                notFoundContent={
+                  searchLoading
+                    ? 'Searching…'
+                    : debouncedSearch.trim().length > 0
+                      ? 'No products found'
+                      : undefined
+                }
+                backfill={false}
+                maxLength={200}
+              />
+            )}
           </Form.Item>
+
           <Form.Item label={<span className={styles.label}>Price (₹, incl. tax)</span>}>
             <InputNumber
               className="w-full min-w-0"
@@ -116,8 +326,24 @@ function BillingPosRawSectionInner({
               value={formValues.unitPrice || null}
               onChange={(v) => patch({ unitPrice: v ?? 0 })}
               placeholder="0"
+              readOnly={isCatalogSelected}
+              style={isCatalogSelected ? { backgroundColor: 'var(--parchment)' } : undefined}
             />
           </Form.Item>
+
+          {isCatalogSelected && (
+            <Form.Item label={<span className={styles.label}>Unit</span>}>
+              <Select
+                className="w-full min-w-0"
+                value={formValues.unit}
+                options={unitOptions}
+                onChange={(u) => patch({ unit: u })}
+                getPopupContainer={(n) => n.parentElement ?? document.body}
+              />
+            </Form.Item>
+          )}
+
+
           <Form.Item label={<span className={styles.label}>Qty</span>}>
             <InputNumber
               className="w-full min-w-0"
@@ -128,6 +354,12 @@ function BillingPosRawSectionInner({
             />
           </Form.Item>
         </div>
+
+        {isCatalogSelected && (
+          <p className="-mt-1 mb-3 rounded-md border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs text-green-700">
+            Catalog item selected
+          </p>
+        )}
 
         <div className={styles.sectionLabel}>Customer on bill</div>
         <Form.Item label={<span className={styles.label}>Customer name</span>}>
@@ -154,7 +386,10 @@ function BillingPosRawSectionInner({
                 value={formValues.customerGstin}
                 onChange={(e) =>
                   patch({
-                    customerGstin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15),
+                    customerGstin: e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, '')
+                      .slice(0, 15),
                   })
                 }
                 maxLength={15}
@@ -178,7 +413,7 @@ function BillingPosRawSectionInner({
             borderColor: 'var(--ochre-600)',
           }}
         >
-          Add Item for sale
+          {isCatalogSelected ? 'Add Catalog Item' : 'Add Item for sale'}
         </Button>
       </Form>
 
@@ -265,10 +500,11 @@ function BillingPosRawSectionInner({
 
       {showSaleCheckoutHint ? (
         <p className="mt-4 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
-          Open <strong>Review &amp; pay</strong>, pick payment, then use <strong>Generate bill</strong>,{' '}
-          <strong>USB thermal</strong>, or <strong>Print via RawBT</strong> — or the <strong>RawBT</strong>{' '}
-          button in the panel header on Android. Manual lines are not saved to stock; catalog lines on
-          the same bill are saved when you pay.
+          Open <strong>Review &amp; pay</strong>, pick payment, then use{' '}
+          <strong>Generate bill</strong>, <strong>USB thermal</strong>, or{' '}
+          <strong>Print via RawBT</strong> — or the <strong>RawBT</strong> button in the panel
+          header on Android. Catalog items deduct stock when you pay; custom lines appear on
+          the receipt only.
         </p>
       ) : null}
     </div>

@@ -370,7 +370,7 @@ function BillingPosManualSectionInner({
       layout: 'fitColumns',
       responsiveLayout: 'collapse',
       responsiveLayoutCollapseStartOpen: false,
-      virtualDom: false,
+      renderVertical: 'basic',
       height: 'clamp(240px, 32vh, 360px)',
       placeholder:
         'No products match your search or category for this shop.',
