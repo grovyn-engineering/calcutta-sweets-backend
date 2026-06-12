@@ -379,6 +379,9 @@ export function BillingBillPanel({
         typeof window !== 'undefined'
           ? `${window.location.origin}/billing-pos`
           : null,
+      bankAccountNumber: currentShop?.bankAccountNumber ?? null,
+      bankIfsc: currentShop?.bankIfsc ?? null,
+      paymentMode: paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
     };
   };
 

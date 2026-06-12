@@ -298,6 +298,9 @@ export default function OrderBillDetailPage() {
           typeof window !== 'undefined'
             ? `${window.location.origin}/orders/${order.id}`
             : null,
+        bankAccountNumber: currentShop?.bankAccountNumber ?? null,
+        bankIfsc: currentShop?.bankIfsc ?? null,
+        paymentMode: order.paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
       },
       format,
     );
