@@ -279,20 +279,7 @@ export default function GstSummaryPanel({
             </Col>
           </Row>
 
-          <div className="flex flex-wrap gap-2">
-            <Link href="/dashboard?tab=analytics" scroll={false}>
-              <Button type="default">Analytics &amp; export</Button>
-            </Link>
-            <Button disabled title="Not available in this version">
-              Purchase report
-            </Button>
-            <Button disabled title="Not available in this version">
-              HSN report
-            </Button>
-            <Button disabled title="Not available in this version">
-              GSTR-3B report
-            </Button>
-          </div>
+
         </>
       )}
     </div>
