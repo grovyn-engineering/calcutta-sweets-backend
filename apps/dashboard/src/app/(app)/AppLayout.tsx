@@ -204,9 +204,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               onClick={() => setIsMobileMenuOpen(true)}
               icon={<MenuIcon className="size-5 text-[var(--bistre-800)]" />}
             />
-            <span className={`truncate text-base font-semibold leading-tight ${styles.pageTitle}`}>
-              {pageTitle}
-            </span>
+            {/* Page title removed to prevent duplication with component headers */}
           </div>
           <div className={`flex shrink-0 items-center ${styles.headerToolbar}`}>
             {showShopSwitcher && (

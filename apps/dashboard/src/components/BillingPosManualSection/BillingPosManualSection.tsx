@@ -4,29 +4,25 @@ import { Search, UserPlus } from 'lucide-react';
 import { App, Button, Input, Select, Tooltip } from 'antd';
 import {
   memo,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { DataTable } from '@/components/DataTable/DataTable';
-import type { ColumnDefinition, ReactTabulatorOptions } from 'react-tabulator';
-
+import { DataTable, type AppTableColumn } from '@/components/DataTable/DataTable';
+import { VariantThumb } from '@/components/VariantThumb/VariantThumb';
 import {
   apiFetch,
   dedupeInFlight,
   getApiBaseUrl,
   getAuthHeaders,
 } from '@/lib/api';
-import { createTabulatorVariantThumb } from '@/lib/tabulatorVariantThumb';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useRemoteTabulatorLoading } from '@/hooks/useRemoteTabulatorLoading';
 import type { BillingVariantRow } from '@/hooks/useBillingPosVariants';
 import pageStyles from '@/app/(app)/billing-pos/page.module.css';
 import styles from './BillingPosManualSection.module.css';
-
-import 'tabulator-tables/dist/css/tabulator.min.css';
 
 type CategorySummary = { id: string; name: string };
 
@@ -43,15 +39,14 @@ type ApiVariantRow = {
   imageUrl?: string | null;
 };
 
-type InventoryVariantsPageJson = {
-  data?: ApiVariantRow[];
-  last_page?: number;
-  page?: number;
-  hasMore?: boolean;
-};
-
 const PAGE_SIZE = 40;
-const PAGE_SIZE_OPTIONS = [10, 20, 40, 60, 100] as const;
+const PAGE_SIZE_OPTIONS = [10, 20, 40, 60, 100];
+
+const inr = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
 
 function coalesceStr(v: unknown): string {
   if (v == null) return '';
@@ -67,9 +62,7 @@ function normalizeInventoryVariantRow(raw: unknown): ApiVariantRow {
       : '';
   const productName =
     coalesceStr(r.productName ?? r.product_name) || fromNestedProduct;
-  const variantName = coalesceStr(
-    r.variantName ?? r.variant_name ?? r.name,
-  );
+  const variantName = coalesceStr(r.variantName ?? r.variant_name ?? r.name);
   return {
     id: coalesceStr(r.id),
     productId: coalesceStr(r.productId ?? r.product_id),
@@ -83,14 +76,6 @@ function normalizeInventoryVariantRow(raw: unknown): ApiVariantRow {
     imageUrl: (r.imageUrl ?? r.image_url ?? null) as string | null | undefined,
   };
 }
-
-const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>`;
-
-const inr = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-});
 
 function apiRowToBilling(d: ApiVariantRow): BillingVariantRow {
   const cat = d.category?.trim();
@@ -140,10 +125,7 @@ function BillingPosManualSectionInner({
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [categories, setCategories] = useState<CategorySummary[]>([]);
 
-  const filtersRef = useRef({
-    q: debouncedSearch,
-    category: activeCategory,
-  });
+  const filtersRef = useRef({ q: debouncedSearch, category: activeCategory });
   filtersRef.current = { q: debouncedSearch, category: activeCategory };
 
   const addProductRef = useRef(onAddProduct);
@@ -151,13 +133,7 @@ function BillingPosManualSectionInner({
     addProductRef.current = onAddProduct;
   }, [onAddProduct]);
 
-  const tableRef = useRef<{ setPage?: (n: number) => void } | null>(null);
-  const prevFilterKeyRef = useRef<string | null>(null);
-
   const filterKey = `${shopCode}|${debouncedSearch}|${activeCategory}|${dataRefreshKey}`;
-
-  const { loading: tableLoading, onRemoteBusyChange } =
-    useRemoteTabulatorLoading(shopCode, filterKey);
 
   useEffect(() => {
     if (!shopCode) {
@@ -182,331 +158,242 @@ function BillingPosManualSectionInner({
     };
   }, [shopCode]);
 
-  const categorySelectOptions = [
-    { value: 'all', label: 'All categories' },
-    ...categories.map((c) => ({
-      value: c.name,
-      label: c.name.replace(/_/g, ' '),
-    })),
-  ];
+  const categorySelectOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All categories' },
+      ...categories.map((c) => ({
+        value: c.name,
+        label: c.name.replace(/_/g, ' '),
+      })),
+    ],
+    [categories],
+  );
 
-  useEffect(() => {
-    const prev = prevFilterKeyRef.current;
-    prevFilterKeyRef.current = filterKey;
-    const t = tableRef.current;
-    if (!shopCode || !t?.setPage) return;
-    if (prev === null || prev === filterKey) return;
-    t.setPage(1);
-  }, [filterKey, shopCode]);
+  const handleCopyBarcode = useCallback(
+    async (barcode: string) => {
+      try {
+        await navigator.clipboard.writeText(barcode);
+        messageApiRef.current.success('Barcode copied');
+      } catch {
+        messageApiRef.current.error('Could not copy');
+      }
+    },
+    [],
+  );
 
-  const columns = useMemo<ColumnDefinition[]>(() => {
-    const barcodeColumn: ColumnDefinition = {
-      title: 'Barcode',
-      field: 'barcode',
-      minWidth: 120,
-      cssClass: 'billing-pos-col-barcode',
-      headerSort: false,
-      responsive: 2,
-      formatter: (cell) => {
-        const raw = String(cell.getValue() ?? '');
-        const wrap = document.createElement('div');
-        wrap.className = 'billing-pos-barcode-wrap';
-        const span = document.createElement('span');
-        span.className = 'billing-pos-mono';
-        span.textContent = raw;
-        if (raw) span.title = raw;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'billing-pos-copy-btn';
-        btn.innerHTML = COPY_ICON_SVG;
-        btn.setAttribute('aria-label', 'Copy barcode');
-        btn.disabled = !raw;
-        btn.addEventListener('click', async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!raw) return;
-          try {
-            await navigator.clipboard.writeText(raw);
-            messageApiRef.current.success('Barcode copied');
-          } catch {
-            messageApiRef.current.error('Could not copy');
-          }
-        });
-        wrap.appendChild(btn);
-        wrap.appendChild(span);
-        return wrap;
-      },
-    };
-
-    return [
+  const columns: AppTableColumn[] = useMemo(() => {
+    const base: AppTableColumn[] = [
       {
-        title: 'S.No.',
-        formatter: 'responsiveCollapse',
-        width: 30,
-        minWidth: 30,
-        hozAlign: 'center',
-        resizable: false,
-        headerSort: false,
-      },
-      {
-        title: 'Image',
+        key: 'imageUrl',
+        label: '',
         field: 'imageUrl',
         width: 56,
-        minWidth: 52,
-        hozAlign: 'center',
-        headerHozAlign: 'center',
-        headerSort: false,
-        resizable: false,
-        responsive: 0,
-        cssClass: 'billing-pos-thumb-cell',
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as ApiVariantRow;
+        align: 'center',
+        render: (val, row) => {
+          const r = row as ApiVariantRow;
           const label =
-            [row.productName, row.variantName].filter(Boolean).join(' · ') ||
-            'Product';
-          return createTabulatorVariantThumb(row.imageUrl, label);
+            [r.productName, r.variantName].filter(Boolean).join(' · ') || 'Product';
+          return <VariantThumb imageUrl={val as string | null} label={label} />;
         },
       },
       {
-        title: 'Product',
+        key: 'product',
+        label: 'Product',
         field: 'productName',
         minWidth: 140,
-        headerSort: false,
-        responsive: 0,
-        cssClass: 'billing-pos-product-cell',
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as ApiVariantRow;
-          const wrap = document.createElement('div');
-          wrap.className = 'billing-pos-product-stack';
-          wrap.setAttribute('data-skip-overflow-tooltip', '1');
-
-          const product = (row.productName ?? '').trim();
-          const variant = (row.variantName ?? '').trim();
-          const cat = (row.category ?? '').trim();
-          const catLabel =
-            cat && cat !== '-' ? cat.replace(/_/g, ' ') : '';
+        render: (_, row) => {
+          const r = row as ApiVariantRow;
+          const product = (r.productName ?? '').trim();
+          const variant = (r.variantName ?? '').trim();
+          const cat = (r.category ?? '').trim();
+          const catLabel = cat && cat !== '-' ? cat.replace(/_/g, ' ') : '';
           let titleText = product || variant;
           if (!titleText) titleText = catLabel || '-';
-
-          const titleEl = document.createElement('div');
-          titleEl.className = 'billing-pos-product-title';
-          titleEl.textContent = titleText;
-
-          const sub = document.createElement('div');
-          sub.className = 'billing-pos-product-sub';
           const subParts: string[] = [];
-          if (product && variant && variant !== product) {
-            subParts.push(variant);
-          }
-          if (catLabel && titleText !== catLabel) {
-            subParts.push(catLabel);
-          }
+          if (product && variant && variant !== product) subParts.push(variant);
+          if (catLabel && titleText !== catLabel) subParts.push(catLabel);
           const subText = subParts.join(' · ');
-          sub.textContent = subText;
-
-          const inner = document.createElement('div');
-          inner.className = 'billing-pos-product-stack-content';
-          inner.appendChild(titleEl);
-          inner.appendChild(sub);
-          wrap.appendChild(inner);
-          return wrap;
-        },
-      },
-      ...(hideBarcodeColumn ? [] : [barcodeColumn]),
-      {
-        title: 'Stock',
-        field: 'quantity',
-        width: 100,
-        minWidth: 90,
-        hozAlign: 'left',
-        headerSort: false,
-        responsive: 1,
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as ApiVariantRow;
-          return `${row.quantity ?? 0} ${row.unit ?? 'PC'}`;
-        },
-      },
-      {
-        title: 'Price',
-        field: 'price',
-        width: 90,
-        minWidth: 80,
-        hozAlign: 'left',
-        headerSort: false,
-        responsive: 0,
-        formatter: (cell) =>
-          inr.format(Number(cell.getValue()) || 0),
-      },
-      {
-        title: 'Actions',
-        field: '_add',
-        width: 96,
-        minWidth: 96,
-        hozAlign: 'right',
-        headerSort: false,
-        resizable: false,
-        responsive: 0,
-        formatter: (cell) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'billing-pos-add-btn';
-          btn.textContent = 'Add';
-          btn.setAttribute('aria-label', 'Add to sale');
-          btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const d = cell.getRow().getData() as ApiVariantRow;
-            addProductRef.current(apiRowToBilling(d));
-          });
-          return btn;
+          return (
+            <div className="billing-pos-product-stack">
+              <div className="billing-pos-product-title">{titleText}</div>
+              {subText && <div className="billing-pos-product-sub">{subText}</div>}
+            </div>
+          );
         },
       },
     ];
-  }, [hideBarcodeColumn]);
 
-  const options = useMemo<ReactTabulatorOptions>(() => {
+    if (!hideBarcodeColumn) {
+      base.push({
+        key: 'barcode',
+        label: 'Barcode',
+        field: 'barcode',
+        minWidth: 120,
+        render: (val) => {
+          const raw = String(val ?? '');
+          return (
+            <div className="billing-pos-barcode-wrap">
+              <button
+                type="button"
+                className="billing-pos-copy-btn"
+                aria-label="Copy barcode"
+                disabled={!raw}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (raw) await handleCopyBarcode(raw);
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <span className="billing-pos-mono" title={raw || undefined}>{raw || '-'}</span>
+            </div>
+          );
+        },
+      });
+    }
+
+    base.push(
+      {
+        key: 'quantity',
+        label: 'Stock',
+        field: 'quantity',
+        width: 100,
+        render: (_, row) => {
+          const r = row as ApiVariantRow;
+          return `${r.quantity ?? 0} ${r.unit ?? 'PC'}`;
+        },
+      },
+      {
+        key: 'price',
+        label: 'Price',
+        field: 'price',
+        width: 90,
+        render: (val) => inr.format(Number(val) || 0),
+      },
+      {
+        key: '_add',
+        label: '',
+        width: 88,
+        align: 'right',
+        render: (_, row) => {
+          const r = row as ApiVariantRow;
+          return (
+            <button
+              type="button"
+              className="billing-pos-add-btn"
+              aria-label="Add to sale"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                addProductRef.current(apiRowToBilling(r));
+              }}
+            >
+              Add
+            </button>
+          );
+        },
+      },
+    );
+
+    return base;
+  }, [hideBarcodeColumn, handleCopyBarcode]);
+
+  const fetchFn = useMemo(() => {
+    if (!shopCode) return undefined;
     const baseUrl = getApiBaseUrl();
-    return {
-      layout: 'fitColumns',
-      responsiveLayout: 'collapse',
-      responsiveLayoutCollapseStartOpen: false,
-      renderVertical: 'basic',
-      height: 'clamp(240px, 32vh, 360px)',
-      placeholder:
-        'No products match your search or category for this shop.',
-      pagination: true,
-      paginationMode: 'remote',
-      paginationSize: PAGE_SIZE,
-      paginationSizeSelector: [...PAGE_SIZE_OPTIONS],
-      ajaxURL: `${baseUrl}/inventory/variants`,
-      ajaxRequestFunc: (url: string, _config: unknown, params: unknown) => {
-        const u = new URL(
-          url,
-          typeof window !== 'undefined'
-            ? window.location.origin
-            : 'http://localhost',
-        );
-        const merged: Record<string, unknown> = {
-          ...(params && typeof params === 'object' ? params : {}),
-        };
-        merged.activeOnly = '1';
-        const { q, category } = filtersRef.current;
-        const qt = q.trim();
-        if (qt) merged.q = qt;
-        if (category && category !== 'all') merged.category = category;
-        Object.entries(merged).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== '') {
-            u.searchParams.set(k, String(v));
-          }
-        });
-        return fetch(u.toString(), {
-          headers: { ...getAuthHeaders(), Accept: 'application/json' },
-        }).then(async (r) => {
+    return ({ page, pageSize }: { page: number; pageSize: number }) => {
+      const u = new URL(
+        `${baseUrl}/inventory/variants`,
+        typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+      );
+      u.searchParams.set('page', String(page));
+      u.searchParams.set('size', String(pageSize));
+      u.searchParams.set('activeOnly', '1');
+      const { q, category } = filtersRef.current;
+      const qt = q.trim();
+      if (qt) u.searchParams.set('q', qt);
+      if (category && category !== 'all') u.searchParams.set('category', category);
+      return fetch(u.toString(), {
+        headers: { ...getAuthHeaders(), Accept: 'application/json' },
+      })
+        .then(async (r) => {
           if (!r.ok) {
             messageApiRef.current.error('Could not load products for billing.');
             throw new Error(await r.text().catch(() => r.statusText));
           }
-          const json = (await r.json()) as InventoryVariantsPageJson;
-          const data = (Array.isArray(json.data) ? json.data : []).map(
-            normalizeInventoryVariantRow,
-          );
-          return { ...json, data };
-        });
-      },
-      dataLoader: false,
+          return r.json() as Promise<{ data?: unknown[]; last_page?: number }>;
+        })
+        .then((json) => ({
+          data: (Array.isArray(json.data) ? json.data : []).map(normalizeInventoryVariantRow),
+          lastPage: Number(json.last_page ?? 1),
+        }));
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopCode]);
 
   if (!shopCode) return null;
 
   return (
     <section className={styles.section}>
-      <header className={styles.manualHeaderStrip}>
-        <div className={styles.manualHeaderInner}>
-          <div className={styles.manualTitleCluster}>
-            <h2 className={styles.manualSectionTitle}>{sectionTitle}</h2>
-            {showToolbarAddCustomer && onToolbarAddCustomer ? (
-              <Tooltip title="Add customer">
-                <Button
-                  type="default"
-                  className={styles.customerIconBtn}
-                  icon={<UserPlus className="h-4 w-4" aria-hidden />}
-                  onClick={onToolbarAddCustomer}
-                  aria-label="Add customer"
-                />
-              </Tooltip>
-            ) : null}
-          </div>
-          <div className={styles.manualFilters}>
-            <Input
-              className={`${pageStyles.searchInput} ${styles.manualSearch}`}
-              allowClear
-              placeholder={
-                hideBarcodeColumn
-                  ? 'Search products, variants…'
-                  : 'Search products, variants, barcodes…'
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" />}
-              aria-label="Search products"
-            />
-            <div className={styles.manualCategoryWrap}>
-              <Select
-                className={`${pageStyles.categorySelect} w-full min-w-0`}
-                classNames={{
-                  popup: { root: pageStyles.categorySelectDropdown },
-                }}
-                value={activeCategory}
-                onChange={(v) => setActiveCategory(v)}
-                options={categorySelectOptions}
-                aria-label="Filter by category"
-                getPopupContainer={() => document.body}
-                listHeight={280}
-              />
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex flex-1 items-center gap-3 min-w-[280px]">
+          <Input
+            size="large"
+            className="w-full max-w-[360px] rounded-lg"
+            allowClear
+            placeholder={
+              hideBarcodeColumn
+                ? 'Search products, variants…'
+                : 'Search products, variants, barcodes…'
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefix={<Search size={16} className="text-[var(--text-muted)]" />}
+            aria-label="Search products"
+          />
+          <Select
+            size="large"
+            className="w-[200px]"
+            classNames={{
+              popup: { root: pageStyles.categorySelectDropdown },
+            }}
+            value={activeCategory}
+            onChange={(v) => setActiveCategory(v)}
+            options={categorySelectOptions}
+            aria-label="Filter by category"
+            getPopupContainer={() => document.body}
+            listHeight={280}
+          />
         </div>
-      </header>
-
-      {sectionHint ? (
-        <p className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2.5 text-xs leading-relaxed text-[var(--bistre-700)]">
-          {sectionHint}
-        </p>
-      ) : null}
-
-      {showSaleCheckoutHint ? (
-        <p className="rounded-xl border border-dashed border-[var(--ochre-200)] bg-[var(--ochre-2)] px-3 py-2 text-xs leading-snug text-[var(--bistre-700)]">
-          <span className="font-semibold text-[var(--bistre-900)]">
-            Current sale &amp; checkout:
-          </span>{' '}
-          tap <strong>Review &amp; pay</strong> (bottom bar), add a customer if needed, choose{' '}
-          <strong>Cash</strong> or <strong>UPI / Card</strong>, then either{' '}
-          <strong>Generate bill</strong> (opens a printable page) or{' '}
-          <strong>Print via RawBT</strong> / <strong>USB thermal</strong> in the same panel for
-          direct thermal printing. On Android you can also tap <strong>RawBT</strong> in the panel
-          header.
-        </p>
-      ) : null}
+        
+        {showToolbarAddCustomer && onToolbarAddCustomer ? (
+          <Button
+            type="primary"
+            size="large"
+            className="rounded-lg shadow-sm font-semibold shrink-0"
+            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+            icon={<UserPlus size={16} />}
+            onClick={onToolbarAddCustomer}
+          >
+            Add Customer
+          </Button>
+        ) : null}
+      </div>
 
       <div className={styles.wrap}>
         <div className={styles.tabulatorInner}>
-          <div className={styles.tableScrollShell}>
-            <DataTable
-              key={`${shopCode}-${hideBarcodeColumn ? 'i' : 's'}`}
-              columns={columns}
-              options={options}
-              onRef={(instanceRef) => {
-                tableRef.current =
-                  (instanceRef.current as { setPage?: (n: number) => void }) ??
-                  null;
-              }}
-              loading={tableLoading}
-              onRemoteBusyChange={onRemoteBusyChange}
-              minHeight={400}
-              emptyTitle="No matching products"
-            />
-          </div>
+          <DataTable
+            key={`${shopCode}-${hideBarcodeColumn ? 'i' : 's'}`}
+            columns={columns}
+            fetchFn={fetchFn}
+            filterKey={filterKey}
+            pageSize={PAGE_SIZE}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            maxBodyHeight="calc(100vh - 460px)"
+            emptyTitle="No matching products"
+            emptyDescription="No products match your search or category for this shop."
+          />
         </div>
       </div>
     </section>

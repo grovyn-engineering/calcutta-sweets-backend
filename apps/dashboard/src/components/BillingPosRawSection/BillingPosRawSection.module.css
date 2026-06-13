@@ -3,29 +3,44 @@
 }
 
 .form {
-  max-width: 720px;
+  max-width: 800px;
+}
+
+.form :global(.ant-form-item) {
+  margin-bottom: 12px;
 }
 
 .label {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--text-secondary);
+  line-height: 1.2;
 }
 
 .sectionLabel {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--bistre-400);
-  margin-bottom: 8px;
-  margin-top: 4px;
+  margin-bottom: 6px;
+  margin-top: 8px;
 }
 
 .rowTwo {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 4px;
+}
+
+.rowTwo > div {
+  flex: 1 1 110px;
+  min-width: 0;
+}
+
+.grow {
+  flex: 3 1 240px !important;
 }
 
 /* Ant Design injects high-specificity reset; rootClassName + !important keeps border visible when not hovered */
@@ -34,8 +49,8 @@
   :global(
     .ant-checkbox:not(.ant-checkbox-checked):not(.ant-checkbox-disabled) .ant-checkbox-inner
   ) {
-  width: 18px !important;
-  height: 18px !important;
+  width: 16px !important;
+  height: 16px !important;
   border: 2px solid var(--bistre-600) !important;
   background-color: #fff !important;
 }
@@ -47,18 +62,4 @@
 .gstinCheckboxRoot :global(.ant-checkbox-checked .ant-checkbox-inner) {
   background-color: var(--ochre-600) !important;
   border-color: var(--ochre-600) !important;
-}
-
-.grow {
-  grid-column: 1 / -1;
-}
-
-@container (min-width: 520px) {
-  .rowTwo {
-    grid-template-columns: 1fr minmax(120px, 140px) minmax(100px, 120px);
-  }
-
-  .grow {
-    grid-column: 1 / -1;
-  }
 }

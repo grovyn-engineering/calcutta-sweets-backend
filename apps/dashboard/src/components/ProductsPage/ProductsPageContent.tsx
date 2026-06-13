@@ -214,68 +214,43 @@ export function ProductsPageContent({
 
   return (
     <div className={styles.root}>
-      <header className={styles.intro}>
-        <div className={styles.introTop}>
-          <div className={styles.introCopy}>
-            <p className={styles.eyebrow}>Product catalog</p>
-            <h1 className={styles.title}>Products</h1>
-          </div>
-          <div className={styles.countPill} aria-live="polite">
-            <span className={styles.countNum}>{items.length}</span>
-            <span className={styles.countLabel}>
-              {hasMore ? "Loaded" : "In current view"}
-            </span>
-            <span className={styles.countTotal}>
-              of {total} matching{hasMore ? " · scroll for more" : ""}
-            </span>
-            {debouncedSearch.trim() || status !== "all" ? (
-              <span className={styles.countHint}>Filters applied</span>
-            ) : null}
-            {showingAll &&
-            total > 0 &&
-            !debouncedSearch.trim() &&
-            status === "all" ? (
-              <span className={styles.countHint}>All loaded</span>
-            ) : null}
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Products</h1>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--ochre-600)] bg-[var(--ochre-50)] px-2.5 py-1 rounded border border-[var(--ochre-100)] leading-none mt-0.5">
+            {items.length} of {total} {hasMore ? "loaded" : "total"}
+          </span>
         </div>
-      </header>
 
-      <div className={styles.toolbar}>
-        <div className={styles.searchFrame}>
+        <div className="flex flex-1 items-center justify-end gap-3 min-w-[300px]">
           <Input
             allowClear
             size="large"
-            placeholder="Search products, categories, variants, barcodes…"
+            placeholder="Search products, variants, barcodes…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={styles.search}
-            prefix={
-              <Search
-                className={styles.searchIcon}
-                size={18}
-                strokeWidth={2}
-                aria-hidden
-              />
-            }
+            className="max-w-[300px] rounded-lg"
+            prefix={<Search size={16} className="text-[var(--text-muted)]" />}
           />
-        </div>
-        <div className={styles.toolbarRow}>
-          <div className={styles.segmentedWrap}>
-            <Segmented<StatusFilter>
-              options={[
-                { label: "All", value: "all" },
-                { label: "Active", value: "active" },
-                { label: "Inactive", value: "inactive" },
-              ]}
-              value={status}
-              onChange={setStatus}
-            />
-          </div>
+          <Segmented<StatusFilter>
+            size="large"
+            options={[
+              { label: "All", value: "all" },
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ]}
+            value={status}
+            onChange={setStatus}
+            className="font-medium p-1 rounded-lg"
+            style={{ backgroundColor: 'rgba(44,24,16,0.03)', border: '1px solid rgba(44,24,16,0.05)' }}
+          />
           <Button
             type="primary"
-            icon={<Plus size={18} />}
+            size="large"
+            icon={<Plus size={16} />}
             onClick={() => setCreateOpen(true)}
+            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+            className="font-semibold rounded-lg"
           >
             New product
           </Button>

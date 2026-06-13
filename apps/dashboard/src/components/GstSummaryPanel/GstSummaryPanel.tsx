@@ -2,8 +2,7 @@
 
 import { App, Button, Card, Col, Row, Spin, Typography } from "antd";
 import Link from "next/link";
-import { useCallback, useState } from "react";
-
+import { useCallback, useEffect, useState } from "react";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { formatInrFull } from "@/lib/chartFormat";
@@ -89,6 +88,13 @@ export default function GstSummaryPanel({
       setLoading(false);
     }
   }, [shopKey, month, message]);
+
+  useEffect(() => {
+    if (shopKey) {
+      void load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopKey]);
 
   const sgstMid = data ? `${data.sgstRate.toFixed(1)}%` : "—";
   const cgstMid = data ? `${data.cgstRate.toFixed(1)}%` : "—";

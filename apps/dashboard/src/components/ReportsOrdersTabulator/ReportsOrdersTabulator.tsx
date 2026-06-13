@@ -2,16 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
-import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
 import { Receipt } from "lucide-react";
-import { DataTable } from "@/components/DataTable/DataTable";
-
+import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { formatInrFull } from "@/lib/chartFormat";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
-
-
 
 type OrderRow = {
   id: string;
@@ -24,172 +19,129 @@ type OrderRow = {
   itemCount: number;
 };
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
 
-function paymentPill(raw: string) {
-  const span = document.createElement("span");
-  if (raw === "CASH") {
-    span.className = "orders-pay-pill orders-pay-pill--cash";
-    span.textContent = "Cash";
-  } else if (raw === "UPI_CARD") {
-    span.className = "orders-pay-pill orders-pay-pill--upi";
-    span.textContent = "UPI / Card";
-  } else {
-    span.className = "orders-pay-pill";
-    span.textContent = raw || "-";
-  }
-  return span;
-}
+const columns: AppTableColumn[] = [
+  {
+    key: "createdAt",
+    label: "Date",
+    field: "createdAt",
+    minWidth: 120,
+    render: (val) => {
+      const iso = String(val ?? "");
+      try {
+        return new Date(iso).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      } catch {
+        return iso;
+      }
+    },
+  },
+  {
+    key: "id",
+    label: "Bill ref",
+    field: "id",
+    width: 108,
+    render: (val) => (
+      <span className="orders-bill-ref">
+        {val ? orderIdToInvoiceRef(String(val)) : "-"}
+      </span>
+    ),
+  },
+  {
+    key: "paymentMethod",
+    label: "Payment",
+    field: "paymentMethod",
+    minWidth: 100,
+    render: (val) => {
+      const raw = String(val ?? "");
+      if (raw === "CASH")
+        return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
+      if (raw === "UPI_CARD")
+        return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
+      return <span className="orders-pay-pill">{raw || "-"}</span>;
+    },
+  },
+  {
+    key: "customerName",
+    label: "Customer",
+    field: "customerName",
+    minWidth: 120,
+    render: (_, row) => {
+      const r = row as OrderRow;
+      return (
+        <div>
+          <div className="orders-cust-name">{r.customerName?.trim() || "Walk-in"}</div>
+          {r.customerPhone ? (
+            <div className="orders-cust-phone">{r.customerPhone}</div>
+          ) : null}
+        </div>
+      );
+    },
+  },
+  {
+    key: "itemCount",
+    label: "Items",
+    field: "itemCount",
+    width: 56,
+    align: "right",
+  },
+  {
+    key: "totalAmount",
+    label: "Total",
+    field: "totalAmount",
+    width: 100,
+    align: "right",
+    render: (val) => formatInrFull(Number(val) || 0),
+  },
+];
 
 export default function ReportsOrdersTabulator() {
   const router = useRouter();
-  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading();
 
-  const columns = useMemo<ColumnDefinition[]>(
-    () => [
-      {
-        title: "Date",
-        field: "createdAt",
-        minWidth: 120,
-        headerSort: false,
-        formatter: (cell) => {
-          const iso = String(cell.getValue() ?? "");
-          try {
-            const d = new Date(iso);
-            return d.toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            });
-          } catch {
-            return iso;
-          }
-        },
-      },
-      {
-        title: "Bill ref",
-        field: "id",
-        width: 108,
-        headerSort: false,
-        formatter: (cell) => {
-          const id = String(cell.getValue() ?? "");
-          const span = document.createElement("span");
-          span.className = "orders-bill-ref";
-          span.textContent = id ? orderIdToInvoiceRef(id) : "-";
-          return span;
-        },
-      },
-      {
-        title: "Payment",
-        field: "paymentMethod",
-        minWidth: 100,
-        headerSort: false,
-        formatter: (cell) => paymentPill(String(cell.getValue() ?? "")),
-      },
-      {
-        title: "Customer",
-        field: "customerName",
-        minWidth: 120,
-        headerSort: false,
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as OrderRow;
-          const wrap = document.createElement("div");
-          const name = document.createElement("div");
-          name.className = "orders-cust-name";
-          name.textContent = row.customerName?.trim() || "Walk-in";
-          wrap.appendChild(name);
-          if (row.customerPhone) {
-            const phone = document.createElement("div");
-            phone.className = "orders-cust-phone";
-            phone.textContent = row.customerPhone;
-            wrap.appendChild(phone);
-          }
-          return wrap;
-        },
-      },
-      {
-        title: "Items",
-        field: "itemCount",
-        width: 56,
-        hozAlign: "right",
-        headerSort: false,
-      },
-      {
-        title: "Total",
-        field: "totalAmount",
-        width: 100,
-        hozAlign: "right",
-        headerSort: false,
-        formatter: (cell) =>
-          formatInrFull(Number(cell.getValue()) || 0),
-      },
-    ],
-    [],
-  );
-
-  const options = useMemo<ReactTabulatorOptions>(() => {
+  const fetchFn = useMemo(() => {
     const baseUrl = getApiBaseUrl();
-    return {
-      layout: "fitColumns",
-      placeholder: "No orders in this shop yet.",
-      pagination: true,
-      paginationMode: "remote",
-      paginationSize: PAGE_SIZE,
-      ajaxURL: `${baseUrl}/orders`,
-      ajaxRequestFunc: (_url, _config, params) => {
-        const u = new URL(
-          `${baseUrl}/orders`,
-          typeof window !== "undefined" ? window.location.origin : "http://localhost",
-        );
-        const merged: Record<string, unknown> = {
-          ...(params && typeof params === "object" ? params : {}),
-        };
-        Object.entries(merged).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== "") {
-            u.searchParams.set(k, String(v));
-          }
-        });
-        return fetch(u.toString(), {
-          headers: {
-            ...getAuthHeaders(),
-            Accept: "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-          },
-        }).then(async (r) => {
-          if (!r.ok) {
-            const t = await r.text();
-            throw new Error(t || r.statusText);
-          }
+    return ({ page, pageSize }: { page: number; pageSize: number }) => {
+      const u = new URL(
+        `${baseUrl}/orders`,
+        typeof window !== "undefined" ? window.location.origin : "http://localhost",
+      );
+      u.searchParams.set("page", String(page));
+      u.searchParams.set("size", String(pageSize));
+      return fetch(u.toString(), {
+        headers: {
+          ...getAuthHeaders(),
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
           return r.json();
-        });
-      },
-      dataLoader: false,
+        })
+        .then((json) => ({
+          data: Array.isArray(json.data) ? json.data : [],
+          lastPage: Number(json.last_page ?? 1),
+        }));
     };
   }, []);
 
-  const tableEvents = useMemo(
-    () => ({
-      rowClick: (_e: unknown, row: { getData: () => OrderRow }) => {
-        const data = row.getData();
-        if (data?.id) router.push(`/orders/${encodeURIComponent(data.id)}`);
-      },
-    }),
-    [router],
-  );
-
   return (
-    <div>
-      <DataTable
-        columns={columns}
-        options={options}
-        events={tableEvents}
-        loading={tableLoading}
-        onRemoteBusyChange={onRemoteBusyChange}
-        minHeight={400}
-        emptyTitle="No orders in this report"
-        emptyDescription="Try widening the date range or check another shop."
-        emptyIcon={<Receipt size={28} strokeWidth={1.35} aria-hidden />}
-      />
-    </div>
+    <DataTable
+      columns={columns}
+      fetchFn={fetchFn}
+      pageSize={PAGE_SIZE}
+      maxBodyHeight={480}
+      onRowClick={(row) => {
+        const r = row as OrderRow;
+        if (r?.id) router.push(`/orders/${encodeURIComponent(r.id)}`);
+      }}
+      emptyTitle="No orders in this report"
+      emptyDescription="Try widening the date range or check another shop."
+      emptyIcon={<Receipt size={28} strokeWidth={1.35} aria-hidden />}
+    />
   );
 }

@@ -104,10 +104,12 @@ enum OrderStatus {
 model OrderItem {
   id      String @id @default(uuid())
   orderId String
-  order   Order  @relation(fields: [orderId], references: [id])
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  customName String?
 
   productVariantId String?
   productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])

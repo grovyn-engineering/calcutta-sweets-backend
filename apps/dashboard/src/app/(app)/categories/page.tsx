@@ -1,7 +1,7 @@
 "use client";
 
 import { App, Button, Form, Input, Modal } from "antd";
-import { FolderSearch, Layers3, Plus } from "lucide-react";
+import { FolderSearch, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -89,31 +89,21 @@ export default function CategoriesPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.hero}>
-        <div className={styles.heroIcon} aria-hidden>
-          <Layers3 className={styles.heroIconSvg} strokeWidth={1.75} />
-        </div>
-        <div className={styles.heroText}>
-          <p className={styles.eyebrow}>Catalog</p>
-          <h1 className={styles.title}>Categories</h1>
-          <p className={styles.subtitle}>
-            Browse categories for the shop selected in the header. Stock totals
-            count all variants for products in this shop.
-          </p>
-        </div>
-      </header>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-6">
+        <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Categories</h1>
+        <Button
+          type="primary"
+          size="large"
+          className="rounded-lg shadow-sm font-semibold shrink-0"
+          style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+          icon={<Plus size={16} strokeWidth={2.25} />}
+          onClick={() => setCreateOpen(true)}
+        >
+          New category
+        </Button>
+      </div>
 
       <section className={styles.panel} aria-label="Category list">
-        <div className={styles.toolbar}>
-          <p className={styles.toolbarLabel}>All categories</p>
-          <Button
-            type="primary"
-            icon={<Plus size={18} strokeWidth={2.25} />}
-            onClick={() => setCreateOpen(true)}
-          >
-            New category
-          </Button>
-        </div>
 
         {!shopCode ? (
           <p className={styles.emptyState}>

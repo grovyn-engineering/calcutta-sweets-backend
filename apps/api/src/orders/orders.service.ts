@@ -16,7 +16,8 @@ type OrderItemBillRow = {
   price: unknown;
   posLabelQuantity: number | null;
   posLabelUnit: string | null;
-  product: { name: string };
+  customName: string | null;
+  product: { name: string } | null;
   productVariant: {
     name: string;
     unit: string | null;
@@ -60,7 +61,7 @@ export class OrdersService {
     userId: string | undefined,
     dto: CreatePosOrderDto,
   ) {
-    const variantIds = [...new Set(dto.items.map((i) => i.variantId))];
+    const variantIds = [...new Set(dto.items.map((i) => i.variantId).filter((id): id is string => id != null))];
     const variants = await this.prisma.productVariant.findMany({
       where: {
         id: { in: variantIds },
@@ -76,6 +77,7 @@ export class OrdersService {
     const vmap = new Map(variants.map((v) => [v.id, v]));
 
     for (const line of dto.items) {
+      if (!line.variantId) continue;
       const v = vmap.get(line.variantId)!;
       const available = Number(v.quantity);
       const need = Number(line.quantity);
@@ -153,22 +155,35 @@ export class OrdersService {
       });
 
       for (const line of dto.items) {
-        const v = vmap.get(line.variantId)!;
-        await tx.orderItem.create({
-          data: {
-            orderId: o.id,
-            productId: v.productId,
-            productVariantId: v.id,
-            quantity: line.quantity,
-            price: line.unitPrice,
-            posLabelQuantity: line.displayQuantity ?? null,
-            posLabelUnit: line.displayUnit?.trim() || null,
-          },
-        });
-        await tx.productVariant.update({
-          where: { id: v.id },
-          data: { quantity: { decrement: line.quantity } },
-        });
+        if (line.variantId) {
+          const v = vmap.get(line.variantId)!;
+          await tx.orderItem.create({
+            data: {
+              orderId: o.id,
+              productId: v.productId,
+              productVariantId: v.id,
+              quantity: line.quantity,
+              price: line.unitPrice,
+              posLabelQuantity: line.displayQuantity ?? null,
+              posLabelUnit: line.displayUnit?.trim() || null,
+            },
+          });
+          await tx.productVariant.update({
+            where: { id: v.id },
+            data: { quantity: { decrement: line.quantity } },
+          });
+        } else {
+          await tx.orderItem.create({
+            data: {
+              orderId: o.id,
+              customName: line.customName || 'Manual Item',
+              quantity: line.quantity,
+              price: line.unitPrice,
+              posLabelQuantity: line.displayQuantity ?? null,
+              posLabelUnit: line.displayUnit?.trim() || null,
+            },
+          });
+        }
       }
 
       return o;
@@ -286,7 +301,7 @@ export class OrdersService {
         return {
           quantity: dispQ,
           unitPrice: dispRate,
-          productName: i.product.name,
+          productName: i.customName || i.product?.name || 'Manual Item',
           variantLabel: i.productVariant?.name ?? '-',
           unit: dispU,
           barcode: i.productVariant?.barcode ?? '',

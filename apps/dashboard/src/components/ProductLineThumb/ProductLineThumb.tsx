@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import thumbStyles from '@/lib/tabulatorVariantThumb.module.css';
+import thumbStyles from './ProductLineThumb.module.css';
 
 function PlaceholderGlyph({ className }: { className?: string }) {
   return (

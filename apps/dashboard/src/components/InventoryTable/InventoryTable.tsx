@@ -5,20 +5,18 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
-  useEffect,
-  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
   useState,
 } from "react";
-import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
-import { DataTable } from "@/components/DataTable/DataTable";
+import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import {
   BarcodePrintModal,
   type BarcodePrintItem,
 } from "@/components/BarcodePrintModal/BarcodePrintModal";
 import { RefillRequestModal } from "@/components/RefillRequestModal/RefillRequestModal";
+import { VariantThumb } from "@/components/VariantThumb/VariantThumb";
 import {
   apiFetch,
   apiFetchLong,
@@ -28,11 +26,10 @@ import {
 } from "@/lib/api";
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
 import { useShop } from "@/contexts/ShopContext";
-import { createTabulatorVariantThumb } from "@/lib/tabulatorVariantThumb";
 import {
   Copy,
+  Pencil,
   Printer,
   PackagePlus,
   PackageSearch,
@@ -40,12 +37,18 @@ import {
 } from "lucide-react";
 import styles from "./InventoryTable.module.css";
 
-type TabulatorPageable = {
-  setPage: (page: number) => void;
-  setHeight: (height: number) => void;
-  replaceData?: () => Promise<void>;
-  redraw?: (force?: boolean) => void;
-  getPage?: () => number;
+type InventoryRow = {
+  id: string;
+  productName: string;
+  variantName?: string;
+  category?: string;
+  sku?: string;
+  barcode: string;
+  quantity: number;
+  minStock?: number | null;
+  unit?: string;
+  price: number;
+  imageUrl?: string | null;
 };
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -57,319 +60,15 @@ const inr = new Intl.NumberFormat("en-IN", {
 const PAGE_SIZE = 40;
 const PAGE_SIZE_OPTIONS = [10, 25, 40, 50];
 
-const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`;
-const PRINT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>`;
-
-const columns = (
-  routerRef: React.RefObject<ReturnType<typeof useRouter> | null>,
-  onPrint: (item: BarcodePrintItem) => void,
-  selectionRef: React.MutableRefObject<Set<string>>,
-  bumpSelection: () => void,
-): ColumnDefinition[] => [
-    {
-      title: "",
-      field: "_select",
-      minWidth: 48,
-      maxWidth: 64,
-      hozAlign: "center",
-      headerHozAlign: "center",
-      headerSort: false,
-      resizable: false,
-      responsive: 0,
-      cssClass: "inventory-col-select",
-      titleFormatter: (col) => {
-        const wrap = document.createElement("div");
-        wrap.className = styles.selectCell;
-        const chk = document.createElement("input");
-        chk.type = "checkbox";
-        chk.title = "Select all on this page";
-        chk.setAttribute("aria-label", "Select all on this page");
-        chk.addEventListener("click", (e) => e.stopPropagation());
-        chk.addEventListener("change", () => {
-          const table = (col as { getTable: () => any }).getTable();
-          if (!table) return;
-          const rows = table.getRows();
-          if (chk.checked) {
-            rows.forEach((r: { getData: () => { id?: string } }) => {
-              const id = r.getData()?.id;
-              if (id) selectionRef.current.add(id);
-            });
-          } else {
-            rows.forEach((r: { getData: () => { id?: string } }) => {
-              const id = r.getData()?.id;
-              if (id) selectionRef.current.delete(id);
-            });
-          }
-          table.redraw(true);
-          bumpSelection();
-        });
-        wrap.appendChild(chk);
-        return wrap;
-      },
-      formatter: (cell) => {
-        const row = cell.getRow();
-        const data = row.getData() as { id?: string };
-        const id = data.id;
-        const wrap = document.createElement("div");
-        wrap.className = styles.selectCell;
-        const chk = document.createElement("input");
-        chk.type = "checkbox";
-        chk.title = "Select row";
-        chk.setAttribute("aria-label", "Select row");
-        if (id) {
-          chk.checked = selectionRef.current.has(id);
-          chk.addEventListener("click", (e) => e.stopPropagation());
-          chk.addEventListener("change", () => {
-            if (!id) return;
-            if (chk.checked) selectionRef.current.add(id);
-            else selectionRef.current.delete(id);
-            bumpSelection();
-          });
-        } else {
-          chk.disabled = true;
-        }
-        wrap.appendChild(chk);
-        return wrap;
-      },
-    },
-    {
-      title: "Image",
-      field: "imageUrl",
-      width: 56,
-      minWidth: 52,
-      hozAlign: "center",
-      headerHozAlign: "center",
-      responsive: 0,
-      headerSort: false,
-      resizable: false,
-      cssClass: "inventory-thumb-cell",
-      formatter: (cell) => {
-        const row = cell.getRow().getData() as {
-          imageUrl?: string | null;
-          productName?: string;
-          variantName?: string;
-        };
-        const label =
-          [row.productName, row.variantName].filter(Boolean).join(" · ") ||
-          "Product";
-        return createTabulatorVariantThumb(row.imageUrl, label);
-      },
-    },
-    {
-      title: "Product",
-      field: "productName",
-      minWidth: 200,
-      widthGrow: 1,
-      responsive: 0,
-      sorter: "string",
-      headerTooltip: "Product",
-    },
-    {
-      title: "Variant",
-      field: "variantName",
-      width: 132,
-      minWidth: 124,
-      widthGrow: 1,
-      responsive: 2,
-      headerTooltip: "Variant",
-    },
-    {
-      title: "Category",
-      field: "category",
-      width: 148,
-      minWidth: 132,
-      widthGrow: 1,
-      responsive: 4,
-      headerTooltip: "Category",
-      formatter: (cell) => {
-        const raw = String(cell.getValue() ?? "").trim();
-        const span = document.createElement("span");
-        span.className = "inventory-category-pill";
-        span.textContent = raw || "-";
-        return span;
-      },
-    },
-    {
-      title: "SKU",
-      field: "sku",
-      width: 104,
-      minWidth: 92,
-      widthGrow: 1,
-      responsive: 3,
-      headerTooltip: "SKU",
-      formatter: (cell) => {
-        const raw = String(cell.getValue() ?? "").trim();
-        const span = document.createElement("span");
-        span.className = "inventory-sku-cell";
-        span.textContent = raw || "-";
-        if (!raw) span.classList.add("inventory-sku-empty");
-        return span;
-      },
-    },
-    {
-      title: "Barcode",
-      field: "barcode",
-      minWidth: 180,
-      widthGrow: 1,
-      responsive: 5,
-      headerTooltip: "Barcode",
-      formatter: (cell) => {
-        const v = String(cell.getValue() ?? "").trim();
-        const span = document.createElement("span");
-        span.className = "inventory-barcode";
-        span.textContent = v || "-";
-        if (v) span.title = v;
-        if (!v) span.classList.add("inventory-barcode-empty");
-        return span;
-      },
-    },
-    {
-      title: "Qty",
-      field: "quantity",
-      width: 92,
-      minWidth: 96,
-      responsive: 0,
-      hozAlign: "right",
-      headerTooltip: "Quantity",
-      sorter: "number",
-      formatter: (cell) => {
-        const row = cell.getRow().getData() as {
-          quantity?: number;
-          minStock?: number | null;
-        };
-        const q = Number(row.quantity) || 0;
-        const min = row.minStock;
-        const wrap = document.createElement("span");
-        wrap.className = "inventory-qty";
-        wrap.textContent = String(q);
-        if (min != null && min > 0 && q <= min) {
-          wrap.classList.add("inventory-qty-low");
-          wrap.title = `At or below minimum (${min})`;
-        }
-        return wrap;
-      },
-    },
-    {
-      title: "Min stock",
-      field: "minStock",
-      width: 100,
-      minWidth: 92,
-      responsive: 6,
-      hozAlign: "right",
-      headerTooltip: "Minimum stock",
-      sorter: "number",
-      formatter: (cell) => {
-        const v = cell.getValue() as number | null;
-        const span = document.createElement("span");
-        span.className = "inventory-min-stock";
-        if (v === null || v === undefined) {
-          span.textContent = "-";
-          span.classList.add("inventory-min-stock-empty");
-        } else {
-          span.textContent = String(v);
-        }
-        return span;
-      },
-    },
-    {
-      title: "Unit",
-      field: "unit",
-      width: 80,
-      minWidth: 72,
-      responsive: 7,
-      headerTooltip: "Unit",
-    },
-    {
-      title: "Price",
-      field: "price",
-      width: 108,
-      minWidth: 108,
-      responsive: 0,
-      hozAlign: "right",
-      headerTooltip: "Price",
-      sorter: "number",
-      formatter: (cell) => inr.format(Number(cell.getValue()) || 0),
-    },
-    {
-      title: "",
-      field: "_edit",
-      headerTooltip: "Actions",
-      width: 68,
-      minWidth: 64,
-      responsive: 0,
-      hozAlign: "center",
-      headerSort: false,
-      resizable: false,
-      cssClass: "inventory-col-actions",
-      formatter: (cell) => {
-        const row = cell.getRow().getData() as {
-          id: string;
-          productName: string;
-          variantName?: string;
-          barcode: string;
-          price: number;
-        };
-
-        const container = document.createElement("div");
-        container.style.display = "flex";
-        container.style.gap = "4px";
-        container.style.justifyContent = "center";
-        container.style.alignItems = "center";
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "inventory-edit-link";
-        editBtn.type = "button";
-        editBtn.innerHTML = EDIT_ICON_SVG;
-        const label = [row.productName, row.variantName]
-          .filter(Boolean)
-          .join(" · ");
-        editBtn.setAttribute(
-          "aria-label",
-          label ? `Edit ${label}` : "Edit variant"
-        );
-        editBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          routerRef.current?.push(`/inventory/${row.id}`, {
-            scroll: false,
-          } as any);
-        });
-        container.appendChild(editBtn);
-
-        if (row.barcode) {
-          const printBtn = document.createElement("button");
-          printBtn.className = "inventory-edit-link";
-          printBtn.type = "button";
-          printBtn.innerHTML = PRINT_ICON_SVG;
-          printBtn.setAttribute("aria-label", `Print barcode for ${label}`);
-          printBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            onPrint({
-              id: row.id,
-              productName: row.productName,
-              variantName: row.variantName,
-              barcode: row.barcode,
-              price: row.price,
-            });
-          });
-          container.appendChild(printBtn);
-        }
-
-        return container;
-      },
-    },
-  ];
-
 export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?: string }) {
   const { message } = App.useApp();
   const router = useRouter();
-  const routerRef = useRef<ReturnType<typeof useRouter> | null>(null);
-  routerRef.current = router;
   const { effectiveShopCode, shops, shopsLoading } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
   const isFactory = useMemo(() => {
     if (shopsLoading && shops.length === 0) return false;
-    const s = shops.find(x => x.shopCode === effectiveShopCode);
+    const s = shops.find((x) => x.shopCode === effectiveShopCode);
     return !!s?.isFactory;
   }, [shops, effectiveShopCode, shopsLoading]);
 
@@ -377,11 +76,6 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
-
-  const tableRef = useRef<TabulatorPageable | null>(null);
-  const tableSlotRef = useRef<HTMLDivElement | null>(null);
-  const [tableHeightPx, setTableHeightPx] = useState<number | null>(null);
-  const prevFilterKeyRef = useRef<string | null>(null);
 
   const [printItems, setPrintItems] = useState<BarcodePrintItem[]>([]);
   const [printModalOpen, setPrintModalOpen] = useState(false);
@@ -393,79 +87,270 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
 
   const selectionRef = useRef<Set<string>>(new Set());
   const [, bumpSelection] = useReducer((n: number) => n + 1, 0);
+  const pageRowsRef = useRef<InventoryRow[]>([]);
 
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}`;
-
-  const { loading: tableLoading, onRemoteBusyChange } =
-    useRemoteTabulatorLoading(shopKey);
-
-  useEffect(() => {
-    const prev = prevFilterKeyRef.current;
-    prevFilterKeyRef.current = filterKey;
-
-    const t = tableRef.current;
-    if (!t || !shopKey) return;
-    if (prev === null || prev === filterKey) return;
-    t.setPage(1);
-  }, [filterKey, shopKey]);
-
-  useEffect(() => {
-    selectionRef.current.clear();
-    bumpSelection();
-    queueMicrotask(() => {
-      tableRef.current?.redraw?.(true);
-    });
-  }, [filterKey]);
 
   const handlePrintSingle = useCallback((item: BarcodePrintItem) => {
     setPrintItems([item]);
     setPrintModalOpen(true);
   }, []);
 
+  const columns: AppTableColumn[] = useMemo(
+    () => [
+      {
+        key: "_select",
+        label: (
+          <input
+            type="checkbox"
+            title="Select all on page"
+            aria-label="Select all on page"
+            className={styles.selectCheckbox}
+            onChange={(e) => {
+              const rows = pageRowsRef.current;
+              rows.forEach((r) => {
+                if (e.target.checked) selectionRef.current.add(r.id);
+                else selectionRef.current.delete(r.id);
+              });
+              bumpSelection();
+            }}
+          />
+        ),
+        width: 48,
+        align: "center",
+        render: (_, row) => {
+          const r = row as InventoryRow;
+          return (
+            <input
+              type="checkbox"
+              title="Select row"
+              aria-label="Select row"
+              className={styles.selectCheckbox}
+              checked={selectionRef.current.has(r.id)}
+              onChange={(e) => {
+                if (e.target.checked) selectionRef.current.add(r.id);
+                else selectionRef.current.delete(r.id);
+                bumpSelection();
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+      },
+      {
+        key: "imageUrl",
+        label: "Image",
+        field: "imageUrl",
+        width: 60,
+        align: "center",
+        render: (val, row) => {
+          const r = row as InventoryRow;
+          const label = [r.productName, r.variantName].filter(Boolean).join(" · ") || "Product";
+          return <VariantThumb imageUrl={val as string | null} label={label} />;
+        },
+      },
+      {
+        key: "productName",
+        label: "Product",
+        field: "productName",
+        minWidth: 180,
+      },
+      {
+        key: "variantName",
+        label: "Variant",
+        field: "variantName",
+        minWidth: 110,
+      },
+      {
+        key: "category",
+        label: "Category",
+        field: "category",
+        minWidth: 120,
+        render: (val) => (
+          <span className="inventory-category-pill">
+            {String(val ?? "").trim() || "-"}
+          </span>
+        ),
+      },
+      {
+        key: "sku",
+        label: "SKU",
+        field: "sku",
+        minWidth: 92,
+        render: (val) => {
+          const raw = String(val ?? "").trim();
+          return (
+            <span className={`inventory-sku-cell${raw ? "" : " inventory-sku-empty"}`}>
+              {raw || "-"}
+            </span>
+          );
+        },
+      },
+      {
+        key: "barcode",
+        label: "Barcode",
+        field: "barcode",
+        minWidth: 160,
+        render: (val) => {
+          const v = String(val ?? "").trim();
+          return (
+            <span
+              className={`inventory-barcode${v ? "" : " inventory-barcode-empty"}`}
+              title={v || undefined}
+            >
+              {v || "-"}
+            </span>
+          );
+        },
+      },
+      {
+        key: "quantity",
+        label: "Qty",
+        field: "quantity",
+        width: 90,
+        align: "right",
+        render: (_, row) => {
+          const r = row as InventoryRow;
+          const q = Number(r.quantity) || 0;
+          const low = r.minStock != null && r.minStock > 0 && q <= r.minStock;
+          return (
+            <span
+              className={`inventory-qty${low ? " inventory-qty-low" : ""}`}
+              title={low ? `At or below minimum (${r.minStock})` : undefined}
+            >
+              {q}
+            </span>
+          );
+        },
+      },
+      {
+        key: "minStock",
+        label: "Min stock",
+        field: "minStock",
+        width: 92,
+        align: "right",
+        render: (val) => {
+          if (val == null) return <span className="inventory-min-stock inventory-min-stock-empty">-</span>;
+          return <span className="inventory-min-stock">{String(val)}</span>;
+        },
+      },
+      {
+        key: "unit",
+        label: "Unit",
+        field: "unit",
+        width: 72,
+      },
+      {
+        key: "price",
+        label: "Price",
+        field: "price",
+        width: 104,
+        align: "right",
+        render: (val) => inr.format(Number(val) || 0),
+      },
+      {
+        key: "_edit",
+        label: "",
+        width: 72,
+        align: "center",
+        render: (_, row) => {
+          const r = row as InventoryRow;
+          const label = [r.productName, r.variantName].filter(Boolean).join(" · ");
+          return (
+            <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+              <button
+                type="button"
+                className="inventory-edit-link"
+                aria-label={label ? `Edit ${label}` : "Edit variant"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/inventory/${r.id}`, { scroll: false } as Parameters<typeof router.push>[1]);
+                }}
+              >
+                <Pencil size={16} strokeWidth={2} />
+              </button>
+              {r.barcode && (
+                <button
+                  type="button"
+                  className="inventory-edit-link"
+                  aria-label={`Print barcode for ${label}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrintSingle({
+                      id: r.id,
+                      productName: r.productName,
+                      variantName: r.variantName,
+                      barcode: r.barcode,
+                      price: r.price,
+                    });
+                  }}
+                >
+                  <Printer size={16} strokeWidth={2} />
+                </button>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [router, handlePrintSingle],
+  );
+
+  const fetchFn = useMemo(() => {
+    const baseUrl = getApiBaseUrl();
+    return ({ page, pageSize }: { page: number; pageSize: number }) => {
+      const u = new URL(
+        `${baseUrl}/inventory/variants`,
+        typeof window !== "undefined" ? window.location.origin : "http://localhost",
+      );
+      u.searchParams.set("page", String(page));
+      u.searchParams.set("size", String(pageSize));
+      const q = searchRef.current.trim();
+      if (q) u.searchParams.set("q", q);
+      if (shopKey) u.searchParams.set("shopCode", shopKey);
+      return fetch(u.toString(), {
+        headers: { ...getAuthHeaders(), Accept: "application/json" },
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+          return r.json();
+        })
+        .then((json) => ({
+          data: Array.isArray(json.data) ? json.data : [],
+          lastPage: Number(json.last_page ?? 1),
+        }));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopKey]);
+
   const handleCloneCatalogFromFactory = useCallback(() => {
     if (!shopKey || isFactory) return;
     Modal.confirm({
       title: "Copy full catalog from Factory?",
       content:
-        "This shop will get the same products, categories, prices, and barcodes (CS…) as the factory. You can run it again safely. Large catalogs may take several minutes-keep this tab open.",
+        "This shop will get the same products, categories, prices, and barcodes (CS…) as the factory. You can run it again safely. Large catalogs may take several minutes — keep this tab open.",
       okText: "Start copy",
       width: 480,
       onOk: async () => {
         setCloneCatalogBusy(true);
         const BATCH = 6;
         let skip = 0;
-        const acc = {
-          productsCreated: 0,
-          productsUpdated: 0,
-          variantsCreated: 0,
-          variantsUpdated: 0,
-        };
+        const acc = { productsCreated: 0, productsUpdated: 0, variantsCreated: 0, variantsUpdated: 0 };
         const MSG_KEY = "clone-catalog-progress";
         try {
           let finished = false;
           while (!finished) {
-            message.loading({
-              key: MSG_KEY,
-              content: `Copying catalog… (${skip} products started)`,
-              duration: 0,
+            message.loading({ key: MSG_KEY, content: `Copying catalog… (${skip} products started)`, duration: 0 });
+            const res = await apiFetchLong("/inventory/clone-catalog-from-factory", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ skip, take: BATCH }),
             });
-            const res = await apiFetchLong(
-              "/inventory/clone-catalog-from-factory",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ skip, take: BATCH }),
-              },
-            );
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
               message.destroy(MSG_KEY);
-              message.error(
-                typeof data?.message === "string"
-                  ? data.message
-                  : "Could not copy catalog.",
-              );
+              message.error(typeof data?.message === "string" ? data.message : "Could not copy catalog.");
               return;
             }
             acc.productsCreated += Number(data?.productsCreated ?? 0);
@@ -474,21 +359,11 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
             acc.variantsUpdated += Number(data?.variantsUpdated ?? 0);
             const total = Number(data?.totalFactoryProducts ?? 0);
             const next = Number(data?.nextSkip ?? skip);
-            message.loading({
-              key: MSG_KEY,
-              content: `Copying catalog… ${Math.min(next, total)} / ${total} factory products`,
-              duration: 0,
-            });
-            if (data?.completed) {
-              finished = true;
-            } else {
-              skip = next;
-            }
+            message.loading({ key: MSG_KEY, content: `Copying catalog… ${Math.min(next, total)} / ${total} factory products`, duration: 0 });
+            if (data?.completed) { finished = true; } else { skip = next; }
           }
           message.destroy(MSG_KEY);
-          message.success(
-            `Catalog synced. New variants: ${acc.variantsCreated}. Updated: ${acc.variantsUpdated}. Reloading…`,
-          );
+          message.success(`Catalog synced. New variants: ${acc.variantsCreated}. Updated: ${acc.variantsUpdated}. Reloading…`);
           window.setTimeout(() => window.location.reload(), 800);
         } catch {
           message.destroy(MSG_KEY);
@@ -513,16 +388,10 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
       onOk: async () => {
         setPurgeCatalogBusy(true);
         try {
-          const res = await apiFetch("/inventory/purge-shop-catalog", {
-            method: "POST",
-          });
+          const res = await apiFetch("/inventory/purge-shop-catalog", { method: "POST" });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            message.error(
-              typeof data?.message === "string"
-                ? data.message
-                : "Could not delete catalog.",
-            );
+            message.error(typeof data?.message === "string" ? data.message : "Could not delete catalog.");
             return;
           }
           message.success("Shop catalog cleared. Reloading…");
@@ -541,70 +410,30 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     setIsPrintingAll(true);
     try {
       const baseUrl = getApiBaseUrl();
-      const origin =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : "http://localhost";
+      const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+      const allRows: { id: string; productName?: string; variantName?: string; barcode?: string; price?: number }[] = [];
       const pageSize = 100;
-      const maxPages = 500;
-      const allRows: {
-        id: string;
-        productName?: string;
-        variantName?: string;
-        barcode?: string;
-        price?: number;
-      }[] = [];
-
-      for (let page = 1; page <= maxPages; page += 1) {
+      for (let page = 1; page <= 500; page++) {
         const u = new URL(`${baseUrl}/inventory/variants`, origin);
         u.searchParams.set("page", String(page));
         u.searchParams.set("size", String(pageSize));
-
-        const res = await fetch(u.toString(), {
-          headers: { ...getAuthHeaders(), Accept: "application/json" },
-        });
-
+        const res = await fetch(u.toString(), { headers: { ...getAuthHeaders(), Accept: "application/json" } });
         if (!res.ok) throw new Error("Failed to fetch products for printing");
-        const json = (await res.json()) as {
-          data?: typeof allRows;
-          last_page?: number;
-        };
+        const json = await res.json() as { data?: typeof allRows; last_page?: number };
         const chunk = Array.isArray(json.data) ? json.data : [];
-        if (chunk.length === 0 && page === 1) {
-          message.warning("No products found to print.");
-          return;
-        }
+        if (chunk.length === 0 && page === 1) { message.warning("No products found to print."); return; }
         allRows.push(...chunk);
-
-        const lastPage = Math.max(1, json.last_page ?? page);
-        if (page >= lastPage) break;
+        if (page >= Math.max(1, json.last_page ?? page)) break;
       }
-
-      if (allRows.length === 0) {
-        message.warning("No products found to print.");
-        return;
-      }
-
-      const items = allRows
-        .filter((r) => !!r.barcode)
-        .map((r) => ({
-          productName: r.productName ?? "",
-          variantName: r.variantName,
-          barcode: r.barcode as string,
-          price: Number(r.price) || 0,
-        }));
-
-      if (items.length === 0) {
-        message.warning("No variants in this shop have barcodes to print.");
-        return;
-      }
-
+      const items = allRows.filter((r) => !!r.barcode).map((r) => ({
+        productName: r.productName ?? "",
+        variantName: r.variantName,
+        barcode: r.barcode as string,
+        price: Number(r.price) || 0,
+      }));
+      if (items.length === 0) { message.warning("No variants in this shop have barcodes to print."); return; }
       const ok = openPrintableBarcodes(items);
-      if (!ok) {
-        message.error(
-          "The print window was blocked. Allow pop-ups to print."
-        );
-      }
+      if (!ok) message.error("The print window was blocked. Allow pop-ups to print.");
     } catch (e) {
       message.error(String(e));
     } finally {
@@ -615,14 +444,10 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const handleDeleteSelected = useCallback(() => {
     if (!shopKey || isFactory) return;
     const ids = [...selectionRef.current];
-    if (ids.length === 0) {
-      message.warning("Select at least one row using the checkboxes.");
-      return;
-    }
+    if (ids.length === 0) { message.warning("Select at least one row using the checkboxes."); return; }
     Modal.confirm({
       title: `Delete ${ids.length} selected variant(s)?`,
-      content:
-        "POS order lines for these variants are removed. Products with no variants left are deleted; empty categories may be removed. This cannot be undone.",
+      content: "POS order lines for these variants are removed. Products with no variants left are deleted; empty categories may be removed. This cannot be undone.",
       okText: "Delete selected",
       okType: "danger",
       cancelText: "Cancel",
@@ -650,15 +475,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           bumpSelection();
           const vr = data?.variantsRemoved ?? ids.length;
           const pr = data?.productsRemoved;
-          message.success(
-            `Removed ${vr} variant(s)${pr ? ` and ${pr} empty product(s)` : ""}.`,
-          );
-          const t = tableRef.current as TabulatorPageable | null;
-          const p =
-            typeof t?.getPage === "function" ? t.getPage() : 1;
-          if (typeof t?.setPage === "function") {
-            t.setPage(p);
-          }
+          message.success(`Removed ${vr} variant(s)${pr ? ` and ${pr} empty product(s)` : ""}.`);
         } catch {
           message.error("Network error while deleting variants.");
         } finally {
@@ -668,171 +485,114 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     });
   }, [shopKey, isFactory, message]);
 
-  const memoizedColumns = useMemo(
-    () => columns(routerRef, handlePrintSingle, selectionRef, bumpSelection),
-    [handlePrintSingle],
-  );
-
-  const options: ReactTabulatorOptions = useMemo(() => {
-    const baseUrl = getApiBaseUrl();
-
-    return {
-      layout: "fitColumns",
-      height: 500,
-      responsiveLayout: "collapse",
-      responsiveLayoutCollapseStartOpen: false,
-      placeholder:
-        "No rows match your search or this shop has no inventory yet.",
-
-      rowDblClick: (e: any, row: any) => {
-        if ((e.target as HTMLElement).closest("button, input")) return;
-        const id = row.getData().id as string | undefined;
-        if (id) routerRef.current?.push(`/inventory/${id}`);
-      },
-
-      pagination: true,
-      paginationMode: "remote",
-      paginationSize: PAGE_SIZE,
-      paginationSizeSelector: PAGE_SIZE_OPTIONS,
-
-      ajaxURL: `${baseUrl}/inventory/variants`,
-      ajaxRequestFunc: (url: string, _config: unknown, params: unknown) => {
-        const u = new URL(
-          url,
-          typeof window !== "undefined"
-            ? window.location.origin
-            : "http://localhost"
-        );
-        const merged: Record<string, unknown> = {
-          ...(params && typeof params === "object" ? params : {}),
-        };
-        const q = searchRef.current.trim();
-        if (q) merged.q = q;
-        Object.entries(merged).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== "") {
-            u.searchParams.set(k, String(v));
-          }
-        });
-        return fetch(u.toString(), {
-          headers: { ...getAuthHeaders(), Accept: "application/json" },
-        }).then(async (r) => {
-          if (!r.ok) {
-            const t = await r.text();
-            throw new Error(t || r.statusText);
-          }
-          return r.json();
-        });
-      },
-
-      ajaxParams: { shopCode: shopKey },
-      dataLoader: false,
-    };
-  }, [shopKey]);
-
   return (
     <div className={styles.root}>
-      <div className={styles.toolbar}>
-        <div className={styles.searchField}>
-          <label className={styles.searchLabel} htmlFor="inventory-search">
-            Find in list
-          </label>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Inventory</h1>
+        </div>
+
+        <div className="flex flex-1 items-center justify-end gap-2 min-w-[300px] flex-wrap">
           <Input
             id="inventory-search"
-            className={styles.searchInput}
+            size="large"
+            className="max-w-[260px] rounded-lg"
             allowClear
-            placeholder="Product, variant, barcode, or SKU…"
+            placeholder="Search…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            prefix={
-              <Search
-                className="h-4 w-4 text-[var(--bistre-400)]"
-                aria-hidden
-              />
-            }
-            aria-label="Search inventory"
+            prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
           />
-        </div>
-        <div className={styles.toolbarActions}>
           {!shopsLoading && !isFactory && (
             <Button
-              type="default"
-              className={styles.toolbarBtn}
-              icon={<PackagePlus className="h-4 w-4" />}
+              type="primary"
+              size="large"
+              className="rounded-lg font-semibold"
+              style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+              icon={<PackagePlus size={16} />}
               onClick={() => setRefillModalOpen(true)}
             >
               Request Refill
             </Button>
           )}
-
           {!shopsLoading && !isFactory && (
             <Button
               type="default"
-              className={styles.toolbarBtn}
-              icon={<Copy className="h-4 w-4" aria-hidden />}
+              size="large"
+              className="rounded-lg"
+              icon={<Copy size={16} />}
               loading={cloneCatalogBusy}
               onClick={() => handleCloneCatalogFromFactory()}
             >
-              Copy catalog from Factory
+              Copy Factory
             </Button>
           )}
-
           {!shopsLoading && !isFactory && (
             <Button
               danger
-              type="default"
-              className={styles.toolbarBtn}
-              icon={<Trash2 className="h-4 w-4" aria-hidden />}
+              type="primary"
+              size="large"
+              className="rounded-lg font-semibold shadow-sm"
+              icon={<Trash2 size={16} />}
               loading={purgeCatalogBusy}
               onClick={() => handlePurgeShopCatalog()}
             >
-              Delete all products
+              Delete All
             </Button>
           )}
-
           {!shopsLoading && !isFactory && (
             <Button
               danger
-              type="default"
-              className={styles.toolbarBtn}
-              icon={<Trash2 className="h-4 w-4" aria-hidden />}
+              type="primary"
+              size="large"
+              className="rounded-lg font-semibold shadow-sm"
+              icon={<Trash2 size={16} />}
               loading={deleteSelectedBusy}
               disabled={selectionRef.current.size === 0}
               onClick={() => void handleDeleteSelected()}
             >
-              Delete selected
-              {selectionRef.current.size > 0
-                ? ` (${selectionRef.current.size})`
-                : ""}
+              Delete {selectionRef.current.size > 0 ? `(${selectionRef.current.size})` : ""}
             </Button>
           )}
-
           <Button
             type="default"
-            className={styles.toolbarBtn}
-            icon={<Printer className="h-4 w-4" />}
+            size="large"
+            className="rounded-lg"
+            icon={<Printer size={16} />}
             onClick={handlePrintAllFiltered}
             loading={isPrintingAll}
           >
-            Print all shop barcodes
+            Print Barcodes
           </Button>
         </div>
       </div>
 
-      <div className={styles.tableSlot} ref={tableSlotRef}>
+      <div className={styles.tableSlot}>
         <DataTable
-          columns={memoizedColumns}
-          options={options}
-          onRef={(instanceRef: { current?: any }) => {
-            tableRef.current = instanceRef.current ?? null;
+          columns={columns}
+          fetchFn={fetchFn}
+          filterKey={filterKey}
+          pageSize={PAGE_SIZE}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          maxBodyHeight={520}
+          onRowClick={(row) => {
+            const r = row as InventoryRow;
+            if (r?.id) router.push(`/inventory/${r.id}`);
           }}
-          loading={tableLoading}
-          onRemoteBusyChange={onRemoteBusyChange}
+          onVisibleRowsChange={(rows) => {
+            pageRowsRef.current = rows as InventoryRow[];
+          }}
           emptyTitle="No stock found"
           emptyDescription="Inventory from the Factory will appear here once products are added or transferred."
           emptyIcon={<PackageSearch size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>
 
+      <BarcodePrintModal
+        open={printModalOpen}
+        items={printItems}
+        onCancel={() => setPrintModalOpen(false)}
+      />
       <RefillRequestModal
         open={refillModalOpen}
         onClose={() => setRefillModalOpen(false)}

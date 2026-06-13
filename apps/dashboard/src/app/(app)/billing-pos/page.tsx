@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   useCallback,
@@ -7,46 +7,46 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react';
-import { Button, Drawer, Tabs, Tooltip } from 'antd';
-import { Bluetooth, Receipt, ScanBarcode } from 'lucide-react';
-import { ContentSkeleton } from '@/components/ContentSkeleton/ContentSkeleton';
-import { BarcodeScannerInput } from '@/components/BarcodeScannerInput/BarcodeScannerInput';
+} from "react";
+import { Button, Drawer, Tabs, Tooltip } from "antd";
+import { Bluetooth, Receipt, ScanBarcode } from "lucide-react";
+import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
+import { BarcodeScannerInput } from "@/components/BarcodeScannerInput/BarcodeScannerInput";
 import {
   BillingBillPanel,
   type BillItem,
   type BillingCustomerBinding,
   type BillingPosCheckoutApi,
   type ManualSaleCustomer,
-} from '@/components/BillingBillPanel/BillingBillPanel';
+} from "@/components/BillingBillPanel/BillingBillPanel";
 import {
   BillingPosRawSection,
   RAW_BILL_FORM_INITIAL,
   type RawBillFormValues,
   type RawLineAddValues,
-} from '@/components/BillingPosRawSection/BillingPosRawSection';
+} from "@/components/BillingPosRawSection/BillingPosRawSection";
 import CustomerDetails, {
   type CustomerFormValues,
-} from '@/components/CustomerDetails';
-import { BillingPosManualSection } from '@/components/BillingPosManualSection/BillingPosManualSection';
-import type { BillingVariantRow } from '@/hooks/useBillingPosVariants';
+} from "@/components/CustomerDetails";
+import { BillingPosManualSection } from "@/components/BillingPosManualSection/BillingPosManualSection";
+import type { BillingVariantRow } from "@/hooks/useBillingPosVariants";
 import {
   billLineSubtotal,
   computeInstantStockDeduction,
   defaultInstantDisplay,
-} from '@/lib/billingInstantPricing';
-import { isLikelyAndroidForRawBt } from '@/lib/rawBtPrint';
-import { useShop } from '@/contexts/ShopContext';
-import styles from './page.module.css';
+} from "@/lib/billingInstantPricing";
+import { isLikelyAndroidForRawBt } from "@/lib/rawBtPrint";
+import { useShop } from "@/contexts/ShopContext";
+import styles from "./page.module.css";
 
-const inrCompact = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
+const inrCompact = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
   maximumFractionDigits: 0,
 });
 
 function variantRowToBillItem(row: BillingVariantRow): BillItem {
-  const inv = row.unit ?? 'PC';
+  const inv = row.unit ?? "PC";
   return {
     lineId: row.variantId,
     variantId: row.variantId,
@@ -64,13 +64,10 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
   };
 }
 
-
 export default function BillingPOSPage() {
   const { effectiveShopCode } = useShop();
   const shopCode =
-    effectiveShopCode ||
-    process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ||
-    '';
+    effectiveShopCode || process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE || "";
 
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [billingStockRefreshKey, setBillingStockRefreshKey] = useState(0);
@@ -80,13 +77,14 @@ export default function BillingPOSPage() {
   const [stackedBillingLayout, setStackedBillingLayout] = useState(true);
   const [billDrawerOpen, setBillDrawerOpen] = useState(false);
   const prevBillLenRef = useRef(0);
-  const [billingTab, setBillingTab] = useState<'standard' | 'instant' | 'raw'>(
-    'standard',
+  const [billingTab, setBillingTab] = useState<"standard" | "instant" | "raw">(
+    "standard"
   );
-  const [rawBillForm, setRawBillForm] =
-    useState<RawBillFormValues>(RAW_BILL_FORM_INITIAL);
+  const [rawBillForm, setRawBillForm] = useState<RawBillFormValues>(
+    RAW_BILL_FORM_INITIAL
+  );
   const [checkoutApi, setCheckoutApi] = useState<BillingPosCheckoutApi | null>(
-    null,
+    null
   );
 
   useLayoutEffect(() => {
@@ -96,7 +94,7 @@ export default function BillingPOSPage() {
       setStackedBillingLayout(el.getBoundingClientRect().width < 1024);
     };
     sync();
-    if (typeof ResizeObserver === 'undefined') return;
+    if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => sync());
     ro.observe(el);
     return () => ro.disconnect();
@@ -120,10 +118,7 @@ export default function BillingPOSPage() {
       }
       if (!line.isInstant) {
         const existing = prev.find(
-          (i) =>
-            !i.isInstant &&
-            !i.isRaw &&
-            i.variantId === line.variantId,
+          (i) => !i.isInstant && !i.isRaw && i.variantId === line.variantId
         );
         if (existing) {
           return prev.map((i) =>
@@ -134,7 +129,7 @@ export default function BillingPOSPage() {
                     i.stockUnitsToDeduct + line.stockUnitsToDeduct,
                   displayQuantity: i.displayQuantity + line.displayQuantity,
                 }
-              : i,
+              : i
           );
         }
       }
@@ -146,20 +141,28 @@ export default function BillingPOSPage() {
     (row: BillingVariantRow) => {
       mergeLine(variantRowToBillItem(row));
     },
-    [mergeLine],
+    [mergeLine]
   );
 
   const addRawBillLine = useCallback(
     (pick: RawLineAddValues) => {
       const lineId = crypto.randomUUID();
       if (pick.selectedCatalogItem) {
-        const { variantId, productId, productName, variantName, inventoryUnit, catalogPrice, barcode, imageUrl } =
-          pick.selectedCatalogItem;
+        const {
+          variantId,
+          productId,
+          productName,
+          variantName,
+          inventoryUnit,
+          catalogPrice,
+          barcode,
+          imageUrl,
+        } = pick.selectedCatalogItem;
         const stock = computeInstantStockDeduction(
           variantName,
           inventoryUnit,
           pick.quantity,
-          pick.unit,
+          pick.unit
         );
         mergeLine({
           lineId,
@@ -167,7 +170,7 @@ export default function BillingPOSPage() {
           productId,
           name: productName,
           variantLabel: variantName,
-          barcode: barcode || '—',
+          barcode: barcode || "—",
           catalogUnitPrice: catalogPrice,
           stockUnitsToDeduct: stock,
           displayQuantity: pick.quantity,
@@ -180,35 +183,35 @@ export default function BillingPOSPage() {
         mergeLine({
           lineId,
           variantId: `raw:${lineId}`,
-          productId: 'raw-line',
+          productId: "raw-line",
           name: pick.itemName,
-          variantLabel: 'Regular',
-          barcode: '—',
+          variantLabel: "Regular",
+          barcode: "—",
           catalogUnitPrice: pick.unitPrice,
           stockUnitsToDeduct: pick.quantity,
           displayQuantity: pick.quantity,
-          displayUnit: 'PC',
-          inventoryUnit: 'PC',
+          displayUnit: "PC",
+          inventoryUnit: "PC",
           imageUrl: null,
           isRaw: true,
         });
       }
     },
-    [mergeLine],
+    [mergeLine]
   );
 
   const addInstantLine = useCallback(
     (row: BillingVariantRow) => {
-      const inv = row.unit ?? 'PC';
+      const inv = row.unit ?? "PC";
       const { displayQuantity, displayUnit } = defaultInstantDisplay(
         row.variantName,
-        inv,
+        inv
       );
       const stock = computeInstantStockDeduction(
         row.variantName,
         inv,
         displayQuantity,
-        displayUnit,
+        displayUnit
       );
       mergeLine({
         lineId: crypto.randomUUID(),
@@ -226,14 +229,17 @@ export default function BillingPOSPage() {
         isInstant: true,
       });
     },
-    [mergeLine],
+    [mergeLine]
   );
 
   const updateInstantLine = useCallback(
-    (lineId: string, next: { displayQuantity: number; displayUnit: string }) => {
+    (
+      lineId: string,
+      next: { displayQuantity: number; displayUnit: string }
+    ) => {
       let q = next.displayQuantity;
       const u = next.displayUnit;
-      if (u.toUpperCase() === 'PC') {
+      if (u.toUpperCase() === "PC") {
         q = Math.max(1, Math.round(q));
       } else {
         q = Math.max(1e-6, q);
@@ -245,7 +251,7 @@ export default function BillingPOSPage() {
             i.variantLabel,
             i.inventoryUnit,
             q,
-            u,
+            u
           );
           return {
             ...i,
@@ -253,10 +259,10 @@ export default function BillingPOSPage() {
             displayUnit: u,
             stockUnitsToDeduct: stock,
           };
-        }),
+        })
       );
     },
-    [],
+    []
   );
 
   const updateQuantity = useCallback((lineId: string, delta: number) => {
@@ -272,7 +278,7 @@ export default function BillingPOSPage() {
             stockUnitsToDeduct: nextStock,
           };
         })
-        .filter((i) => i.stockUnitsToDeduct > 1e-9),
+        .filter((i) => i.stockUnitsToDeduct > 1e-9)
     );
   }, []);
 
@@ -301,10 +307,11 @@ export default function BillingPOSPage() {
   const itemsGrossTotal = useMemo(
     () =>
       billItems.reduce(
-        (s, i) => s + billLineSubtotal(i.stockUnitsToDeduct, i.catalogUnitPrice),
-        0,
+        (s, i) =>
+          s + billLineSubtotal(i.stockUnitsToDeduct, i.catalogUnitPrice),
+        0
       ),
-    [billItems],
+    [billItems]
   );
 
   const manualSaleCustomer = useMemo((): ManualSaleCustomer | null => {
@@ -325,7 +332,11 @@ export default function BillingPOSPage() {
         <p className="text-sm text-[var(--bistre-600)]">
           Select a shop in the header to use Billing POS.
         </p>
-        <ContentSkeleton variant="rows" rowCount={12} className="min-h-[320px]" />
+        <ContentSkeleton
+          variant="rows"
+          rowCount={12}
+          className="min-h-[320px]"
+        />
       </div>
     );
   }
@@ -341,7 +352,7 @@ export default function BillingPOSPage() {
       setBillingStockRefreshKey((k) => k + 1);
       setBillDrawerOpen(false);
     },
-    orderId: 'draft' as const,
+    orderId: "draft" as const,
     customerBinding,
     hideAddCustomerInPanel: stackedBillingLayout,
     manualSaleCustomer,
@@ -352,40 +363,28 @@ export default function BillingPOSPage() {
   return (
     <div
       ref={billingShellRef}
-      className={`${styles.billingPageShell} min-h-0 flex-1 ${stackedBillingLayout ? styles.shellStackedPad : ''}`}
+      className={`${styles.billingPageShell} min-h-0 flex-1 ${stackedBillingLayout ? styles.shellStackedPad : ""}`}
     >
       <div className={`${styles.billingLayout} min-h-0`}>
         <div className={styles.billingMain}>
-          {billingTab === 'standard' ? (
-            <section className={`shrink-0 p-3 sm:p-5 ${styles.scanSection}`}>
-              <div className="mb-3 flex items-start gap-2.5 sm:gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ochre-100)] text-[var(--ochre-600)] sm:h-11 sm:w-11">
-                  <ScanBarcode className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-[var(--bistre-800)]">
-                    Barcode billing
-                  </h2>
-                  <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
-                    <span className="block sm:inline">
-                      Scan the product label-most scanners send Enter automatically.
-                    </span>{' '}
-                    <span className="hidden sm:inline">Or type the code and press Enter.</span>
-                  </p>
-                </div>
-              </div>
+          <div className="mb-1 flex items-center gap-3">
+            <h1 className="text-xl font-bold text-[var(--bistre-950)] m-0 leading-none">Billing POS</h1>
+          </div>
+          
+          {billingTab === "standard" ? (
+            <div className="shrink-0 mb-2">
               <BarcodeScannerInput onAddProduct={addRowManual} />
-            </section>
+            </div>
           ) : null}
 
           <Tabs
             className={`${styles.billingModeTabs} min-h-0 flex-1`}
             activeKey={billingTab}
-            onChange={(k) => setBillingTab(k as 'standard' | 'instant' | 'raw')}
+            onChange={(k) => setBillingTab(k as "standard" | "instant" | "raw")}
             items={[
               {
-                key: 'standard',
-                label: 'Standard',
+                key: "standard",
+                label: "Standard",
                 children: (
                   <BillingPosManualSection
                     shopCode={shopCode}
@@ -400,8 +399,8 @@ export default function BillingPOSPage() {
                 ),
               },
               {
-                key: 'instant',
-                label: 'Instant',
+                key: "instant",
+                label: "Instant",
                 children: (
                   <BillingPosManualSection
                     shopCode={shopCode}
@@ -417,8 +416,8 @@ export default function BillingPOSPage() {
                 ),
               },
               {
-                key: 'raw',
-                label: 'Raw',
+                key: "raw",
+                label: "Raw",
                 children: (
                   <BillingPosRawSection
                     shopCode={shopCode}
@@ -453,8 +452,8 @@ export default function BillingPOSPage() {
                 <span className={styles.mobileBillBarKicker}>Current sale</span>
                 <span className={styles.mobileBillBarSummary}>
                   {billItems.length === 0
-                    ? 'No lines yet - tap to add customer & pay'
-                    : `${saleLineCount} ${saleLineCount === 1 ? 'line' : 'lines'} · ${inrCompact.format(itemsGrossTotal)} (incl. tax)`}
+                    ? "No lines yet - tap to add customer & pay"
+                    : `${saleLineCount} ${saleLineCount === 1 ? "line" : "lines"} · ${inrCompact.format(itemsGrossTotal)} (incl. tax)`}
                 </span>
               </div>
               <span className={styles.mobileBillBarCta}>Review & pay</span>
@@ -500,10 +499,10 @@ export default function BillingPOSPage() {
           styles={{
             body: {
               padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              maxHeight: 'calc(100dvh - 120px)',
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              maxHeight: "calc(100dvh - 120px)",
             },
           }}
         >

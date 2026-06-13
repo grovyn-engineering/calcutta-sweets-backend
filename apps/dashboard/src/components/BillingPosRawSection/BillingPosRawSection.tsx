@@ -231,12 +231,13 @@ function BillingPosRawSectionInner({
 
   const isCatalogSelected = formValues.selectedCatalogItem !== null;
 
+  const COMMON_UNITS = ['PC', 'KG', 'gm', 'ml', 'L', 'BOX', 'PKT', 'PLATE'];
   const unitOptions = isCatalogSelected
     ? allowedInstantDisplayUnits(
         formValues.selectedCatalogItem!.variantName,
         formValues.selectedCatalogItem!.inventoryUnit,
       ).map((u) => ({ value: u, label: u }))
-    : [];
+    : COMMON_UNITS.map((u) => ({ value: u, label: u }));
 
   return (
     <div className={`min-h-0 flex-1 overflow-auto p-3 sm:p-5 ${styles.wrap}`}>
@@ -247,10 +248,10 @@ function BillingPosRawSectionInner({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-[var(--bistre-800)]">
-              Raw bill (manual lines)
+              Raw bill (manual billing of items not in the sale panel)
             </h2>
             <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
-              Search your catalog to add a tracked item — it will create an order and deduct stock.
+              Search your catalog to add a tracked item - it will create an order and deduct stock.
               Or enter a custom name for an untracked line that appears on the receipt only.
             </p>
           </div>
@@ -331,17 +332,14 @@ function BillingPosRawSectionInner({
             />
           </Form.Item>
 
-          {isCatalogSelected && (
-            <Form.Item label={<span className={styles.label}>Unit</span>}>
-              <Select
-                className="w-full min-w-0"
-                value={formValues.unit}
-                options={unitOptions}
-                onChange={(u) => patch({ unit: u })}
-                getPopupContainer={(n) => n.parentElement ?? document.body}
-              />
-            </Form.Item>
-          )}
+          <Form.Item label={<span className={styles.label}>Unit</span>}>
+            <Select
+              className="w-full min-w-0"
+              value={formValues.unit}
+              options={unitOptions}
+              onChange={(u) => patch({ unit: u })}
+            />
+          </Form.Item>
 
 
           <Form.Item label={<span className={styles.label}>Qty</span>}>
@@ -370,17 +368,17 @@ function BillingPosRawSectionInner({
             maxLength={120}
           />
         </Form.Item>
-        <div className="mb-3 rounded-lg border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2.5">
+        <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2">
           <Checkbox
             rootClassName={styles.gstinCheckboxRoot}
             checked={formValues.includeCustomerGstin}
             onChange={(e) => patch({ includeCustomerGstin: e.target.checked })}
             className="text-sm text-[var(--text-secondary)]"
           >
-            Include customer GSTIN on printed bill
+            Include customer GSTIN
           </Checkbox>
-          {formValues.includeCustomerGstin ? (
-            <div className="mt-2">
+          {formValues.includeCustomerGstin && (
+            <div className="flex-1 min-w-[200px]">
               <Input
                 placeholder="15-character GSTIN"
                 value={formValues.customerGstin}
@@ -396,7 +394,7 @@ function BillingPosRawSectionInner({
                 className="font-mono text-sm"
               />
             </div>
-          ) : null}
+          )}
         </div>
 
         <Button

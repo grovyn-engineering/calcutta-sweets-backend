@@ -284,6 +284,7 @@ export class AnalyticsService {
         select: {
           quantity: true,
           price: true,
+          customName: true,
           product: { select: { name: true } },
         },
       }),
@@ -339,7 +340,7 @@ export class AnalyticsService {
       { qtySold: number; revenue: number }
     >();
     for (const line of itemsInRange) {
-      const name = line.product.name;
+      const name = line.customName || line.product?.name || 'Manual Item';
       const prev = productMap.get(name) ?? { qtySold: 0, revenue: 0 };
       prev.qtySold += line.quantity;
       prev.revenue += line.quantity * line.price;
@@ -439,7 +440,7 @@ export class AnalyticsService {
         customerName: row.order.customerName,
         customerPhone: row.order.customerPhone,
         paymentMethod: row.order.paymentMethod,
-        productName: row.product.name,
+        productName: row.customName || row.product?.name || 'Manual Item',
         variantName: row.productVariant?.name ?? null,
         barcode: row.productVariant?.barcode ?? null,
         quantity: qty,

@@ -418,50 +418,7 @@ export function BillingBillPanel({
       return;
     }
 
-    if (allRaw) {
-      setCheckoutBusyMode(printMode);
-      try {
-        const invoiceNo = makeInvoiceNo('RAW');
-        if (printMode === 'browser') {
-          setReceiptPreviewHtml(
-            buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo), {
-              inlinePreview: true,
-            }),
-          );
-          message.success('Review the receipt, then use Print or your browser.');
-        } else if (printMode === 'thermal') {
-          await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
-          message.success('Raw bill sent to USB thermal printer.');
-        } else {
-          const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo));
-          if (!r.ok) {
-            message.error(r.error);
-            return;
-          }
-          message.success('Opening RawBT…');
-        }
-        setPaymentMethod(null);
-        setDiscount(0);
-        onSaleComplete?.();
-      } catch (error) {
-        message.error(
-          error instanceof Error
-            ? error.message
-            : 'Could not complete raw bill checkout.',
-        );
-      } finally {
-        setCheckoutBusyMode(null);
-      }
-      return;
-    }
 
-    const catalogLines = items.filter((i) => !i.isRaw);
-    if (catalogLines.length === 0) {
-      message.error(
-        'This sale has no catalog lines to save. Add a Standard or Instant item, or use manual-only checkout.',
-      );
-      return;
-    }
 
     setCheckoutBusyMode(printMode);
     try {
@@ -471,17 +428,18 @@ export function BillingBillPanel({
         body: JSON.stringify({
           paymentMethod,
           discount,
-          customerName: customer?.name,
+          customerName: customer?.name || manualSaleCustomer?.name || undefined,
           customerPhone: customer?.phone,
           customerEmail: customer?.email,
           customerAddress: customer?.address,
           customerNotes: customer?.notes,
-          customerGstin: customer?.gstin,
-          items: catalogLines.map((i) => ({
-            variantId: i.variantId,
+          customerGstin: customer?.gstin || (rawBillForm?.includeCustomerGstin ? rawBillForm.customerGstin : undefined),
+          items: items.map((i) => ({
+            variantId: i.isRaw ? undefined : i.variantId,
+            customName: i.isRaw ? i.name : undefined,
             quantity: i.stockUnitsToDeduct,
             unitPrice: i.catalogUnitPrice,
-            ...(i.isInstant
+            ...(i.isInstant || i.isRaw
               ? {
                   displayQuantity: i.displayQuantity,
                   displayUnit: i.displayUnit,

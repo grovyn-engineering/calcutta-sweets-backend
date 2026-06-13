@@ -3,39 +3,10 @@
   width: 100%;
 }
 
-/* Step 1 - full-width inner surface (fills the accordion, not a narrow strip) */
 .step1Shell {
   position: relative;
   width: 100%;
-  padding: 1.2rem 1.25rem 1.35rem 1.35rem;
-  border-radius: 14px;
-  border: 1px solid var(--pearl-bush);
-  background: linear-gradient(
-    165deg,
-    #fffef9 0%,
-    var(--linen-100) 45%,
-    rgba(245, 230, 196, 0.2) 100%
-  );
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.88) inset,
-    0 1px 3px rgba(44, 24, 16, 0.06);
-  overflow: hidden;
-}
-
-.step1Shell::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 4px;
-  border-radius: 0 6px 6px 0;
-  background: linear-gradient(
-    180deg,
-    var(--ochre-400) 0%,
-    var(--ochre-600) 100%
-  );
-  box-shadow: 2px 0 8px rgba(201, 147, 45, 0.2);
+  max-width: 32rem;
 }
 
 .ledeRow {

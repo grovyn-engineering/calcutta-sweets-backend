@@ -1,6 +1,6 @@
 "use client";
 
-import { Collapse } from "antd";
+import { Tabs } from "antd";
 import {
   Building2,
   ChevronDown,
@@ -97,33 +97,15 @@ export default function SettingsPage() {
 
   return (
     <div className={styles.root}>
-      <header className={styles.intro}>
-        <p className={styles.eyebrow}>Account & Profile</p>
-        <h1 className={styles.title}>Settings</h1>
-        <p className={styles.lede}>
-          Manage your personal details, security preferences, and system roles.
-        </p>
-      </header>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-6">
+        <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Settings</h1>
+      </div>
 
       <div className={styles.scroll}>
-        <Collapse
-          accordion={false}
-          defaultActiveKey={['1']}
+        <Tabs
+          defaultActiveKey="1"
           items={items}
-          className={styles.collapse}
-          bordered={false}
-          expandIconPlacement="end"
-          expandIcon={({ isActive }) => (
-            <ChevronDown
-              className={styles.collapseChevron}
-              size={18}
-              strokeWidth={2}
-              aria-hidden
-              style={{
-                transform: isActive ? "rotate(180deg)" : "rotate(0deg)",
-              }}
-            />
-          )}
+          className={styles.tabs}
         />
       </div>
     </div>

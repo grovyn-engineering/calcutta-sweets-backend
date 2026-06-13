@@ -1,25 +1,16 @@
 "use client";
 
-import { App, Button, Form, Input, Modal, Select, Switch } from "antd";
-import { Building2, UserPlus } from "lucide-react";
+import { App, Button, Form, Input, Modal, Select, Switch, Tooltip } from "antd";
+import { Building2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DataTable } from "@/components/DataTable/DataTable";
-import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
-
-type TabulatorPageable = { setPage: (page: number) => void };
-
-import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
+import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { ROLE_FORM_OPTIONS } from "@/lib/rolePermissions";
 import { ShieldAlert } from "lucide-react";
-
-import "tabulator-tables/dist/css/tabulator.min.css";
 import styles from "./UsersManagement.module.css";
-
-
 
 export type UserRow = {
   id: string;
@@ -72,12 +63,8 @@ function canDeleteUserRow(
 ): boolean {
   if (!authRole || !authUserId || row.id === authUserId) return false;
   if (authRole === "SUPER_ADMIN") return true;
-  if (authRole === "ADMIN") {
-    return row.role !== "SUPER_ADMIN" && row.role !== "ADMIN";
-  }
-  if (authRole === "MANAGER") {
-    return row.role === "CASHIER" || row.role === "STAFF";
-  }
+  if (authRole === "ADMIN") return row.role !== "SUPER_ADMIN" && row.role !== "ADMIN";
+  if (authRole === "MANAGER") return row.role === "CASHIER" || row.role === "STAFF";
   return false;
 }
 
@@ -87,22 +74,13 @@ export default function UsersManagement() {
   const { user: authUser } = useAuth();
   const baseUrl = getApiBaseUrl();
   const { effectiveShopCode, shops, shopsLoading } = useShop();
-  const tableRef = useRef<TabulatorPageable | null>(null);
-  const prevShopForTableRef = useRef<string | null>(null);
 
   const canManageUserRows =
     authUser?.role === "SUPER_ADMIN" || authUser?.role === "ADMIN";
 
-  const readyForTable =
-    !shopsLoading && effectiveShopCode.length > 0;
-
+  const readyForTable = !shopsLoading && effectiveShopCode.length > 0;
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading(
-    effectiveShopCode,
-    refreshKey,
-    readyForTable,
-  );
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createForm] = Form.useForm();
@@ -144,217 +122,166 @@ export default function UsersManagement() {
   }, [message]);
 
   const generateStrongPassword = useCallback(() => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
-    const len = 12;
+    const chars =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
     let pwd = "";
-    for (let i = 0; i < len; i++) {
+    for (let i = 0; i < 12; i++) {
       pwd += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return pwd;
   }, []);
 
   const handleSuggestPassword = useCallback(() => {
-    const pwd = generateStrongPassword();
-    createForm.setFieldsValue({ password: pwd });
+    createForm.setFieldsValue({ password: generateStrongPassword() });
     message.success("Strong password suggested and auto-filled");
   }, [createForm, generateStrongPassword, message]);
 
-  const columns = useMemo<ColumnDefinition[]>(
-    () => {
-      const base: ColumnDefinition[] = [
+  const columns: AppTableColumn[] = useMemo(() => {
+    const base: AppTableColumn[] = [
       {
-        title: "Email",
+        key: "email",
+        label: "Email",
         field: "email",
         minWidth: 210,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.className = "users-email";
-          span.textContent = String(cell.getValue() ?? "");
-          return span;
-        },
+        render: (val) => (
+          <span className="users-email">{String(val ?? "")}</span>
+        ),
       },
       {
-        title: "Name",
+        key: "name",
+        label: "Name",
         field: "name",
         minWidth: 120,
-        widthGrow: 1,
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as UserRow;
-          const v = row.name ?? (cell.getValue() as string | null | undefined);
-          const span = document.createElement("span");
-          if (v == null || String(v).trim() === "") {
-            span.className = "users-name-muted";
-            span.textContent = "-";
-          } else {
-            span.textContent = String(v);
-          }
-          return span;
+        render: (_, row) => {
+          const r = row as UserRow;
+          const v = r.name?.trim();
+          if (!v) return <span className="users-name-muted">-</span>;
+          return <span>{v}</span>;
         },
       },
       {
-        title: "Role",
+        key: "role",
+        label: "Role",
         field: "role",
-        width: 128,
-        hozAlign: "center",
-        formatter: (cell) => {
-          const role = String(cell.getValue() ?? "");
-          const span = document.createElement("span");
-          span.className = `users-pill ${rolePillModifier(role)}`;
-          span.textContent = roleLabel(role);
-          return span;
+        width: 160,
+        align: "center",
+        render: (val) => {
+          const role = String(val ?? "");
+          return (
+            <span className={`users-pill ${rolePillModifier(role)}`}>
+              {roleLabel(role)}
+            </span>
+          );
         },
       },
       {
-        title: "Shop",
+        key: "shopCode",
+        label: "Shop",
         field: "shopCode",
-        minWidth: 200,
-        width: 200,
-        hozAlign: "center",
-        formatter: (cell) => {
-          const row = cell.getRow().getData() as UserRow;
-          const code = row.shopCode ?? String(cell.getValue() ?? "");
-          const span = document.createElement("span");
-          span.setAttribute("data-skip-overflow-tooltip", "1");
-          span.className = "users-pill users-pill--shop";
-          span.textContent = code;
-          return span;
-        },
+        width: 180,
+        align: "center",
+        render: (val) => (
+          <span className="users-pill users-pill--shop">{String(val ?? "")}</span>
+        ),
       },
       {
-        title: "Status",
+        key: "isActive",
+        label: "Status",
         field: "isActive",
-        width: 120,
-        hozAlign: "center",
-        formatter: (cell) => {
-          const active = cell.getValue() as boolean;
-          const span = document.createElement("span");
-          span.className = `users-pill ${active ? "users-pill--active" : "users-pill--inactive"}`;
-          span.textContent = active ? "Active" : "Inactive";
-          return span;
+        width: 100,
+        align: "center",
+        render: (val) => {
+          const active = Boolean(val);
+          return (
+            <span className={`users-pill ${active ? "users-pill--active" : "users-pill--inactive"}`}>
+              {active ? "Active" : "Inactive"}
+            </span>
+          );
         },
       },
       {
-        title: "Created",
+        key: "createdAt",
+        label: "Created",
         field: "createdAt",
         width: 168,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.textContent = formatDt(cell.getValue() as string);
-          return span;
-        },
+        render: (val) => formatDt(String(val ?? "")),
       },
     ];
-      if (canManageUserRows) {
-        base.push({
-          title: "Actions",
-          field: "_actions",
-          width: 200,
-          hozAlign: "center",
-          headerSort: false,
-          resizable: false,
-          formatter: (cell) => {
-            const row = cell.getRow().getData() as UserRow;
-            const wrap = document.createElement("div");
-            wrap.className = "users-actions-cell";
 
-            const editBtn = document.createElement("button");
-            editBtn.type = "button";
-            editBtn.className = "users-edit-btn";
-            editBtn.textContent = "Edit";
-            editBtn.setAttribute("aria-label", "Edit user");
-            editBtn.addEventListener("click", (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              navigateToEditRef.current(row);
-            });
-            wrap.appendChild(editBtn);
-
-            if (
-              canDeleteUserRow(authUser?.role, authUser?.id, row)
-            ) {
-              const delBtn = document.createElement("button");
-              delBtn.type = "button";
-              delBtn.className = "users-delete-btn";
-              delBtn.textContent = "Delete";
-              delBtn.setAttribute("aria-label", "Remove user");
-              delBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                requestDeleteRef.current(row);
-              });
-              wrap.appendChild(delBtn);
-            }
-
-            return wrap;
-          },
-        });
-      }
-      return base;
-    },
-    [authUser?.id, authUser?.role, canManageUserRows],
-  );
-
-  const options = useMemo<ReactTabulatorOptions>(() => {
-    return {
-      layout: "fitColumns",
-      placeholder: "No users for this shop.",
-      pagination: true,
-      paginationMode: "remote",
-      paginationSize: 20,
-      paginationSizeSelector: [10, 20, 50],
-      ajaxURL: `${baseUrl}/users`,
-      ajaxRequestFunc: (url, _config, params) => {
-        const u = new URL(
-          url,
-          typeof window !== "undefined" ? window.location.origin : "http://localhost",
-        );
-        const merged: Record<string, unknown> = {
-          ...(params && typeof params === "object" ? params : {}),
-        };
-        Object.entries(merged).forEach(([k, v]) => {
-          if (v !== undefined && v !== null) u.searchParams.set(k, String(v));
-        });
-        return fetch(u.toString(), {
-          headers: {
-            ...getAuthHeaders(),
-            Accept: "application/json",
-          },
-        }).then(async (r) => {
-          if (!r.ok) {
-            const t = await r.text();
-            throw new Error(t || r.statusText);
-          }
-          return r.json();
-        });
-      },
-      dataLoader: true,
-    };
-  }, [baseUrl, effectiveShopCode]);
-
-  useEffect(() => {
-    if (!readyForTable) return;
-    const t = tableRef.current;
-    if (!t) return;
-    if (prevShopForTableRef.current === null) {
-      prevShopForTableRef.current = effectiveShopCode;
-      return;
+    if (canManageUserRows) {
+      base.push({
+        key: "_actions",
+        label: "Actions",
+        width: 180,
+        render: (_, row) => {
+          const r = row as UserRow;
+          return (
+            <div className="flex items-center justify-start gap-2">
+              <Tooltip title="Edit">
+              <Button
+                type="text"
+                size="small"
+                className="text-[var(--bistre-600)] hover:text-[var(--ochre-600)] hover:bg-[var(--ochre-50)]"
+                icon={<Pencil size={16} />}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigateToEditRef.current(r);
+                }}
+              />
+            </Tooltip>
+            {canDeleteUserRow(authUser?.role, authUser?.id, r) && (
+              <Tooltip title="Delete">
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  icon={<Trash2 size={16} />}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    requestDeleteRef.current(r);
+                  }}
+                />
+              </Tooltip>
+            )}
+          </div>
+          );
+        },
+      });
     }
-    if (prevShopForTableRef.current === effectiveShopCode) return;
-    prevShopForTableRef.current = effectiveShopCode;
-    t.setPage(1);
-  }, [effectiveShopCode, readyForTable]);
+    return base;
+  }, [authUser?.id, authUser?.role, canManageUserRows]);
 
-  useEffect(() => {
-    if (refreshKey === 0) return;
-    tableRef.current?.setPage(1);
-  }, [refreshKey]);
+  const filterKey = `${effectiveShopCode}|${refreshKey}`;
+
+  const fetchFn = useMemo(() => {
+    if (!readyForTable) return undefined;
+    return ({ page, pageSize }: { page: number; pageSize: number }) => {
+      const u = new URL(
+        `${baseUrl}/users`,
+        typeof window !== "undefined" ? window.location.origin : "http://localhost",
+      );
+      u.searchParams.set("page", String(page));
+      u.searchParams.set("size", String(pageSize));
+      return fetch(u.toString(), {
+        headers: { ...getAuthHeaders(), Accept: "application/json" },
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+          return r.json();
+        })
+        .then((json) => ({
+          data: Array.isArray(json.data) ? json.data : [],
+          lastPage: Number(json.last_page ?? 1),
+        }));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseUrl, effectiveShopCode, readyForTable]);
 
   const shopOptions = useMemo(() => {
     if (shops.length > 0) {
-      return shops.map((s) => ({
-        value: s.shopCode,
-        label: `${s.name} (${s.shopCode})`,
-      }));
+      return shops.map((s) => ({ value: s.shopCode, label: `${s.name} (${s.shopCode})` }));
     }
     if (effectiveShopCode) {
       return [{ value: effectiveShopCode, label: effectiveShopCode }];
@@ -364,10 +291,7 @@ export default function UsersManagement() {
 
   useEffect(() => {
     if (!createOpen) return;
-    createForm.setFieldsValue({
-      shopCode: effectiveShopCode,
-      role: "STAFF",
-    });
+    createForm.setFieldsValue({ shopCode: effectiveShopCode, role: "STAFF" });
   }, [createOpen, effectiveShopCode, createForm]);
 
   const onCreateSubmit = async (values: {
@@ -409,31 +333,19 @@ export default function UsersManagement() {
     }
   };
 
-  const currentShop = useMemo(() => {
-    const s = shops.find((x) => x.shopCode === effectiveShopCode);
-    return {
-      name: s?.name ?? "Selected shop",
-      code: effectiveShopCode,
-    };
-  }, [shops, effectiveShopCode]);
 
   return (
     <div className={styles.root}>
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarMeta}>
-          <p className={styles.toolbarLabel}>Directory scope</p>
-          <div className={styles.shopLine}>
-            <Building2 className={styles.shopIcon} aria-hidden strokeWidth={2} />
-            <div>
-              <p className={styles.shopName}>{currentShop.name}</p>
-              <span className={styles.shopCode}>{currentShop.code}</span>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Users</h1>
         </div>
         <Button
           type="primary"
-          icon={<UserPlus size={18} strokeWidth={2.25} />}
-          className={styles.addBtn}
+          size="large"
+          className="rounded-lg shadow-sm font-semibold shrink-0"
+          style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+          icon={<UserPlus size={16} strokeWidth={2.25} />}
           onClick={() => setCreateOpen(true)}
         >
           Add user
@@ -441,19 +353,20 @@ export default function UsersManagement() {
       </div>
 
       <div className={`${styles.tableSlot} ${styles.wrap}`}>
-        <DataTable
-          key={`${effectiveShopCode}-${canManageUserRows ? "e" : "v"}-${refreshKey}`}
-          columns={columns}
-          options={options}
-          onRef={(instanceRef: { current?: unknown }) => {
-            tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
-          }}
-          loading={tableLoading}
-          onRemoteBusyChange={onRemoteBusyChange}
-          emptyTitle="No users found"
-          emptyDescription="Add your team members and assign them roles to start managing your shop."
-          emptyIcon={<ShieldAlert size={28} strokeWidth={1.35} aria-hidden />}
-        />
+        {fetchFn && (
+          <DataTable
+            key={`${effectiveShopCode}-${canManageUserRows ? "e" : "v"}`}
+            columns={columns}
+            fetchFn={fetchFn}
+            filterKey={filterKey}
+            pageSize={20}
+            pageSizeOptions={[10, 20, 50]}
+            maxBodyHeight={520}
+            emptyTitle="No users found"
+            emptyDescription="Add your team members and assign them roles to start managing your shop."
+            emptyIcon={<ShieldAlert size={28} strokeWidth={1.35} aria-hidden />}
+          />
+        )}
       </div>
 
       <Modal
@@ -463,16 +376,8 @@ export default function UsersManagement() {
         footer={null}
         destroyOnHidden
       >
-        <Form
-          form={createForm}
-          layout="vertical"
-          onFinish={onCreateSubmit}
-        >
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[{ required: true, type: "email" }]}
-          >
+        <Form form={createForm} layout="vertical" onFinish={onCreateSubmit}>
+          <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
             <Input autoComplete="off" />
           </Form.Item>
           <Form.Item
