@@ -64,7 +64,7 @@ export default function DashboardWorkspace() {
       } else if (s === "gst") {
         router.replace("/dashboard?tab=gst", { scroll: false });
       } else {
-        router.replace("/dashboard", { scroll: false });
+        router.replace("/dashboard?tab=overview", { scroll: false });
       }
     },
     [router],
