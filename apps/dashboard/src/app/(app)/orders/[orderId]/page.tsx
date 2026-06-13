@@ -18,9 +18,7 @@ import {
   Typography,
 } from "antd";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
-import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
-
-import { DataTable } from "@/components/DataTable/DataTable";
+import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
@@ -175,78 +173,75 @@ export default function OrderBillDetailPage() {
 
   const invoiceRef = order ? orderIdToInvoiceRef(order.id) : "…";
 
-  const lineColumns = useMemo<ColumnDefinition[]>(
+  const lineColumns = useMemo<AppTableColumn[]>(
     () => [
       {
-        title: "Item",
+        key: "product",
+        label: "Item",
         field: "productName",
         minWidth: 200,
-        headerSort: false,
+        render: (_, row) => {
+          const r = row as OrderLineTabRow;
+          return (
+            <div className={styles.lineItemProductStack}>
+              <span className={styles.lineItemTitle}>{r.productName}</span>
+              {r.variantLabel ? (
+                <span className={styles.lineItemSub}>{r.variantLabel}</span>
+              ) : null}
+              {r.barcode ? (
+                <span className={styles.lineItemCode}>{r.barcode}</span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
-        title: "Item",
-        field: "variantLabel",
-        minWidth: 200,
-        headerSort: false,
-        cssClass: styles.lineItemProductCol,
-      },
-      {
-        title: "Item",
-        field: "barcode",
-        minWidth: 200,
-        headerSort: false,
-      },
-      {
-        title: "Qty",
+        key: "quantity",
+        label: "Qty",
         field: "quantity",
         width: 88,
-        hozAlign: "right",
-        headerSort: false,
-        cssClass: styles.lineItemNumCol,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.className = styles.tabularCell;
-          const n = Number(cell.getValue());
-          span.textContent = Number.isFinite(n)
-            ? n.toLocaleString("en-IN", { maximumFractionDigits: 3 })
-            : String(cell.getValue() ?? "");
-          return span;
+        align: "right",
+        render: (val) => {
+          const n = Number(val);
+          return (
+            <span className={styles.tabularCell}>
+              {Number.isFinite(n)
+                ? n.toLocaleString("en-IN", { maximumFractionDigits: 3 })
+                : String(val ?? "")}
+            </span>
+          );
         },
       },
       {
-        title: "Unit",
+        key: "unitResolved",
+        label: "Unit",
         field: "unitResolved",
         width: 80,
-        hozAlign: "center",
-        headerSort: false,
+        align: "center",
       },
       {
-        title: "Rate",
+        key: "unitPrice",
+        label: "Rate",
         field: "unitPrice",
         width: 112,
-        hozAlign: "right",
-        headerSort: false,
-        cssClass: styles.lineItemNumCol,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.className = styles.tabularCell;
-          span.textContent = inr.format(Number(cell.getValue()) || 0);
-          return span;
-        },
+        align: "right",
+        render: (val) => (
+          <span className={styles.tabularCell}>
+            {inr.format(Number(val) || 0)}
+          </span>
+        ),
       },
       {
-        title: "Amount",
+        key: "lineTotal",
+        label: "Amount",
         field: "lineTotal",
         width: 120,
-        hozAlign: "right",
-        headerSort: false,
-        cssClass: styles.lineItemNumCol,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.className = styles.lineItemAmount;
-          span.textContent = inr.format(Number(cell.getValue()) || 0);
-          return span;
-        },
+        align: "right",
+        render: (val) => (
+          <span className={styles.lineItemAmount}>
+            {inr.format(Number(val) || 0)}
+          </span>
+        ),
       },
     ],
     [],
@@ -330,19 +325,6 @@ export default function OrderBillDetailPage() {
   }, [order]);
 
   const lineCount = order?.items.length ?? 0;
-
-  const lineTableOptions = useMemo<ReactTabulatorOptions>(() => {
-    const bodyCap = Math.min(
-      linesBodyMaxHeight,
-      Math.max(220, 52 + Math.max(1, lineCount) * 48),
-    );
-    return {
-      layout: "fitColumns",
-      maxHeight: bodyCap,
-      placeholder: "No items on this bill.",
-      selectable: false,
-    };
-  }, [linesBodyMaxHeight, lineCount]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-auto pb-2">
@@ -561,9 +543,7 @@ export default function OrderBillDetailPage() {
                     key={order.id}
                     columns={lineColumns}
                     data={tableData}
-                    options={lineTableOptions}
-                    loading={false}
-                    minHeight={linesBodyMaxHeight}
+                    maxBodyHeight={linesBodyMaxHeight}
                     emptyTitle="No items"
                     emptyDescription="This bill has no items."
                   />

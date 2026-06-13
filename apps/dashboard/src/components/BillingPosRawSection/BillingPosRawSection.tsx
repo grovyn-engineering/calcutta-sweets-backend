@@ -370,17 +370,17 @@ function BillingPosRawSectionInner({
             maxLength={120}
           />
         </Form.Item>
-        <div className="mb-3 rounded-lg border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2.5">
+        <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2">
           <Checkbox
             rootClassName={styles.gstinCheckboxRoot}
             checked={formValues.includeCustomerGstin}
             onChange={(e) => patch({ includeCustomerGstin: e.target.checked })}
             className="text-sm text-[var(--text-secondary)]"
           >
-            Include customer GSTIN on printed bill
+            Include customer GSTIN
           </Checkbox>
-          {formValues.includeCustomerGstin ? (
-            <div className="mt-2">
+          {formValues.includeCustomerGstin && (
+            <div className="flex-1 min-w-[200px]">
               <Input
                 placeholder="15-character GSTIN"
                 value={formValues.customerGstin}
@@ -396,7 +396,7 @@ function BillingPosRawSectionInner({
                 className="font-mono text-sm"
               />
             </div>
-          ) : null}
+          )}
         </div>
 
         <Button

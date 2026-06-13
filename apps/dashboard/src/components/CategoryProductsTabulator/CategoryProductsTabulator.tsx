@@ -1,35 +1,14 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { useRemoteTabulatorLoading } from "@/hooks/useRemoteTabulatorLoading";
-import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
+import { memo, useMemo } from "react";
 import { LayoutGrid } from "lucide-react";
-import { DataTable } from "@/components/DataTable/DataTable";
-
+import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { dedupeInFlight, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import styles from "./CategoryProductsTabulator.module.css";
 
-type TabulatorPageable = { setPage: (page: number) => void };
-
-type ApiVariant = {
-  id: string;
-  quantity: number;
-  price: number;
-};
-
-type ApiProduct = {
-  id: string;
-  name: string;
-  variants: ApiVariant[];
-};
-
-type PageBody = {
-  data: ApiProduct[];
-  last_page: number;
-  page?: number;
-  size?: number;
-  total?: number;
-};
+type ApiVariant = { id: string; quantity: number; price: number };
+type ApiProduct = { id: string; name: string; variants: ApiVariant[] };
+type PageBody = { data: ApiProduct[]; last_page: number };
 
 type TabRow = {
   productId: string;
@@ -49,17 +28,13 @@ const inr = new Intl.NumberFormat("en-IN", {
 
 function mapProductToRow(p: ApiProduct): TabRow {
   const stock = p.variants.reduce((s, v) => s + v.quantity, 0);
-  const minPrice =
-    p.variants.length > 0
-      ? Math.min(...p.variants.map((v) => v.price))
-      : 0;
-  const firstVariant = p.variants[0];
+  const minPrice = p.variants.length > 0 ? Math.min(...p.variants.map((v) => v.price)) : 0;
   return {
     productId: p.id,
     name: p.name,
     stock,
     fromPrice: minPrice,
-    firstVariantId: firstVariant?.id ?? null,
+    firstVariantId: p.variants[0]?.id ?? null,
   };
 }
 
@@ -74,160 +49,91 @@ function CategoryProductsTabulatorInner({
   refreshKey,
   onOpenVariant,
 }: CategoryProductsTabulatorProps) {
-  const categoryIdRef = useRef(categoryId);
-  categoryIdRef.current = categoryId;
-
-  const openRef = useRef(onOpenVariant);
-  useEffect(() => {
-    openRef.current = onOpenVariant;
-  }, [onOpenVariant]);
-
-  const tableRef = useRef<TabulatorPageable | null>(null);
-  const prevFilterKeyRef = useRef<string | null>(null);
   const filterKey = `${categoryId}|${refreshKey}`;
 
-  const { loading: tableLoading, onRemoteBusyChange } = useRemoteTabulatorLoading(
-    categoryId,
-    refreshKey,
-  );
-
-  useEffect(() => {
-    const t = tableRef.current;
-    if (!t) return;
-    if (prevFilterKeyRef.current === null) {
-      prevFilterKeyRef.current = filterKey;
-      return;
-    }
-    if (prevFilterKeyRef.current === filterKey) return;
-    prevFilterKeyRef.current = filterKey;
-    t.setPage(1);
-  }, [filterKey]);
-
-  const columns = useMemo<ColumnDefinition[]>(
+  const columns: AppTableColumn[] = useMemo(
     () => [
       {
-        title: "Product",
+        key: "name",
+        label: "Product",
         field: "name",
         minWidth: 200,
-        headerSort: false,
       },
       {
-        title: "Stock",
+        key: "stock",
+        label: "Stock",
         field: "stock",
         width: 100,
-        hozAlign: "right",
-        headerSort: false,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.className = "category-products-num";
-          const n = Number(cell.getValue()) || 0;
-          span.textContent = n.toLocaleString("en-IN");
-          return span;
-        },
+        align: "right",
+        render: (val) => (
+          <span className="category-products-num">
+            {(Number(val) || 0).toLocaleString("en-IN")}
+          </span>
+        ),
       },
       {
-        title: "From price",
+        key: "fromPrice",
+        label: "From price",
         field: "fromPrice",
         width: 120,
-        hozAlign: "right",
-        headerSort: false,
-        formatter: (cell) => {
-          const span = document.createElement("span");
-          span.className = "category-products-num";
-          span.textContent = inr.format(Number(cell.getValue()) || 0);
-          return span;
-        },
+        align: "right",
+        render: (val) => (
+          <span className="category-products-num">
+            {inr.format(Number(val) || 0)}
+          </span>
+        ),
       },
       {
-        title: "Inventory",
+        key: "firstVariantId",
+        label: "Inventory",
         field: "firstVariantId",
         minWidth: 120,
-        headerSort: false,
-        formatter: (cell) => {
-          const id = cell.getValue() as string | null;
-          if (!id) {
-            const em = document.createElement("span");
-            em.className = "category-products-dash";
-            em.textContent = "-";
-            return em;
-          }
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "category-products-link";
-          btn.textContent = "Open variant";
-          btn.addEventListener("click", (e) => {
-            e.preventDefault();
-            openRef.current(id);
-          });
-          return btn;
+        render: (val) => {
+          const id = val as string | null;
+          if (!id) return <span className="category-products-dash">-</span>;
+          return (
+            <button
+              type="button"
+              className="category-products-link"
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenVariant(id);
+              }}
+            >
+              Open variant
+            </button>
+          );
         },
       },
     ],
-    [],
+    [onOpenVariant],
   );
 
   const baseUrl = getApiBaseUrl();
 
-  const options = useMemo<ReactTabulatorOptions>(() => {
-    return {
-      layout: "fitColumns",
-      height: "100%",
-      placeholder:
-        "No products in this category for the current shop.",
-      pagination: true,
-      paginationMode: "remote",
-      paginationSize: PAGE_SIZE,
-      ajaxURL: `${baseUrl}/category/00000000-0000-0000-0000-000000000000/products`,
-      ajaxRequestFunc: (_url, _config, params) => {
-        const id = categoryIdRef.current;
+  const fetchFn = useMemo(
+    () =>
+      ({ page, pageSize }: { page: number; pageSize: number }) => {
         const u = new URL(
-          `${baseUrl}/category/${id}/products`,
-          typeof window !== "undefined"
-            ? window.location.origin
-            : "http://localhost",
+          `${baseUrl}/category/${categoryId}/products`,
+          typeof window !== "undefined" ? window.location.origin : "http://localhost",
         );
-        const merged: Record<string, unknown> = {
-          ...(params && typeof params === "object" ? params : {}),
-        };
-        Object.entries(merged).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== "") {
-            u.searchParams.set(k, String(v));
-          }
-        });
-        const page = Math.max(1, parseInt(String(merged.page ?? "1"), 10) || 1);
-        const size = Math.max(
-          1,
-          parseInt(String(merged.size ?? PAGE_SIZE), 10) || PAGE_SIZE,
-        );
-        const dedupeKey = `GET:/category/${id}/products:p${page}:s${size}`;
+        u.searchParams.set("page", String(page));
+        u.searchParams.set("size", String(pageSize));
+        const dedupeKey = `GET:/category/${categoryId}/products:p${page}:s${pageSize}`;
         return dedupeInFlight(dedupeKey, async () => {
           const r = await fetch(u.toString(), {
-            headers: {
-              ...getAuthHeaders(),
-              Accept: "application/json",
-            },
+            headers: { ...getAuthHeaders(), Accept: "application/json" },
           });
-          if (!r.ok) {
-            const t = await r.text();
-            throw new Error(t || r.statusText);
-          }
+          if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
           const body = (await r.json()) as PageBody;
-          const rows = (body.data ?? []).map(mapProductToRow);
           return {
-            last_page: body.last_page,
-            data: rows,
+            data: (body.data ?? []).map(mapProductToRow),
+            lastPage: body.last_page ?? 1,
           };
         });
       },
-      dataLoader: true,
-    };
-  }, [baseUrl]);
-
-  const onTableRef = useCallback(
-    (instanceRef: { current?: unknown }) => {
-      tableRef.current = (instanceRef.current as TabulatorPageable | undefined) ?? null;
-    },
-    [],
+    [baseUrl, categoryId],
   );
 
   return (
@@ -235,11 +141,10 @@ function CategoryProductsTabulatorInner({
       <div className={styles.tabulatorInner}>
         <DataTable
           columns={columns}
-          options={options}
-          onRef={onTableRef}
-          minHeight={300}
-          loading={tableLoading}
-          onRemoteBusyChange={onRemoteBusyChange}
+          fetchFn={fetchFn}
+          filterKey={filterKey}
+          pageSize={PAGE_SIZE}
+          maxBodyHeight={400}
           emptyTitle="No products here"
           emptyIcon={<LayoutGrid size={28} strokeWidth={1.35} aria-hidden />}
         />

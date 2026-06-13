@@ -1,437 +1,401 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import type { ColumnDefinition, ReactTabulatorOptions } from "react-tabulator";
-
-import "tabulator-tables/dist/css/tabulator.min.css";
-import {
-  attachTabulatorOverflowTooltips,
-  detachTabulatorOverflowTooltips,
-} from "@/lib/tabulatorOverflowTooltips";
-import styles from "./DataTable.module.css";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { TableEmptyState, TableLoadingOverlay } from "./TableDataOverlay";
+import styles from "./DataTable.module.css";
 
-type TabulatorLike = {
-  getDataCount?: () => number;
-  on?: (ev: string, fn: (...args: unknown[]) => void) => void;
-  off?: (ev: string, fn: (...args: unknown[]) => void) => void;
+export type AppTableColumn = {
+  key: string;
+  label: React.ReactNode;
+  field?: string;
+  render?: (value: unknown, row: unknown, index: number) => React.ReactNode;
+  width?: number | string;
+  minWidth?: number | string;
+  align?: "left" | "right" | "center";
+  className?: string;
 };
 
-function TableSkeleton() {
-  return (
-    <div className={styles.skeleton}>
-      <div className={styles.skeletonHeader} />
-      <div className={styles.skeletonRowsWrapper}>
-        <div className={styles.skeletonRow} />
-        <div className={styles.skeletonRow} />
-        <div className={styles.skeletonRow} />
-        <div className={styles.skeletonRow} />
-        <div className={styles.skeletonRow} />
-      </div>
-    </div>
-  );
-}
-
-const ReactTabulator = dynamic(
-  () => import("react-tabulator/lib/ReactTabulator"),
-  { ssr: false, loading: () => <TableSkeleton /> },
-);
-
 export type DataTableProps = {
-  columns: ColumnDefinition[];
-  options?: ReactTabulatorOptions;
-  events?: Record<string, (...args: any[]) => void>;
+  columns: AppTableColumn[];
+  // Local data
   data?: unknown[];
+  // Remote data — component manages page state, calls this when page/filterKey changes
+  fetchFn?: (params: {
+    page: number;
+    pageSize: number;
+  }) => Promise<{ data: unknown[]; lastPage: number }>;
+  tableType?: "pagination" | "infiniteScroll";
+  pageSize?: number;
+  pageSizeOptions?: number[];
+  // Changing filterKey resets to page 1 and re-fetches
+  filterKey?: string | number;
+  // External loading override (e.g. for local data)
   loading?: boolean;
-  onRemoteBusyChange?: (busy: boolean) => void;
-  onRef?: (instanceRef: { current?: unknown }) => void;
-  emptyState?: React.ReactNode | null;
+  maxBodyHeight?: number | string;
   emptyTitle?: string;
   emptyDescription?: string;
   emptyIcon?: React.ReactNode;
   emptyAction?: React.ReactNode;
-  minHeight?: number | string;
+  onRowClick?: (row: unknown) => void;
+  rowKey?: string;
+  // Called whenever the displayed rows change (useful for select-all logic)
+  onVisibleRowsChange?: (rows: unknown[]) => void;
+  className?: string;
 };
+
+type FetchSpec = { page: number; pageSize: number; nonce: number };
+
+function getRowKey(row: unknown, rowKey: string, index: number): string {
+  const v = (row as Record<string, unknown>)[rowKey];
+  return v != null ? String(v) : String(index);
+}
+
+function getValue(row: unknown, field?: string): unknown {
+  if (!field) return undefined;
+  return (row as Record<string, unknown>)[field];
+}
+
+function buildPageNumbers(page: number, totalPages: number): (number | "…")[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages: (number | "…")[] = [1];
+  if (page > 3) pages.push("…");
+  for (
+    let p = Math.max(2, page - 1);
+    p <= Math.min(totalPages - 1, page + 1);
+    p++
+  ) {
+    pages.push(p);
+  }
+  if (page < totalPages - 2) pages.push("…");
+  pages.push(totalPages);
+  return pages;
+}
 
 export function DataTable({
   columns,
-  options,
-  events,
-  data,
-  loading: loadingProp,
-  onRemoteBusyChange,
-  onRef,
-  emptyState,
-  emptyTitle,
-  emptyDescription,
+  data: localData,
+  fetchFn,
+  tableType = "pagination",
+  pageSize: pageSizeProp = 20,
+  pageSizeOptions,
+  filterKey,
+  loading: externalLoading,
+  maxBodyHeight = 480,
+  emptyTitle = "No results",
+  emptyDescription = "Nothing to show yet.",
   emptyIcon,
   emptyAction,
-  minHeight = 400,
+  onRowClick,
+  rowKey = "id",
+  onVisibleRowsChange,
+  className,
 }: DataTableProps) {
-  const [internalLoading, setInternalLoading] = useState(true);
-  const [isEmpty, setIsEmpty] = useState(false);
-  const [remoteAjaxInFlight, setRemoteAjaxInFlight] = useState(
-    () => typeof options?.ajaxRequestFunc === "function",
-  );
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const detachTableListenersRef = useRef<(() => void) | null>(null);
-  const chromeObserverRef = useRef<ResizeObserver | null>(null);
-  const loadingPropRef = useRef(loadingProp);
-  loadingPropRef.current = loadingProp;
-  const onRemoteBusyChangeRef = useRef(onRemoteBusyChange);
-  onRemoteBusyChangeRef.current = onRemoteBusyChange;
-  const sawRemoteDataLoadingRef = useRef(false);
-  const remoteInFlightRef = useRef(0);
-  const overflowTipsRafRef = useRef<number | null>(null);
+  const isRemote = Boolean(fetchFn);
+  const fetchFnRef = useRef(fetchFn);
+  fetchFnRef.current = fetchFn;
 
-  const scheduleOverflowTips = useCallback(() => {
-    if (overflowTipsRafRef.current != null) {
-      cancelAnimationFrame(overflowTipsRafRef.current);
-    }
-    overflowTipsRafRef.current = requestAnimationFrame(() => {
-      overflowTipsRafRef.current = null;
-      attachTabulatorOverflowTooltips(wrapperRef.current);
-    });
-  }, []);
+  const [fetchSpec, setFetchSpec] = useState<FetchSpec>({
+    page: 1,
+    pageSize: pageSizeProp,
+    nonce: 0,
+  });
+  const [remoteData, setRemoteData] = useState<unknown[]>([]);
+  const [accData, setAccData] = useState<unknown[]>([]);
+  const [lastPage, setLastPage] = useState(1);
+  const [fetching, setFetching] = useState(false);
+  const fetchGenRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const prevFilterKeyRef = useRef<string | number | undefined>(filterKey);
 
-  const controlledLoading = typeof loadingProp === "boolean";
-  const usesRemoteData = useMemo(
-    () =>
-      Boolean(
-        options?.ajaxURL ||
-          options?.ajaxURLGenerator ||
-          typeof options?.ajaxRequestFunc === "function",
-      ),
-    [options?.ajaxURL, options?.ajaxURLGenerator, options?.ajaxRequestFunc],
-  );
+  // Reset to page 1 when filterKey changes
+  useEffect(() => {
+    if (prevFilterKeyRef.current === filterKey) return;
+    prevFilterKeyRef.current = filterKey;
+    if (tableType === "infiniteScroll") setAccData([]);
+    setFetchSpec((s) => ({ ...s, page: 1, nonce: s.nonce + 1 }));
+  }, [filterKey, tableType]);
 
-  const displayLoading =
-    (usesRemoteData && remoteAjaxInFlight) ||
-    (controlledLoading ? loadingProp : internalLoading);
-
-  const minHeightStyle =
-    typeof minHeight === "number"
-      ? minHeight === 0
-        ? "0"
-        : `${minHeight}px`
-      : minHeight;
-
-  const internalOptions = useMemo(() => {
-    const base: ReactTabulatorOptions = {
-      layout: "fitDataFill",
-      dataLoader: false,
-      ...options,
-    };
-    const orig = base.ajaxRequestFunc;
-    const remote = Boolean(
-      base.ajaxURL ||
-        base.ajaxURLGenerator ||
-        typeof orig === "function",
-    );
-    if (remote && typeof orig === "function") {
-      base.ajaxRequestFunc = (async (
-        url: string,
-        config: unknown,
-        params: unknown,
-      ) => {
-        remoteInFlightRef.current += 1;
-        sawRemoteDataLoadingRef.current = true;
-        setRemoteAjaxInFlight(true);
-        setIsEmpty(false);
-        onRemoteBusyChangeRef.current?.(true);
-        try {
-          return await orig(url, config, params);
-        } finally {
-          remoteInFlightRef.current = Math.max(0, remoteInFlightRef.current - 1);
-          queueMicrotask(() => {
-            if (remoteInFlightRef.current === 0) {
-              setRemoteAjaxInFlight(false);
-              onRemoteBusyChangeRef.current?.(false);
-            }
-          });
+  // Remote fetch
+  useEffect(() => {
+    if (!fetchFnRef.current) return;
+    const gen = ++fetchGenRef.current;
+    setFetching(true);
+    void fetchFnRef
+      .current({ page: fetchSpec.page, pageSize: fetchSpec.pageSize })
+      .then(({ data, lastPage: lp }) => {
+        if (gen !== fetchGenRef.current) return;
+        if (tableType === "infiniteScroll") {
+          setAccData((prev) =>
+            fetchSpec.page === 1 ? data : [...prev, ...data]
+          );
+        } else {
+          setRemoteData(data);
         }
-      }) as typeof orig;
-    }
-    return base;
-  }, [options]);
+        setLastPage(lp);
+      })
+      .catch(() => {
+        /* errors handled by caller */
+      })
+      .finally(() => {
+        if (gen === fetchGenRef.current) setFetching(false);
+      });
+  }, [fetchSpec, tableType]);
 
-  const reserveFooterSpace = options?.pagination === true;
-
-  const defaultEmptyCopy = useMemo(() => {
-    const ph = options?.placeholder;
-    const fromPlaceholder =
-      typeof ph === "string" && ph.trim().length > 0 ? ph.trim() : undefined;
-    return {
-      title: emptyTitle ?? "No results",
-      description:
-        emptyDescription ??
-        fromPlaceholder ??
-        "Nothing to show yet. Try changing filters or refreshing.",
-    };
-  }, [emptyTitle, emptyDescription, options?.placeholder]);
-
-  const resolvedEmpty = useMemo(() => {
-    if (emptyState === null) return null;
-    if (emptyState !== undefined) return emptyState;
-    return (
-      <TableEmptyState
-        title={defaultEmptyCopy.title}
-        description={defaultEmptyCopy.description}
-        icon={emptyIcon}
-        action={emptyAction}
-      />
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    if (tableType !== "infiniteScroll" || !sentinelRef.current) return;
+    const sentinel = sentinelRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0]?.isIntersecting &&
+          !fetching &&
+          fetchSpec.page < lastPage
+        ) {
+          setFetchSpec((s) => ({ ...s, page: s.page + 1 }));
+        }
+      },
+      { threshold: 0.1 }
     );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [tableType, fetching, fetchSpec.page, lastPage]);
+
+  const displayedRows = useMemo(() => {
+    if (isRemote) {
+      return tableType === "infiniteScroll" ? accData : remoteData;
+    }
+    if (!localData) return [];
+    if (tableType === "pagination") {
+      const start = (fetchSpec.page - 1) * fetchSpec.pageSize;
+      return localData.slice(start, start + fetchSpec.pageSize);
+    }
+    return localData;
   }, [
-    emptyState,
-    defaultEmptyCopy.title,
-    defaultEmptyCopy.description,
-    emptyIcon,
-    emptyAction,
+    isRemote,
+    tableType,
+    accData,
+    remoteData,
+    localData,
+    fetchSpec.page,
+    fetchSpec.pageSize,
   ]);
 
-  const measureChrome = useCallback(() => {
-    const root = wrapperRef.current;
-    if (!root) return;
-    const header = root.querySelector(
-      ".tabulator .tabulator-header",
-    ) as HTMLElement | null;
-    const footer = root.querySelector(
-      ".tabulator .tabulator-footer",
-    ) as HTMLElement | null;
-
-    const top = header
-      ? Math.min(120, Math.max(44, Math.ceil(header.offsetHeight)))
-      : 52;
-    root.style.setProperty("--dt-header-reserve", `${top}px`);
-
-    if (reserveFooterSpace && footer) {
-      const fh = Math.ceil(footer.offsetHeight + 12);
-      root.style.setProperty("--dt-footer-reserve", `${Math.max(72, fh)}px`);
-    } else {
-      root.style.removeProperty("--dt-footer-reserve");
-    }
-  }, [reserveFooterSpace]);
-
-  const syncFromTable = useCallback(
-    (table: TabulatorLike) => {
-      let n = 0;
-      try {
-        n =
-          typeof table.getDataCount === "function" ? table.getDataCount() : 0;
-      } catch {
-        n = 0;
-      }
-
-      const controlled = typeof loadingPropRef.current === "boolean";
-      if (
-        !controlled &&
-        usesRemoteData &&
-        !sawRemoteDataLoadingRef.current &&
-        n === 0
-      ) {
-        return;
-      }
-
-      setIsEmpty(n === 0);
-      if (!controlled) {
-        setInternalLoading(false);
-      }
-    },
-    [usesRemoteData],
-  );
-
-  const handleRef = useCallback(
-    (instanceRef: { current?: unknown }) => {
-      const table = instanceRef.current as TabulatorLike | null;
-
-      detachTableListenersRef.current?.();
-      detachTableListenersRef.current = null;
-      chromeObserverRef.current?.disconnect();
-      chromeObserverRef.current = null;
-      sawRemoteDataLoadingRef.current = false;
-      remoteInFlightRef.current = 0;
-      if (usesRemoteData && typeof options?.ajaxRequestFunc === "function") {
-        setRemoteAjaxInFlight(true);
-      }
-
-      onRef?.(instanceRef);
-
-      if (!table || typeof table.on !== "function") {
-        detachTabulatorOverflowTooltips(wrapperRef.current);
-        return;
-      }
-
-      const onDataLoading = () => {
-        sawRemoteDataLoadingRef.current = true;
-        onRemoteBusyChangeRef.current?.(true);
-        if (typeof loadingPropRef.current !== "boolean") {
-          setInternalLoading(true);
-        }
-        setIsEmpty(false);
-      };
-      const onProcessed = () => {
-        syncFromTable(table);
-        if (!usesRemoteData) {
-          setRemoteAjaxInFlight(false);
-          onRemoteBusyChangeRef.current?.(false);
-        }
-        requestAnimationFrame(() => {
-          measureChrome();
-          scheduleOverflowTips();
-        });
-      };
-      const onErr = () => {
-        sawRemoteDataLoadingRef.current = true;
-        remoteInFlightRef.current = 0;
-        setRemoteAjaxInFlight(false);
-        onRemoteBusyChangeRef.current?.(false);
-        if (typeof loadingPropRef.current !== "boolean") {
-          setInternalLoading(false);
-        }
-        setIsEmpty(true);
-        requestAnimationFrame(() => {
-          measureChrome();
-          scheduleOverflowTips();
-        });
-      };
-
-      const onRenderComplete = () => {
-        scheduleOverflowTips();
-      };
-
-      const onColumnResized = () => {
-        scheduleOverflowTips();
-      };
-
-      table.on("dataLoading", onDataLoading);
-      table.on("dataProcessed", onProcessed);
-      table.on("dataLoadError", onErr);
-      table.on("renderComplete", onRenderComplete);
-      table.on("columnResized", onColumnResized);
-
-      const safetyId = window.setTimeout(() => {
-        sawRemoteDataLoadingRef.current = true;
-        syncFromTable(table);
-        requestAnimationFrame(() => {
-          measureChrome();
-          scheduleOverflowTips();
-        });
-      }, 4500);
-
-      detachTableListenersRef.current = () => {
-        window.clearTimeout(safetyId);
-        table.off?.("dataLoading", onDataLoading);
-        table.off?.("dataProcessed", onProcessed);
-        table.off?.("dataLoadError", onErr);
-        table.off?.("renderComplete", onRenderComplete);
-        table.off?.("columnResized", onColumnResized);
-        detachTabulatorOverflowTooltips(wrapperRef.current);
-      };
-
-      if (usesRemoteData) {
-        const catchUpIfRowsAlreadyPresent = () => {
-          try {
-            const n =
-              typeof table.getDataCount === "function"
-                ? table.getDataCount()
-                : 0;
-            if (n > 0 && !sawRemoteDataLoadingRef.current) {
-              sawRemoteDataLoadingRef.current = true;
-              syncFromTable(table);
-              requestAnimationFrame(() => {
-                measureChrome();
-                scheduleOverflowTips();
-              });
-            }
-          } catch {
-            /* ignore */
-          }
-        };
-        queueMicrotask(catchUpIfRowsAlreadyPresent);
-        requestAnimationFrame(catchUpIfRowsAlreadyPresent);
-      }
-
-      requestAnimationFrame(() => {
-        measureChrome();
-        scheduleOverflowTips();
-        const root = wrapperRef.current;
-        if (!root || typeof ResizeObserver === "undefined") return;
-        const obs = new ResizeObserver(() => {
-          measureChrome();
-          scheduleOverflowTips();
-        });
-        chromeObserverRef.current = obs;
-        const tab = root.querySelector(".tabulator");
-        if (tab) obs.observe(tab);
-      });
-    },
-    [onRef, syncFromTable, measureChrome, usesRemoteData, options?.ajaxRequestFunc, scheduleOverflowTips],
-  );
-
+  // Notify parent of visible rows (for select-all etc.)
+  const onVisibleRowsChangeRef = useRef(onVisibleRowsChange);
+  onVisibleRowsChangeRef.current = onVisibleRowsChange;
   useEffect(() => {
-    if (!Array.isArray(data)) return;
-    const controlled = typeof loadingProp === "boolean";
-    if (!controlled) {
-      setInternalLoading(false);
-    } else if (loadingProp === true) {
-      return;
-    }
-    setIsEmpty(data.length === 0);
-  }, [data, loadingProp]);
+    onVisibleRowsChangeRef.current?.(displayedRows);
+  }, [displayedRows]);
 
-  useEffect(
-    () => () => {
-      if (overflowTipsRafRef.current != null) {
-        cancelAnimationFrame(overflowTipsRafRef.current);
-        overflowTipsRafRef.current = null;
-      }
-      detachTabulatorOverflowTooltips(wrapperRef.current);
-      detachTableListenersRef.current?.();
-      detachTableListenersRef.current = null;
-      chromeObserverRef.current?.disconnect();
-      chromeObserverRef.current = null;
+  const totalPages = useMemo(() => {
+    if (isRemote) return lastPage;
+    if (!localData || tableType !== "pagination") return 1;
+    return Math.max(1, Math.ceil(localData.length / fetchSpec.pageSize));
+  }, [isRemote, lastPage, localData, tableType, fetchSpec.pageSize]);
+
+  const isLoading = externalLoading !== undefined ? externalLoading : fetching;
+  const isEmpty = !isLoading && displayedRows.length === 0;
+
+  const maxHeightStyle =
+    typeof maxBodyHeight === "number" ? `${maxBodyHeight}px` : maxBodyHeight;
+
+  const goToPage = useCallback(
+    (p: number) => {
+      setFetchSpec((s) => ({
+        ...s,
+        page: Math.max(1, Math.min(p, totalPages)),
+      }));
     },
-    [],
+    [totalPages]
   );
 
-  const overlayClasses = [
-    styles.bodyOverlay,
-    reserveFooterSpace ? styles.bodyOverlay_footerPad : "",
-    displayLoading ? styles.bodyOverlay_loading : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const pageNumbers = useMemo(
+    () => buildPageNumbers(fetchSpec.page, totalPages),
+    [fetchSpec.page, totalPages]
+  );
+
+  const showPagination =
+    tableType === "pagination" &&
+    (isRemote ? totalPages > 0 : (localData?.length ?? 0) > 0 || isLoading);
 
   return (
-    <div
-      ref={wrapperRef}
-      className={styles.tableWrapper}
-      style={
-        {
-          position: "relative",
-          "--table-min-height": minHeightStyle,
-        } as React.CSSProperties
-      }
-    >
-      <ReactTabulator
-        className={styles.tabulatorHost}
-        columns={columns}
-        options={internalOptions}
-        data={data}
-        events={events}
-        onRef={handleRef}
-      />
+    <div className={`${styles.root} ${className ?? ""}`.trim()}>
+      <table className={styles.table}>
+        <thead className={styles.thead}>
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col.key}
+                className={styles.th}
+                style={{
+                  width: col.width,
+                  minWidth: col.minWidth,
+                  textAlign:
+                    (col.align as React.CSSProperties["textAlign"]) ?? "left",
+                }}
+              >
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+      </table>
+      <div
+        className={styles.scrollArea}
+        style={{
+          maxHeight: maxHeightStyle,
+          minHeight: (isLoading && displayedRows.length === 0) ? 300 : undefined,
+        }}
+      >
+        <table className={styles.table}>
+          <tbody className={styles.tbody}>
+            {isEmpty ? (
+              <tr>
+                <td colSpan={columns.length} className={styles.emptyCell}>
+                  <TableEmptyState
+                    title={emptyTitle}
+                    description={emptyDescription}
+                    icon={emptyIcon}
+                    action={emptyAction}
+                    embedded
+                  />
+                </td>
+              </tr>
+            ) : (
+              displayedRows.map((row, idx) => {
+                const key = getRowKey(row, rowKey, idx);
+                return (
+                  <tr
+                    key={key}
+                    className={`${styles.tr} ${onRowClick ? styles.trClickable : ""}`.trim()}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  >
+                    {columns.map((col) => {
+                      const val = getValue(row, col.field);
+                      const content = col.render
+                        ? col.render(val, row, idx)
+                        : val != null
+                          ? String(val)
+                          : "-";
+                      return (
+                        <td
+                          key={col.key}
+                          className={`${styles.td} ${col.className ?? ""}`.trim()}
+                          style={{
+                            width: col.width,
+                            minWidth: col.minWidth,
+                            textAlign:
+                              (col.align as React.CSSProperties["textAlign"]) ??
+                              "left",
+                          }}
+                        >
+                          {content}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
+            )}
+            {tableType === "infiniteScroll" && !isEmpty && (
+              <tr aria-hidden>
+                <td colSpan={columns.length} style={{ padding: 0, border: 0 }}>
+                  <div ref={sentinelRef} style={{ height: 1 }} />
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
 
-      {displayLoading ? (
-        <div className={overlayClasses} aria-busy="true">
-          <TableLoadingOverlay />
+        {isLoading && (
+          <div className={styles.loadingOverlay}>
+            <TableLoadingOverlay />
+          </div>
+        )}
+
+        {tableType === "infiniteScroll" && fetching && !isEmpty && (
+          <div className={styles.infiniteLoader}>
+            <TableLoadingOverlay />
+          </div>
+        )}
+      </div>
+
+      {showPagination && (
+        <div className={styles.pagination}>
+          {pageSizeOptions && pageSizeOptions.length > 0 && (
+            <select
+              className={styles.pageSizeSelect}
+              value={fetchSpec.pageSize}
+              onChange={(e) => {
+                setFetchSpec((s) => ({
+                  ...s,
+                  page: 1,
+                  pageSize: Number(e.target.value),
+                  nonce: s.nonce + 1,
+                }));
+              }}
+              aria-label="Rows per page"
+            >
+              {pageSizeOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </select>
+          )}
+          <div className={styles.pageButtons}>
+            <button
+              className={styles.pageBtn}
+              onClick={() => goToPage(fetchSpec.page - 1)}
+              disabled={fetchSpec.page <= 1 || isLoading}
+              aria-label="Previous page"
+            >
+              ‹ Prev
+            </button>
+            {pageNumbers.map((p, i) =>
+              p === "…" ? (
+                <span key={`ellipsis-${i}`} className={styles.ellipsis}>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  className={`${styles.pageBtn} ${
+                    p === fetchSpec.page ? styles.pageBtnActive : ""
+                  }`.trim()}
+                  onClick={() => goToPage(p)}
+                  disabled={isLoading}
+                  aria-current={p === fetchSpec.page ? "page" : undefined}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            <button
+              className={styles.pageBtn}
+              onClick={() => goToPage(fetchSpec.page + 1)}
+              disabled={fetchSpec.page >= totalPages || isLoading}
+              aria-label="Next page"
+            >
+              Next ›
+            </button>
+          </div>
+          {totalPages > 0 && (
+            <span className={styles.pageInfo}>
+              {fetchSpec.page} / {totalPages}
+            </span>
+          )}
         </div>
-      ) : null}
-
-      {!displayLoading && isEmpty && resolvedEmpty ? (
-        <div className={overlayClasses}>{resolvedEmpty}</div>
-      ) : null}
+      )}
     </div>
   );
 }

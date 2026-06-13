@@ -135,7 +135,7 @@
   border-radius: 12px;
   border-color: rgba(44, 24, 16, 0.08);
   background: #ffffff !important;
-  box-shadow: 
+  box-shadow:
     0 2px 4px rgba(44, 24, 16, 0.02),
     0 1px 2px rgba(44, 24, 16, 0.04);
   padding-left: 16px;
@@ -150,7 +150,7 @@
 :global(.ant-input-affix-wrapper:focus-within).searchInput {
   border-color: var(--ochre-400) !important;
   background: #ffffff !important;
-  box-shadow: 
+  box-shadow:
     0 4px 12px rgba(201, 147, 45, 0.05),
     0 0 0 4px rgba(201, 147, 45, 0.15) !important;
 }
@@ -178,44 +178,17 @@
   flex-direction: column;
 }
 
-/* Narrow numeric cols need more usable width: global DataTable header padding is 16px 20px. */
-.tableSlot :global(.tabulator .tabulator-header .tabulator-col) {
-  padding-left: 12px !important;
-  padding-right: 12px !important;
+.selectCheckbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ochre-600);
+  cursor: pointer;
+  vertical-align: middle;
 }
 
-@media (max-width: 500px) {
-  .tableSlot :global(.tabulator .tabulator-header .tabulator-col) {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-  }
-}
+/* ── global inventory cell classes rendered inside DataTable ── */
 
-.tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-col-select) {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
-}
-
-@media (max-width: 500px) {
-  .tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-col-select) {
-    padding-left: 2px !important;
-    padding-right: 2px !important;
-  }
-}
-
-.tableSlot :global(.tabulator .tabulator-cell.inventory-thumb-cell) {
-  justify-content: center !important;
-  align-items: center !important;
-}
-
-.tableSlot :global(.tabulator .tabulator-header .tabulator-col.inventory-thumb-cell) {
-  display: inline-flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.tableSlot :global(.tabulator .inventory-category-pill) {
+:global(.inventory-category-pill) {
   display: inline-block;
   max-width: 100%;
   padding: 0.2rem 0.55rem;
@@ -238,28 +211,28 @@
   vertical-align: middle;
 }
 
-.tableSlot :global(.tabulator .inventory-sku-cell) {
+:global(.inventory-sku-cell) {
   font-variant-numeric: tabular-nums;
   font-size: 12.5px;
 }
 
-.tableSlot :global(.tabulator .inventory-sku-cell.inventory-sku-empty) {
+:global(.inventory-sku-cell.inventory-sku-empty) {
   color: var(--text-muted);
   font-weight: 500;
 }
 
-.tableSlot :global(.tabulator .inventory-qty) {
+:global(.inventory-qty) {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--bistre-800);
 }
 
-.tableSlot :global(.tabulator .inventory-qty.inventory-qty-low) {
+:global(.inventory-qty.inventory-qty-low) {
   color: var(--ochre-700);
   font-weight: 800;
 }
 
-.tableSlot :global(.tabulator .inventory-qty.inventory-qty-low::before) {
+:global(.inventory-qty.inventory-qty-low::before) {
   content: "";
   display: inline-block;
   width: 6px;
@@ -271,15 +244,15 @@
   box-shadow: 0 0 0 2px rgba(201, 147, 45, 0.25);
 }
 
-.tableSlot :global(.tabulator .inventory-min-stock) {
+:global(.inventory-min-stock) {
   font-variant-numeric: tabular-nums;
 }
 
-.tableSlot :global(.tabulator .inventory-min-stock-empty) {
+:global(.inventory-min-stock.inventory-min-stock-empty) {
   color: var(--text-muted);
 }
 
-.tableSlot :global(.tabulator .inventory-barcode) {
+:global(.inventory-barcode) {
   display: inline-block;
   max-width: 100%;
   font-family:
@@ -299,13 +272,13 @@
   vertical-align: middle;
 }
 
-.tableSlot :global(.tabulator .inventory-barcode-empty) {
+:global(.inventory-barcode.inventory-barcode-empty) {
   color: var(--text-muted);
   font-family: inherit;
   letter-spacing: normal;
 }
 
-.tableSlot :global(.tabulator .inventory-edit-link) {
+:global(.inventory-edit-link) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -318,6 +291,7 @@
   background: transparent;
   color: var(--bistre-400);
   text-decoration: none;
+  cursor: pointer;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -325,30 +299,18 @@
     box-shadow 0.15s ease;
 }
 
-.tableSlot :global(.tabulator .inventory-edit-link svg) {
+:global(.inventory-edit-link svg) {
   flex-shrink: 0;
 }
 
-.tableSlot :global(.tabulator .inventory-edit-link:hover) {
+:global(.inventory-edit-link:hover) {
   background: var(--ochre-10);
   border-color: var(--ochre-200);
   color: var(--ochre-600);
   box-shadow: 0 1px 3px rgba(44, 24, 16, 0.08);
 }
 
-.tableSlot :global(.tabulator .inventory-edit-link:focus-visible) {
+:global(.inventory-edit-link:focus-visible) {
   outline: 2px solid var(--ochre-400);
   outline-offset: 2px;
-}
-
-.selectCell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-}
-
-.tableSlot :global(.tabulator .inventory-col-select) {
-  padding-left: 4px;
-  padding-right: 4px;
 }
