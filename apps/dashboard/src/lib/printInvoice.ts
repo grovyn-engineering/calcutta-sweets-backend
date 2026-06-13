@@ -38,6 +38,9 @@ export type PrintInvoiceInput = {
   total: number;
   /** Screen receipt only: URL for “Back” (e.g. `${origin}/billing-pos`). */
   returnHref?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfsc?: string | null;
+  paymentMode?: string | null;
 };
 
 export type InvoicePrintFormat = 'a4' | 'receipt';
@@ -85,12 +88,14 @@ function buildLineRowsReceipt(data: PrintInvoiceInput): string {
         line.variantLabel && line.variantLabel !== 'Regular'
           ? ` (${esc(line.variantLabel)})`
           : '';
+      const qtyStr = Number.isInteger(line.quantity)
+        ? `${line.quantity}`
+        : line.quantity.toFixed(1);
       return `<tr class="item-block">
-      <td colspan="2">
-        <div class="item-name">${esc(line.name)}${variant}</div>
-        <div class="item-meta">${line.quantity} ${esc(line.unit)} × ₹${formatMoney(line.unitPrice)}</div>
-      </td>
-      <td class="num amt">₹${formatMoney(lineTotal)}</td>
+      <td class="item-name-cell">${esc(line.name)}${variant}</td>
+      <td class="num qty-cell">${qtyStr} ${esc(line.unit)}</td>
+      <td class="num sp-cell">₹${formatMoney(line.unitPrice)}</td>
+      <td class="num amt-cell">₹${formatMoney(lineTotal)}</td>
     </tr>`;
     })
     .join('');
@@ -196,6 +201,41 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
     <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>`;
 }
 
+function totalsRowsReceiptHtml(data: PrintInvoiceInput): string {
+  const hasSplitFields =
+    data.cgstAmountSplit != null &&
+    data.sgstAmountSplit != null &&
+    data.cgstPercent != null &&
+    data.sgstPercent != null;
+  const split =
+    hasSplitFields && (data.gstAmount ?? 0) > 0.005;
+  const base = data.subtotal;
+
+  let taxBlock: string;
+  if (split) {
+    const cgst = data.cgstAmountSplit!;
+    const sgst = data.sgstAmountSplit!;
+    const cp = data.cgstPercent!;
+    const sp = data.sgstPercent!;
+    taxBlock = `<div class="totals-row"><span>Taxable:</span><span>₹${formatMoney(base)}</span></div>
+    <div class="totals-row"><span>CGST ${cp}%:</span><span>₹${formatMoney(cgst)}</span></div>
+    <div class="gst-on">on ₹${formatMoney(base)}</div>
+    <div class="totals-row"><span>SGST ${sp}%:</span><span>₹${formatMoney(sgst)}</span></div>
+    <div class="gst-on">on ₹${formatMoney(base)}</div>`;
+  } else {
+    taxBlock = `<div class="totals-row"><span>Taxable:</span><span>₹${formatMoney(data.subtotal)}</span></div>
+    <div class="totals-row"><span>GST ${(data.gstRate * 100).toFixed(0)}%:</span><span>₹${formatMoney(data.gstAmount)}</span></div>`;
+  }
+
+  const discountBlock = data.discount > 0.005
+    ? `<div class="totals-row"><span>Discount:</span><span>-₹${formatMoney(data.discount)}</span></div>`
+    : '';
+
+  return `${taxBlock}
+    ${discountBlock}
+    <div class="totals-row grand"><span>Net Amount:</span><span>₹${formatMoney(data.total)}</span></div>`;
+}
+
 function printInvoiceInputToNativeBill(data: PrintInvoiceInput): NativeAndroidBillPayload {
   const hasSplit =
     data.cgstAmountSplit != null &&
@@ -287,7 +327,7 @@ function buildInvoiceHtml(
       : `<div class="action-bar">
     <a class="btn-back" ${returnAttr}>← Back to POS</a>
     <button type="button" class="btn-print" id="printBillBtn">Print</button>
-    <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button>
+    <!-- <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button> -->
   </div>`;
     const hintHtml = inlinePreview
       ? ''
@@ -354,6 +394,7 @@ function buildInvoiceHtml(
       font-size: 10px;
       line-height: 1.3;
       background: #ebe4d8;
+      font-weight: bold;
     }
     body.receipt-embed {
       min-height: auto;
@@ -450,8 +491,12 @@ function buildInvoiceHtml(
     .meta { font-size: 9px; margin: 6px 0; color: #3d2818; }
     .meta div { margin: 1px 0; }
     .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; }
-    .cust-meta { font-size: 8px; color: #5c4030; margin-top: 2px; font-weight: normal; }
+    .cust-meta { font-size: 8px; color: #5c4030; margin-top: 2px; }
     .cust.muted { color: #6b4a30; font-style: italic; }
+    .col-name, .item-name-cell { width: 44%; text-align: left; }
+    .col-qty, .qty-cell { width: 16%; text-align: right; }
+    .col-sp, .sp-cell { width: 20%; text-align: right; }
+    .col-amt, .amt-cell { width: 20%; text-align: right; }
     table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8px; table-layout: fixed; }
     th {
       text-align: left;
@@ -473,6 +518,38 @@ function buildInvoiceHtml(
     .totals-row span:first-child { min-width: 0; flex: 1; padding-right: 4px; }
     .totals-row span:last-child { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
     .totals-row.grand { font-size: 10px; font-weight: 700; border-top: 2px solid #1a110c; margin-top: 4px; padding-top: 6px; }
+    .summary-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      padding: 4px 0;
+      border-top: 1px dashed #b8a08a;
+      border-bottom: 1px dashed #b8a08a;
+      margin-top: 6px;
+      margin-bottom: 6px;
+    }
+    .signature-row {
+      text-align: right;
+      margin-top: 24px;
+      margin-bottom: 6px;
+      font-size: 9px;
+      font-weight: bold;
+    }
+    .bank-info {
+      font-size: 8px;
+      color: #5c4030;
+      text-align: center;
+      margin-top: 4px;
+    }
+    .eoe-powered {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: #6b4a30;
+      margin-top: 6px;
+      border-top: 1px solid #1a110c;
+      padding-top: 4px;
+    }
     .footer { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #b8a08a; font-size: 8px; color: #6b4a30; text-align: center; }
     @page { margin: 3mm 3mm 12mm 3mm; size: 80mm auto; }
     @media print {
@@ -513,30 +590,69 @@ function buildInvoiceHtml(
   <div class="receipt-paper">
   ${hintHtml}
   <div class="head">
-    <h1>${esc(data.shopName)}</h1>
+    <h1>${esc(data.shopName.toUpperCase())}</h1>
     ${shopHeaderBlock(data, 'receipt')}
-    <div class="sub">Shop ${esc(data.shopCode)} · Calcutta Sweets</div>
   </div>
-  <div class="meta">
-    <div><strong>Bill</strong> ${esc(data.invoiceNo)}</div>
-    <div>${esc(dateStr)} · ${esc(timeStr)}</div>
+  <div class="meta" style="border-top: 1px dashed #b8a08a; padding-top: 4px;">
+    <div style="text-align: center; font-weight: bold; margin-bottom: 4px;">TAX INVOICE</div>
+    <div style="border-top: 1px dashed #b8a08a; padding-top: 4px; display: flex; justify-content: space-between;">
+      <span>${esc(dateStr)}</span>
+      <span>${esc(timeStr)}</span>
+    </div>
+    <div><strong>Bill No:</strong> ${esc(data.invoiceNo)}</div>
   </div>
   ${customerBlockReceipt(data)}
   <table>
     <thead>
       <tr>
-        <th colspan="2">Item</th>
-        <th class="num">Amt</th>
+        <th class="col-name">Item Name</th>
+        <th class="num col-qty">Qty</th>
+        <th class="num col-sp">SP</th>
+        <th class="num col-amt">Amt</th>
       </tr>
     </thead>
     <tbody>
       ${rows}
     </tbody>
   </table>
+  
+  ${(() => {
+        const itemKinds = data.lines.length;
+        const qtySum = data.lines.reduce((s, x) => s + x.quantity, 0);
+        const allIntQty = data.lines.every((x) => Number.isInteger(x.quantity));
+        const qtyPart = allIntQty ? String(Math.round(qtySum)) : qtySum.toFixed(2);
+        return `
+    <div class="summary-line">
+      <span>Items/Qty:</span>
+      <span>${itemKinds}/${qtyPart}</span>
+    </div>`;
+      })()}
+
   <div class="totals">
-    ${totalsRowsHtml(data)}
+    ${totalsRowsReceiptHtml(data)}
+    
+    ${(() => {
+        const mode = data.paymentMode?.trim() || 'Cash';
+        const payLabel = mode.toLowerCase() === 'cash' ? 'Cash Paid:' : `${mode} Paid:`;
+        return `
+      <div class="totals-row" style="margin-top: 4px;">
+        <span>${esc(payLabel)}</span>
+        <span>₹${formatMoney(data.total)}</span>
+      </div>`;
+      })()}
   </div>
-  <div class="footer">Thank you. Computer-generated bill.</div>
+
+  
+  <div class="footer">
+    <div>Thank you. Come Again!</div>
+    <div style="text-transform: uppercase; margin-top: 4px; font-weight: bold;">${esc(data.shopName)}</div>
+  </div>
+  
+  <div class="eoe-powered">
+    <span>E&amp;OE</span>
+    <span>Powered By Grovyn</span>
+  </div>
+
   </div>
   </div>
   ${scriptHtml}
@@ -561,6 +677,7 @@ function buildInvoiceHtml(
       padding: 12mm;
       font-size: 11pt;
       line-height: 1.35;
+      font-weight: bold;
     }
     h1 {
       margin: 0 0 4px;

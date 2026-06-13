@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -10,6 +10,7 @@ import {
   Card,
   Col,
   Divider,
+  Modal,
   Row,
   Space,
   Tag,
@@ -24,6 +25,7 @@ import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import {
+  buildPrintReceiptHtml,
   openPrintableInvoice,
   orderIdToInvoiceRef,
   type InvoicePrintFormat,
@@ -129,6 +131,9 @@ export default function OrderBillDetailPage() {
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [linesBodyMaxHeight, setLinesBodyMaxHeight] = useState(400);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptHtml, setReceiptHtml] = useState('');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     const measure = () => {
@@ -266,41 +271,49 @@ export default function OrderBillDetailPage() {
     const sgstSplit = taxAmt * (sg / (cg + sg));
     const taxableBase = order.totalAmount - taxAmt;
 
-    const ok = openPrintableInvoice(
-      {
-        shopName,
-        shopCode: effectiveShopCode ?? "-",
-        shopAddress: shopAddressPrint,
-        shopPhone: currentShop?.phone ?? null,
-        gstNumber: currentShop?.gstNumber ?? null,
-        fssaiNumber: currentShop?.fssaiNumber ?? null,
-        invoiceNo: orderIdToInvoiceRef(order.id),
-        issuedAt: order.createdAt,
-        customer,
-        lines: order.items.map((i) => ({
-          name: i.productName,
-          variantLabel: i.variantLabel,
-          barcode: i.barcode,
-          quantity: i.quantity,
-          unit: i.unit ?? "PC",
-          unitPrice: i.unitPrice,
-        })),
-        subtotal: taxableBase,
-        gstRate: totalTaxRate,
-        gstAmount: taxAmt,
-        cgstPercent: cg,
-        sgstPercent: sg,
-        cgstAmountSplit: cgstSplit,
-        sgstAmountSplit: sgstSplit,
-        discount: order.discount,
-        total: order.totalAmount,
-        returnHref:
-          typeof window !== 'undefined'
-            ? `${window.location.origin}/orders/${order.id}`
-            : null,
-      },
-      format,
-    );
+    const invoiceData = {
+      shopName,
+      shopCode: effectiveShopCode ?? "-",
+      shopAddress: shopAddressPrint,
+      shopPhone: currentShop?.phone ?? null,
+      gstNumber: currentShop?.gstNumber ?? null,
+      fssaiNumber: currentShop?.fssaiNumber ?? null,
+      invoiceNo: orderIdToInvoiceRef(order.id),
+      issuedAt: order.createdAt,
+      customer,
+      lines: order.items.map((i) => ({
+        name: i.productName,
+        variantLabel: i.variantLabel,
+        barcode: i.barcode,
+        quantity: i.quantity,
+        unit: i.unit ?? "PC",
+        unitPrice: i.unitPrice,
+      })),
+      subtotal: taxableBase,
+      gstRate: totalTaxRate,
+      gstAmount: taxAmt,
+      cgstPercent: cg,
+      sgstPercent: sg,
+      cgstAmountSplit: cgstSplit,
+      sgstAmountSplit: sgstSplit,
+      discount: order.discount,
+      total: order.totalAmount,
+      returnHref:
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/orders/${order.id}`
+          : null,
+      bankAccountNumber: currentShop?.bankAccountNumber ?? null,
+      bankIfsc: currentShop?.bankIfsc ?? null,
+      paymentMode: order.paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
+    };
+
+    if (format === 'receipt') {
+      setReceiptHtml(buildPrintReceiptHtml(invoiceData, { inlinePreview: true }));
+      setReceiptModalOpen(true);
+      return;
+    }
+
+    const ok = openPrintableInvoice(invoiceData, format);
     if (!ok) {
       message.error("Pop-up blocked. Allow pop-ups to print this bill.");
     }
@@ -580,6 +593,44 @@ export default function OrderBillDetailPage() {
           </Card>
         </>
       ) : null}
+
+      <Modal
+        open={receiptModalOpen}
+        onCancel={() => setReceiptModalOpen(false)}
+        title="Print Receipt"
+        centered
+        destroyOnHidden
+        width={440}
+        styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: '0 0 8px 8px' } }}
+        footer={[
+          <Button key="close" onClick={() => setReceiptModalOpen(false)}>
+            Close
+          </Button>,
+          <Button
+            key="print"
+            type="primary"
+            icon={<Printer className="h-4 w-4" />}
+            onClick={() => iframeRef.current?.contentWindow?.print()}
+            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+          >
+            Print
+          </Button>,
+        ]}
+      >
+        <iframe
+          ref={iframeRef}
+          srcDoc={receiptHtml}
+          title="Receipt Preview"
+          style={{ width: '100%', border: 'none', display: 'block', minHeight: 300 }}
+          onLoad={() => {
+            const iframe = iframeRef.current;
+            if (iframe?.contentDocument?.body) {
+              const h = iframe.contentDocument.body.scrollHeight;
+              iframe.style.height = Math.min(Math.max(h, 300), 680) + 'px';
+            }
+          }}
+        />
+      </Modal>
     </div>
   );
 }

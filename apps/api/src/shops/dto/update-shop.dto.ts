@@ -88,6 +88,10 @@ export class UpdateShopDto {
   allowBookingWhenOutOfStock?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  allowShopSwitcher?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   cgstRate?: number;

@@ -19,6 +19,7 @@ type ShopContextValue = {
   setEffectiveShopCode: (code: string) => void;
   shops: Shop[];
   shopsLoading: boolean;
+  shopSwitcherEnabled: boolean;
 };
 
 const ShopContext = createContext<ShopContextValue | null>(null);
@@ -50,11 +51,14 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
               ? localStorage.getItem(STORAGE_KEY)
               : null;
           const fromStorage = stored && codes.has(stored) ? stored : null;
+          const defaultShop = codes.has(defaultEnv)
+            ? defaultEnv
+            : list.find((s) => s.shopCode === "calcutta-main")?.shopCode;
           const fallback =
             fromStorage ||
+            defaultShop ||
             list[0]?.shopCode ||
-            user.shopCode ||
-            defaultEnv;
+            user.shopCode;
           setEffectiveShopCodeState(fallback);
           if (typeof window !== "undefined" && fallback) {
             localStorage.setItem(STORAGE_KEY, fallback);
@@ -109,14 +113,21 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     }
   }, [shopsLoading]);
 
+  const shopSwitcherEnabled = useMemo(() => {
+    if (shops.length === 0) return true;
+    const current = shops.find((s) => s.shopCode === effectiveShopCode) ?? shops[0];
+    return current?.allowShopSwitcher !== false;
+  }, [shops, effectiveShopCode]);
+
   const value = useMemo<ShopContextValue>(
     () => ({
       effectiveShopCode,
       setEffectiveShopCode,
       shops,
       shopsLoading,
+      shopSwitcherEnabled,
     }),
-    [effectiveShopCode, setEffectiveShopCode, shops, shopsLoading],
+    [effectiveShopCode, setEffectiveShopCode, shops, shopsLoading, shopSwitcherEnabled],
   );
 
   return (

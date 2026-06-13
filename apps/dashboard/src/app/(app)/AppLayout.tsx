@@ -46,7 +46,7 @@ const pageTitles: Record<string, string> = {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, permissions } = useAuth();
-  const { effectiveShopCode, setEffectiveShopCode, shops, shopsLoading } =
+  const { effectiveShopCode, setEffectiveShopCode, shops, shopsLoading, shopSwitcherEnabled } =
     useShop();
 
   const isFactory = useMemo(() => {
@@ -181,7 +181,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 size="middle"
                 className="w-full"
                 value={effectiveShopCode}
-                disabled={shopsLoading && shops.length === 0}
+                disabled={!shopSwitcherEnabled || (shopsLoading && shops.length === 0)}
                 options={shops.map((s) => ({
                   value: s.shopCode,
                   label: `${s.name} (${s.shopCode})`,
@@ -215,7 +215,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   size="middle"
                   className={`${styles.shopSelect} ${styles.headerShopSelect}`}
                   value={effectiveShopCode}
-                  disabled={shopsLoading && shops.length === 0}
+                  disabled={!shopSwitcherEnabled || (shopsLoading && shops.length === 0)}
                   options={shops.map((s) => ({
                     value: s.shopCode,
                     label: `${s.name} (${s.shopCode})`,

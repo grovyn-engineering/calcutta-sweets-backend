@@ -41,8 +41,9 @@ model Shop {
 
   isFactory Boolean @default(false)
 
-  allowNextDayBooking       Boolean @default(false)
+  allowNextDayBooking        Boolean @default(false)
   allowBookingWhenOutOfStock Boolean @default(false)
+  allowShopSwitcher          Boolean @default(true)
 
   cgstRate Float @default(2.5)
   sgstRate Float @default(2.5)

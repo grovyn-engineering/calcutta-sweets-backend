@@ -33,6 +33,7 @@ type ShopProfileForm = {
   bankIfsc?: string;
   allowNextDayBooking: boolean;
   allowBookingWhenOutOfStock: boolean;
+  allowShopSwitcher: boolean;
   isFactory: boolean;
 };
 
@@ -67,6 +68,7 @@ export function ShopProfileSettings() {
       bankIfsc: currentShop.bankIfsc ?? undefined,
       allowNextDayBooking: currentShop.allowNextDayBooking,
       allowBookingWhenOutOfStock: currentShop.allowBookingWhenOutOfStock,
+      allowShopSwitcher: currentShop.allowShopSwitcher !== false,
       isFactory: currentShop.isFactory,
     });
   }, [currentShop, form]);
@@ -219,6 +221,14 @@ export function ShopProfileSettings() {
             label="Allow booking when out of stock"
             name="allowBookingWhenOutOfStock"
             valuePropName="checked"
+          >
+            <Switch />
+          </Form.Item>
+          <Form.Item
+            label="Allow shop switcher"
+            name="allowShopSwitcher"
+            valuePropName="checked"
+            extra="When disabled, the shop selector in the header is locked and cannot be changed."
           >
             <Switch />
           </Form.Item>

@@ -379,6 +379,9 @@ export function BillingBillPanel({
         typeof window !== 'undefined'
           ? `${window.location.origin}/billing-pos`
           : null,
+      bankAccountNumber: currentShop?.bankAccountNumber ?? null,
+      bankIfsc: currentShop?.bankIfsc ?? null,
+      paymentMode: paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
     };
   };
 
@@ -1022,7 +1025,7 @@ export function BillingBillPanel({
                 </Button>
               </Tooltip>
             ) : null}
-            <Tooltip
+            {/* <Tooltip
               title={
                 'Android only: sends this bill as text to the RawBT app (set up USB printer once, then enable Auto print + Skip preview in RawBT). On Mac/PC this button will remind you to use Generate bill or switch to Android.'
               }
@@ -1037,7 +1040,7 @@ export function BillingBillPanel({
               >
                 Print via RawBT (Android)
               </Button>
-            </Tooltip>
+            </Tooltip> */}
           </div>
         </div>
       )}
