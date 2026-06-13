@@ -564,13 +564,14 @@ function buildInvoiceHtml(
         background: #fff !important;
         padding: 0 !important;
         color: #000 !important;
-        font-family: "Courier New", Courier, monospace !important;
-        font-weight: bold !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-weight: 800 !important;
+        -webkit-font-smoothing: none !important;
       }
       * {
         color: #000 !important;
         border-color: #000 !important;
-        text-shadow: none !important;
+        text-shadow: 0 0 1px #000 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
