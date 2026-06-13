@@ -327,7 +327,7 @@ function buildInvoiceHtml(
       : `<div class="action-bar">
     <a class="btn-back" ${returnAttr}>← Back to POS</a>
     <button type="button" class="btn-print" id="printBillBtn">Print</button>
-    <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button>
+    <!-- <button type="button" class="btn-rawbt" id="rawBtReceiptBtn">RawBT</button> -->
   </div>`;
     const hintHtml = inlinePreview
       ? ''
