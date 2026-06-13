@@ -553,7 +553,7 @@ function buildInvoiceHtml(
     .footer { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #b8a08a; font-size: 8px; color: #6b4a30; text-align: center; }
     @page { margin: 3mm 3mm 12mm 3mm; size: 80mm auto; }
     @media print {
-      @page { margin: 3mm 3mm 12mm 3mm; size: 80mm auto; }
+      @page { margin: 0; size: 80mm auto; }
       .action-bar { display: none !important; }
       .print-hint { display: none !important; }
       html {
@@ -563,6 +563,16 @@ function buildInvoiceHtml(
       body {
         background: #fff !important;
         padding: 0 !important;
+        color: #000 !important;
+        font-family: "Courier New", Courier, monospace !important;
+        font-weight: bold !important;
+      }
+      * {
+        color: #000 !important;
+        border-color: #000 !important;
+        text-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
       .page {
         padding: 0 !important;
@@ -570,17 +580,29 @@ function buildInvoiceHtml(
       }
       .receipt-paper {
         margin: 0 auto !important;
-        padding: 2mm 3mm 10mm !important;
-        width: 70mm !important;
-        max-width: 70mm !important;
+        padding: 2mm 2mm 10mm !important;
+        width: 100% !important;
+        max-width: 80mm !important;
         box-shadow: none !important;
         border-radius: 0 !important;
         background: #fff !important;
         height: auto !important;
         min-height: 0 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
       }
+      h1 { font-size: 16px !important; margin-bottom: 4px !important; }
+      .sub, .meta, .cust, .totals, th, td, .summary-line, .footer, .eoe-powered {
+        font-size: 12px !important;
+        line-height: 1.2 !important;
+      }
+      table { margin-top: 4px !important; }
+      th { border-bottom: 1px dashed #000 !important; padding: 4px 2px !important; }
+      td { border-bottom: none !important; padding: 4px 2px !important; }
+      .totals-row.grand { border-top: 1px dashed #000 !important; padding-top: 6px !important; }
+      .summary-line { border-top: 1px dashed #000 !important; border-bottom: 1px dashed #000 !important; padding: 6px 0 !important; margin: 6px 0 !important; }
+      .meta { border-top: none !important; border-bottom: 1px dashed #000 !important; padding: 6px 0 !important; margin: 6px 0 !important; }
+      .cust { border-top: none !important; border-bottom: 1px dashed #000 !important; padding: 6px 0 !important; margin: 6px 0 !important; }
+      .footer { border-top: none !important; margin-top: 12px !important; }
+      .eoe-powered { border-top: none !important; }
     }
   </style>
 </head>
