@@ -59,7 +59,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
             defaultShop ||
             list[0]?.shopCode ||
             user.shopCode;
-          setEffectiveShopCodeState(fallback);
+          setEffectiveShopCodeState(fallback ?? '');
           if (typeof window !== "undefined" && fallback) {
             localStorage.setItem(STORAGE_KEY, fallback);
           }
