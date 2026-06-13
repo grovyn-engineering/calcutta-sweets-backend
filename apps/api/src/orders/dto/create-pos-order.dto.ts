@@ -16,8 +16,13 @@ export enum PaymentMethodEnum {
 }
 
 export class PosOrderLineDto {
+  @IsOptional()
   @IsString()
-  variantId!: string;
+  variantId?: string;
+
+  @IsOptional()
+  @IsString()
+  customName?: string;
 
   @Type(() => Number)
   @IsNumber()

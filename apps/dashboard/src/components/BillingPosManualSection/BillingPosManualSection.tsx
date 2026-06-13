@@ -336,71 +336,50 @@ function BillingPosManualSectionInner({
 
   return (
     <section className={styles.section}>
-      <header className={styles.manualHeaderStrip}>
-        <div className={styles.manualHeaderInner}>
-          <div className={styles.manualTitleCluster}>
-            <h2 className={styles.manualSectionTitle}>{sectionTitle}</h2>
-            {showToolbarAddCustomer && onToolbarAddCustomer ? (
-              <Tooltip title="Add customer">
-                <Button
-                  type="default"
-                  className={styles.customerIconBtn}
-                  icon={<UserPlus className="h-4 w-4" aria-hidden />}
-                  onClick={onToolbarAddCustomer}
-                  aria-label="Add customer"
-                />
-              </Tooltip>
-            ) : null}
-          </div>
-          <div className={styles.manualFilters}>
-            <Input
-              className={`${pageStyles.searchInput} ${styles.manualSearch}`}
-              allowClear
-              placeholder={
-                hideBarcodeColumn
-                  ? 'Search products, variants…'
-                  : 'Search products, variants, barcodes…'
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" />}
-              aria-label="Search products"
-            />
-            <div className={styles.manualCategoryWrap}>
-              <Select
-                className={`${pageStyles.categorySelect} w-full min-w-0`}
-                classNames={{
-                  popup: { root: pageStyles.categorySelectDropdown },
-                }}
-                value={activeCategory}
-                onChange={(v) => setActiveCategory(v)}
-                options={categorySelectOptions}
-                aria-label="Filter by category"
-                getPopupContainer={() => document.body}
-                listHeight={280}
-              />
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex flex-1 items-center gap-3 min-w-[280px]">
+          <Input
+            size="large"
+            className="w-full max-w-[360px] rounded-lg"
+            allowClear
+            placeholder={
+              hideBarcodeColumn
+                ? 'Search products, variants…'
+                : 'Search products, variants, barcodes…'
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefix={<Search size={16} className="text-[var(--text-muted)]" />}
+            aria-label="Search products"
+          />
+          <Select
+            size="large"
+            className="w-[200px]"
+            classNames={{
+              popup: { root: pageStyles.categorySelectDropdown },
+            }}
+            value={activeCategory}
+            onChange={(v) => setActiveCategory(v)}
+            options={categorySelectOptions}
+            aria-label="Filter by category"
+            getPopupContainer={() => document.body}
+            listHeight={280}
+          />
         </div>
-      </header>
-
-      {sectionHint ? (
-        <p className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2.5 text-xs leading-relaxed text-[var(--bistre-700)]">
-          {sectionHint}
-        </p>
-      ) : null}
-
-      {showSaleCheckoutHint ? (
-        <p className="rounded-xl border border-dashed border-[var(--ochre-200)] bg-[var(--ochre-2)] px-3 py-2 text-xs leading-snug text-[var(--bistre-700)]">
-          <span className="font-semibold text-[var(--bistre-900)]">
-            Current sale &amp; checkout:
-          </span>{' '}
-          tap <strong>Review &amp; pay</strong> (bottom bar), add a customer if needed, choose{' '}
-          <strong>Cash</strong> or <strong>UPI / Card</strong>, then either{' '}
-          <strong>Generate bill</strong> (opens a printable page) or{' '}
-          <strong>USB thermal</strong> in the same panel for direct thermal printing.
-        </p>
-      ) : null}
+        
+        {showToolbarAddCustomer && onToolbarAddCustomer ? (
+          <Button
+            type="primary"
+            size="large"
+            className="rounded-lg shadow-sm font-semibold shrink-0"
+            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+            icon={<UserPlus size={16} />}
+            onClick={onToolbarAddCustomer}
+          >
+            Add Customer
+          </Button>
+        ) : null}
+      </div>
 
       <div className={styles.wrap}>
         <div className={styles.tabulatorInner}>
@@ -411,7 +390,7 @@ function BillingPosManualSectionInner({
             filterKey={filterKey}
             pageSize={PAGE_SIZE}
             pageSizeOptions={PAGE_SIZE_OPTIONS}
-            maxBodyHeight="clamp(240px, 32vh, 360px)"
+            maxBodyHeight="calc(100vh - 460px)"
             emptyTitle="No matching products"
             emptyDescription="No products match your search or category for this shop."
           />

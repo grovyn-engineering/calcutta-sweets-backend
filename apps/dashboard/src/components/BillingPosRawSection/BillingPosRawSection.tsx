@@ -231,12 +231,13 @@ function BillingPosRawSectionInner({
 
   const isCatalogSelected = formValues.selectedCatalogItem !== null;
 
+  const COMMON_UNITS = ['PC', 'KG', 'gm', 'ml', 'L', 'BOX', 'PKT', 'PLATE'];
   const unitOptions = isCatalogSelected
     ? allowedInstantDisplayUnits(
         formValues.selectedCatalogItem!.variantName,
         formValues.selectedCatalogItem!.inventoryUnit,
       ).map((u) => ({ value: u, label: u }))
-    : [];
+    : COMMON_UNITS.map((u) => ({ value: u, label: u }));
 
   return (
     <div className={`min-h-0 flex-1 overflow-auto p-3 sm:p-5 ${styles.wrap}`}>
@@ -247,10 +248,10 @@ function BillingPosRawSectionInner({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-[var(--bistre-800)]">
-              Raw bill (manual lines)
+              Raw bill (manual billing of items not in the sale panel)
             </h2>
             <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs sm:leading-relaxed">
-              Search your catalog to add a tracked item — it will create an order and deduct stock.
+              Search your catalog to add a tracked item - it will create an order and deduct stock.
               Or enter a custom name for an untracked line that appears on the receipt only.
             </p>
           </div>
@@ -331,17 +332,14 @@ function BillingPosRawSectionInner({
             />
           </Form.Item>
 
-          {isCatalogSelected && (
-            <Form.Item label={<span className={styles.label}>Unit</span>}>
-              <Select
-                className="w-full min-w-0"
-                value={formValues.unit}
-                options={unitOptions}
-                onChange={(u) => patch({ unit: u })}
-                getPopupContainer={(n) => n.parentElement ?? document.body}
-              />
-            </Form.Item>
-          )}
+          <Form.Item label={<span className={styles.label}>Unit</span>}>
+            <Select
+              className="w-full min-w-0"
+              value={formValues.unit}
+              options={unitOptions}
+              onChange={(u) => patch({ unit: u })}
+            />
+          </Form.Item>
 
 
           <Form.Item label={<span className={styles.label}>Qty</span>}>

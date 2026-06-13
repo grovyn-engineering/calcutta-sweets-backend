@@ -179,7 +179,7 @@
 @container billing-pos (min-width: 1024px) {
   .billingMain {
     padding-right: 0.5rem;
-    gap: 1.5rem;
+    gap: 16px;
   }
 }
 
@@ -284,31 +284,11 @@
 }
 
 .categorySelectDropdown :global(*) {
-  scrollbar-width: thin;
-  scrollbar-color: var(--bistre-200) var(--linen-95);
+  scrollbar-width: none;
 }
 
 .categorySelectDropdown :global(*)::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.categorySelectDropdown :global(*)::-webkit-scrollbar-track {
-  background: var(--linen-95);
-  border-radius: 4px;
-}
-
-.categorySelectDropdown :global(*)::-webkit-scrollbar-thumb {
-  background: var(--bistre-200);
-  border-radius: 4px;
-}
-
-.categorySelectDropdown :global(*)::-webkit-scrollbar-thumb:hover {
-  background: var(--bistre-300);
-}
-
-.categorySelectDropdown :global(*)::-webkit-scrollbar-thumb:active {
-  background: var(--ochre-400);
+  display: none;
 }
 
 .tableWrap {

@@ -1,7 +1,7 @@
 "use client";
 
-import { App, Button, Form, Input, Modal, Select, Switch } from "antd";
-import { Building2, UserPlus } from "lucide-react";
+import { App, Button, Form, Input, Modal, Select, Switch, Tooltip } from "antd";
+import { Building2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
@@ -163,7 +163,7 @@ export default function UsersManagement() {
         key: "role",
         label: "Role",
         field: "role",
-        width: 128,
+        width: 160,
         align: "center",
         render: (val) => {
           const role = String(val ?? "");
@@ -213,38 +213,39 @@ export default function UsersManagement() {
         key: "_actions",
         label: "Actions",
         width: 180,
-        align: "center",
         render: (_, row) => {
           const r = row as UserRow;
           return (
-            <div className="users-actions-cell">
-              <button
-                type="button"
-                className="users-edit-btn"
-                aria-label="Edit user"
+            <div className="flex items-center justify-start gap-2">
+              <Tooltip title="Edit">
+              <Button
+                type="text"
+                size="small"
+                className="text-[var(--bistre-600)] hover:text-[var(--ochre-600)] hover:bg-[var(--ochre-50)]"
+                icon={<Pencil size={16} />}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   navigateToEditRef.current(r);
                 }}
-              >
-                Edit
-              </button>
-              {canDeleteUserRow(authUser?.role, authUser?.id, r) && (
-                <button
-                  type="button"
-                  className="users-delete-btn"
-                  aria-label="Remove user"
+              />
+            </Tooltip>
+            {canDeleteUserRow(authUser?.role, authUser?.id, r) && (
+              <Tooltip title="Delete">
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  icon={<Trash2 size={16} />}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     requestDeleteRef.current(r);
                   }}
-                >
-                  Delete
-                </button>
-              )}
-            </div>
+                />
+              </Tooltip>
+            )}
+          </div>
           );
         },
       });
@@ -332,28 +333,19 @@ export default function UsersManagement() {
     }
   };
 
-  const currentShop = useMemo(() => {
-    const s = shops.find((x) => x.shopCode === effectiveShopCode);
-    return { name: s?.name ?? "Selected shop", code: effectiveShopCode };
-  }, [shops, effectiveShopCode]);
 
   return (
     <div className={styles.root}>
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarMeta}>
-          <p className={styles.toolbarLabel}>Directory scope</p>
-          <div className={styles.shopLine}>
-            <Building2 className={styles.shopIcon} aria-hidden strokeWidth={2} />
-            <div>
-              <p className={styles.shopName}>{currentShop.name}</p>
-              <span className={styles.shopCode}>{currentShop.code}</span>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Users</h1>
         </div>
         <Button
           type="primary"
-          icon={<UserPlus size={18} strokeWidth={2.25} />}
-          className={styles.addBtn}
+          size="large"
+          className="rounded-lg shadow-sm font-semibold shrink-0"
+          style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+          icon={<UserPlus size={16} strokeWidth={2.25} />}
           onClick={() => setCreateOpen(true)}
         >
           Add user

@@ -433,28 +433,11 @@ export default function OrderBillDetailPage() {
               body: { padding: 0 },
             }}
           >
-            <div className="border-b border-[var(--pearl-bush)] bg-gradient-to-r from-[var(--linen-95)] to-[rgba(255,254,249,0.9)] px-5 py-3.5">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <Store className="h-4 w-4 shrink-0 text-[var(--ochre-600)]" aria-hidden />
-                <span className="font-semibold text-[var(--text-primary)]">
-                  {shopName}
-                </span>
-                {effectiveShopCode ? (
-                  <>
-                    <span className="text-[var(--bistre-200)]">·</span>
-                    <Text type="secondary" className="font-mono text-xs">
-                      {effectiveShopCode}
-                    </Text>
-                  </>
-                ) : null}
-              </div>
-            </div>
-
             <div className="p-5 sm:p-6">
-              <Row gutter={[24, 24]} align="stretch">
-                <Col xs={24} lg={14}>
-                  <div className="flex h-full flex-col rounded-xl border border-[var(--pearl-bush)] bg-[var(--linen-100)]/80 p-4 sm:p-5">
-                    <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
+              <Row gutter={[16, 16]}>
+                <Col xs={24} lg={13}>
+                  <div className="flex flex-col rounded-lg border border-[var(--pearl-bush)] bg-[rgba(255,255,255,0.5)] px-4 py-3 shadow-sm backdrop-blur-md">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[var(--bistre-400)]">
                       <UserRound className="h-3.5 w-3.5" aria-hidden />
                       Customer
                     </div>
@@ -482,15 +465,15 @@ export default function OrderBillDetailPage() {
                     )}
                   </div>
                 </Col>
-                <Col xs={24} lg={10}>
-                  <div className="flex h-full flex-col justify-center rounded-xl border-2 border-[var(--ochre-20)] bg-[var(--linen-95)] p-4 sm:p-5">
+                <Col xs={24} lg={11}>
+                  <div className="flex flex-col rounded-lg border border-[rgba(201,147,45,0.15)] bg-[var(--linen-50)] px-4 py-3 shadow-sm">
                     <Text
                       type="secondary"
-                      className="mb-3 text-[10px] font-bold uppercase tracking-wider"
+                      className="mb-2 text-[9px] font-bold uppercase tracking-widest"
                     >
                       Summary
                     </Text>
-                    <div className="space-y-2.5 text-sm">
+                    <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
                         <span>Items Total (Incl. Tax)</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
@@ -516,13 +499,13 @@ export default function OrderBillDetailPage() {
                         </span>
                       </div>
                     </div>
-                    <Divider className="my-3 border-[var(--pearl-bush)]" />
-                    <div className="flex items-baseline justify-between gap-4">
-                      <Text strong className="text-base text-[var(--text-primary)]">
+                    <Divider className="my-2 border-[var(--pearl-bush)]/50" />
+                    <div className="flex items-baseline justify-between gap-4 mt-1">
+                      <Text strong className="text-sm text-[var(--text-primary)] uppercase tracking-wider">
                         Payable total
                       </Text>
                       <Text
-                        className="!text-2xl !font-bold !text-[var(--bistre-800)] tabular-nums"
+                        className="!text-xl !font-bold !text-[var(--bistre-800)] tabular-nums"
                       >
                         {inr.format(order.totalAmount)}
                       </Text>
@@ -531,7 +514,7 @@ export default function OrderBillDetailPage() {
                 </Col>
               </Row>
 
-              <Divider className="my-6 border-[var(--pearl-bush)]" />
+              <Divider className="my-4 border-[var(--pearl-bush)]" />
 
               <div className={styles.linesSection}>
                 <div className={styles.linesSectionHead}>
@@ -547,26 +530,6 @@ export default function OrderBillDetailPage() {
                     emptyTitle="No items"
                     emptyDescription="This bill has no items."
                   />
-                  {order && lineCount > 0 ? (
-                    <div className={styles.linesFooter} role="rowgroup">
-                      <div className={styles.linesFooterLead} aria-hidden />
-                      <div className={styles.linesFooterMeta}>
-                        <Text strong className={styles.linesFooterMetaTitle}>
-                          Payable total
-                        </Text>
-                        <Text
-                          type="secondary"
-                          className={styles.linesFooterMetaHint}
-                        >
-                          Incl. GST & discount · {lineCount} Item
-                          {lineCount === 1 ? "" : "s"}
-                        </Text>
-                      </div>
-                      <div className={styles.linesFooterGrand}>
-                        {inr.format(order.totalAmount)}
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </div>
             </div>

@@ -487,28 +487,29 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
 
   return (
     <div className={styles.root}>
-      <div className={styles.toolbar}>
-        <div className={styles.searchField}>
-          <label className={styles.searchLabel} htmlFor="inventory-search">
-            Find in list
-          </label>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Inventory</h1>
+        </div>
+
+        <div className="flex flex-1 items-center justify-end gap-2 min-w-[300px] flex-wrap">
           <Input
             id="inventory-search"
-            className={styles.searchInput}
+            size="large"
+            className="max-w-[260px] rounded-lg"
             allowClear
-            placeholder="Product, variant, barcode, or SKU…"
+            placeholder="Search…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" aria-hidden />}
-            aria-label="Search inventory"
+            prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
           />
-        </div>
-        <div className={styles.toolbarActions}>
           {!shopsLoading && !isFactory && (
             <Button
-              type="default"
-              className={styles.toolbarBtn}
-              icon={<PackagePlus className="h-4 w-4" />}
+              type="primary"
+              size="large"
+              className="rounded-lg font-semibold"
+              style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+              icon={<PackagePlus size={16} />}
               onClick={() => setRefillModalOpen(true)}
             >
               Request Refill
@@ -517,48 +518,51 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           {!shopsLoading && !isFactory && (
             <Button
               type="default"
-              className={styles.toolbarBtn}
-              icon={<Copy className="h-4 w-4" aria-hidden />}
+              size="large"
+              className="rounded-lg"
+              icon={<Copy size={16} />}
               loading={cloneCatalogBusy}
               onClick={() => handleCloneCatalogFromFactory()}
             >
-              Copy catalog from Factory
+              Copy Factory
             </Button>
           )}
           {!shopsLoading && !isFactory && (
             <Button
               danger
-              type="default"
-              className={styles.toolbarBtn}
-              icon={<Trash2 className="h-4 w-4" aria-hidden />}
+              type="primary"
+              size="large"
+              className="rounded-lg font-semibold shadow-sm"
+              icon={<Trash2 size={16} />}
               loading={purgeCatalogBusy}
               onClick={() => handlePurgeShopCatalog()}
             >
-              Delete all products
+              Delete All
             </Button>
           )}
           {!shopsLoading && !isFactory && (
             <Button
               danger
-              type="default"
-              className={styles.toolbarBtn}
-              icon={<Trash2 className="h-4 w-4" aria-hidden />}
+              type="primary"
+              size="large"
+              className="rounded-lg font-semibold shadow-sm"
+              icon={<Trash2 size={16} />}
               loading={deleteSelectedBusy}
               disabled={selectionRef.current.size === 0}
               onClick={() => void handleDeleteSelected()}
             >
-              Delete selected
-              {selectionRef.current.size > 0 ? ` (${selectionRef.current.size})` : ""}
+              Delete {selectionRef.current.size > 0 ? `(${selectionRef.current.size})` : ""}
             </Button>
           )}
           <Button
             type="default"
-            className={styles.toolbarBtn}
-            icon={<Printer className="h-4 w-4" />}
+            size="large"
+            className="rounded-lg"
+            icon={<Printer size={16} />}
             onClick={handlePrintAllFiltered}
             loading={isPrintingAll}
           >
-            Print all shop barcodes
+            Print Barcodes
           </Button>
         </div>
       </div>
