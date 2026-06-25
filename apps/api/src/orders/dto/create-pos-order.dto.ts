@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -77,6 +78,14 @@ export class CreatePosOrderDto {
   @IsNumber()
   @Min(0)
   discount?: number;
+
+  /**
+   * Optional backdated timestamp (ISO 8601) for the sale. When omitted, the
+   * order is created with the current server time.
+   */
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
 
   @IsArray()
   @ArrayMinSize(1)

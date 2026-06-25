@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -37,7 +39,10 @@ export class OrdersController {
   @RequirePermission('canAccessBilling')
   findCustomerByPhone(@Req() req: Request, @Query('phone') phone?: string) {
     if (!phone) return null;
-    return this.ordersService.findCustomerByPhone(req.effectiveShopCode!, phone);
+    return this.ordersService.findCustomerByPhone(
+      req.effectiveShopCode!,
+      phone,
+    );
   }
 
   @Get()
@@ -60,5 +65,12 @@ export class OrdersController {
   @RequirePermission('canAccessOrders')
   findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findOne(req.effectiveShopCode!, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @RequirePermission('canAccessOrders')
+  remove(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.remove(req.effectiveShopCode!, id);
   }
 }

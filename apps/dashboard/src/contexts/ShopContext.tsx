@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,17 +34,26 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const defaultEnv =
     process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
+  const requestIdRef = useRef(0);
+  const role = user?.role;
+  const userShopCode = user?.shopCode;
+
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    if (user.role === "SUPER_ADMIN") {
-      setShopsLoading(true);
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestId !== requestIdRef.current;
+
+    setShopsLoading(true);
+
+    if (role === "SUPER_ADMIN") {
       apiFetch("/shops")
         .then(async (res) => {
           if (!res.ok) throw new Error(res.statusText);
           return res.json() as Promise<Shop[]>;
         })
         .then((list) => {
+          if (isStale()) return;
           setShops(list);
           const codes = new Set(list.map((s) => s.shopCode));
           const stored =
@@ -58,43 +68,47 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
             fromStorage ||
             defaultShop ||
             list[0]?.shopCode ||
-            user.shopCode;
+            userShopCode;
           setEffectiveShopCodeState(fallback ?? '');
           if (typeof window !== "undefined" && fallback) {
             localStorage.setItem(STORAGE_KEY, fallback);
           }
         })
         .catch(() => {
-          setShops([]);
-          setEffectiveShopCodeState(user.shopCode || defaultEnv);
+          if (isStale()) return;
+          setEffectiveShopCodeState((prev) => prev || userShopCode || defaultEnv);
         })
-        .finally(() => setShopsLoading(false));
+        .finally(() => {
+          if (!isStale()) setShopsLoading(false);
+        });
     } else {
-      setShopsLoading(true);
       apiFetch("/shops/current")
         .then(async (res) => {
           if (!res.ok) throw new Error(res.statusText);
           return res.json() as Promise<Shop>;
         })
         .then((shop) => {
+          if (isStale()) return;
           setShops([shop]);
-          const code = shop.shopCode || user.shopCode || defaultEnv;
+          const code = shop.shopCode || userShopCode || defaultEnv;
           setEffectiveShopCodeState(code);
           if (typeof window !== "undefined" && code) {
             localStorage.setItem(STORAGE_KEY, code);
           }
         })
         .catch(() => {
-          setShops([]);
-          const code = user.shopCode || defaultEnv;
-          setEffectiveShopCodeState(code);
+          if (isStale()) return;
+          const code = userShopCode || defaultEnv;
+          setEffectiveShopCodeState((prev) => prev || code);
           if (typeof window !== "undefined" && code) {
             localStorage.setItem(STORAGE_KEY, code);
           }
         })
-        .finally(() => setShopsLoading(false));
+        .finally(() => {
+          if (!isStale()) setShopsLoading(false);
+        });
     }
-  }, [isAuthenticated, user, defaultEnv]);
+  }, [isAuthenticated, role, userShopCode, defaultEnv]);
 
   const setEffectiveShopCode = useCallback((code: string) => {
     if (!code || shopsLoading) return;
