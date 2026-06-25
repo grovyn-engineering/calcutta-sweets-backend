@@ -204,6 +204,31 @@
   max-width: 200px;
 }
 
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--bistre-300);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.deleteBtn:hover {
+  color: #b42318;
+  background: rgba(180, 35, 24, 0.08);
+  border-color: rgba(180, 35, 24, 0.25);
+}
+
+.deleteBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.2);
+}
+
 .tableSlot :global(.orders-cust-phone) {
   margin-top: 2px;
   font-size: 12px;

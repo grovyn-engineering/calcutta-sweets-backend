@@ -10,6 +10,7 @@ import {
   CreditCard,
   Pencil,
   UserRound,
+  CalendarClock,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomerFormValues } from '../CustomerDetails';
@@ -39,6 +40,22 @@ import {
   launchRawBtPrintFromBill,
   THERMAL_POWERED_BY_LINE,
 } from '@/lib/rawBtPrint';
+
+/** Date -> value string for <input type="datetime-local"> (local time, no tz). */
+function toDatetimeLocalValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
+/** Human-readable label for a chosen backdate. */
+function formatSaleDateTime(d: Date): string {
+  return d.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
 
 export interface BillItem {
   lineId: string;
@@ -145,6 +162,11 @@ export function BillingBillPanel({
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [tempDiscount, setTempDiscount] = useState(0);
   const [showGstinOnBill, setShowGstinOnBill] = useState(true);
+
+  // Optional backdated sale time. null => use current time at checkout.
+  const [saleDateTime, setSaleDateTime] = useState<Date | null>(null);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+  const [tempSaleDateTime, setTempSaleDateTime] = useState('');
 
   const total = itemsGrossTotal - discount;
 
@@ -302,7 +324,7 @@ export function BillingBillPanel({
       bankAccountNumber: currentShop?.bankAccountNumber?.trim() ?? '',
       bankIfsc: currentShop?.bankIfsc?.trim() ?? '',
       poweredBy: THERMAL_POWERED_BY_LINE,
-      issuedAt: new Date().toISOString(),
+      issuedAt: (saleDateTime ?? new Date()).toISOString(),
     };
     return {
       ...base,
@@ -352,7 +374,7 @@ export function BillingBillPanel({
       fssaiNumber: currentShop?.fssaiNumber ?? null,
       showGstinOnBill: showGstinOnBill,
       invoiceNo,
-      issuedAt: new Date().toISOString(),
+      issuedAt: (saleDateTime ?? new Date()).toISOString(),
       customer: printCustomer,
       lines: items.map((i) => ({
         name: i.name,
@@ -428,6 +450,7 @@ export function BillingBillPanel({
         body: JSON.stringify({
           paymentMethod,
           discount,
+          createdAt: saleDateTime ? saleDateTime.toISOString() : undefined,
           customerName: customer?.name || manualSaleCustomer?.name || undefined,
           customerPhone: customer?.phone,
           customerEmail: customer?.email,
@@ -481,6 +504,7 @@ export function BillingBillPanel({
       }
       setPaymentMethod(null);
       setDiscount(0);
+      setSaleDateTime(null);
       onSaleComplete?.();
     } catch (error) {
       message.error(
@@ -515,6 +539,35 @@ export function BillingBillPanel({
     };
   }, [onCheckoutApi, checkoutBusy, checkoutBusyMode, lineCount, paymentMethod]);
 
+  const openDateModal = () => {
+    setTempSaleDateTime(
+      toDatetimeLocalValue(saleDateTime ?? new Date()),
+    );
+    setIsDateModalOpen(true);
+  };
+
+  const backdateButton = (
+    <Tooltip
+      title={
+        saleDateTime
+          ? `Bill date: ${formatSaleDateTime(saleDateTime)} · tap to change`
+          : 'Set bill date & time (optional)'
+      }
+    >
+      <Button
+        type="default"
+        className={`!flex h-9 w-9 shrink-0 items-center justify-center !p-0 ${
+          saleDateTime
+            ? '!border-[var(--ochre-600)] !bg-[var(--ochre-600)] !text-white'
+            : 'border-[var(--pearl-bush)] text-[var(--ochre-600)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]'
+        }`}
+        icon={<CalendarClock className="h-4 w-4" aria-hidden />}
+        onClick={openDateModal}
+        aria-label="Set bill date and time"
+      />
+    </Tooltip>
+  );
+
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col overflow-hidden ${className}`}
@@ -532,32 +585,38 @@ export function BillingBillPanel({
                   : `${lineCount} line${lineCount === 1 ? '' : 's'} · Order #${orderId}`}
               </p>
             </div>
-            {!hideAddCustomerInPanel && !customer ? (
-              <Tooltip title="Add customer">
-                <Button
-                  type="default"
-                  className="!flex h-9 w-9 shrink-0 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
-                  icon={<UserPlus className="h-4 w-4" aria-hidden />}
-                  onClick={() => setDetailsOpen(true)}
-                  aria-label="Add customer"
-                />
-              </Tooltip>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-2">
+              {backdateButton}
+              {!hideAddCustomerInPanel && !customer ? (
+                <Tooltip title="Add customer">
+                  <Button
+                    type="default"
+                    className="!flex h-9 w-9 shrink-0 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
+                    icon={<UserPlus className="h-4 w-4" aria-hidden />}
+                    onClick={() => setDetailsOpen(true)}
+                    aria-label="Add customer"
+                  />
+                </Tooltip>
+              ) : null}
+            </div>
           </div>
         </header>
       )}
 
-      {layout === 'drawer' && !hideAddCustomerInPanel && !customer ? (
-        <div className="flex shrink-0 justify-end border-b border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-2">
-          <Tooltip title="Add customer">
-            <Button
-              type="default"
-              className="!flex h-9 w-9 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
-              icon={<UserPlus className="h-4 w-4" aria-hidden />}
-              onClick={() => setDetailsOpen(true)}
-              aria-label="Add customer"
-            />
-          </Tooltip>
+      {layout === 'drawer' ? (
+        <div className="flex shrink-0 items-center justify-end gap-2 border-b border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-2">
+          {backdateButton}
+          {!hideAddCustomerInPanel && !customer ? (
+            <Tooltip title="Add customer">
+              <Button
+                type="default"
+                className="!flex h-9 w-9 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
+                icon={<UserPlus className="h-4 w-4" aria-hidden />}
+                onClick={() => setDetailsOpen(true)}
+                aria-label="Add customer"
+              />
+            </Tooltip>
+          ) : null}
         </div>
       ) : null}
 
@@ -1070,6 +1129,66 @@ export function BillingBillPanel({
             placeholder="0.00"
             autoFocus
           />
+        </div>
+      </Modal>
+
+      <Modal
+        title="Bill date & time"
+        open={isDateModalOpen}
+        onOk={() => {
+          const v = tempSaleDateTime.trim();
+          if (!v) {
+            setSaleDateTime(null);
+            setIsDateModalOpen(false);
+            return;
+          }
+          const parsed = new Date(v);
+          if (Number.isNaN(parsed.getTime())) {
+            message.error('Enter a valid date and time.');
+            return;
+          }
+          if (parsed.getTime() > Date.now() + 60_000) {
+            message.error('The bill date/time cannot be in the future.');
+            return;
+          }
+          setSaleDateTime(parsed);
+          setIsDateModalOpen(false);
+        }}
+        onCancel={() => setIsDateModalOpen(false)}
+        okText="Apply date"
+        cancelText="Cancel"
+        okButtonProps={{
+          style: {
+            backgroundColor: 'var(--ochre-600)',
+            borderColor: 'var(--ochre-600)',
+          },
+        }}
+      >
+        <div className="space-y-3 py-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Pick a past date and time for this bill. This is optional — leave it
+            as-is to use the current date and time when the bill is generated.
+          </p>
+          <input
+            type="datetime-local"
+            className="w-full rounded-lg border border-[var(--pearl-bush)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--ochre-400)]"
+            value={tempSaleDateTime}
+            max={toDatetimeLocalValue(new Date())}
+            onChange={(e) => setTempSaleDateTime(e.target.value)}
+          />
+          {saleDateTime ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSaleDateTime(null);
+                setTempSaleDateTime('');
+                setIsDateModalOpen(false);
+              }}
+              className="text-xs font-medium text-[var(--ochre-600)] underline underline-offset-2 hover:text-[var(--ochre-700)]"
+            >
+              Clear and use current date &amp; time
+            </button>
+          ) : null}
         </div>
       </Modal>
     </div>

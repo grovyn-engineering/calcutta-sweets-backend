@@ -32,7 +32,7 @@ function isMissingCustomerTableError(error: unknown): boolean {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async findCustomerByPhone(shopCode: string, rawPhone: string) {
     const phone = normalizeIndianMobile(rawPhone);
@@ -61,7 +61,13 @@ export class OrdersService {
     userId: string | undefined,
     dto: CreatePosOrderDto,
   ) {
-    const variantIds = [...new Set(dto.items.map((i) => i.variantId).filter((id): id is string => id != null))];
+    const variantIds = [
+      ...new Set(
+        dto.items
+          .map((i) => i.variantId)
+          .filter((id): id is string => id != null),
+      ),
+    ];
     const variants = await this.prisma.productVariant.findMany({
       where: {
         id: { in: variantIds },
@@ -102,8 +108,23 @@ export class OrdersService {
 
     // Inclusive tax calculation: Total = PreTax + (PreTax * Rate)
     // Tax = Total * (Rate / (1 + Rate))
-    const totalTaxRate = ((shop?.cgstRate ?? 2.5) + (shop?.sgstRate ?? 2.5)) / 100;
+    const totalTaxRate =
+      ((shop?.cgstRate ?? 2.5) + (shop?.sgstRate ?? 2.5)) / 100;
     const tax = totalAmount * (totalTaxRate / (1 + totalTaxRate));
+
+    // Optional backdated sale time. Reject future dates and unparseable values,
+    // falling back to the DB default (now) when not provided.
+    let backdatedAt: Date | undefined;
+    if (dto.createdAt) {
+      const parsed = new Date(dto.createdAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new BadRequestException('Invalid sale date/time');
+      }
+      if (parsed.getTime() > Date.now() + 60_000) {
+        throw new BadRequestException('Sale date/time cannot be in the future');
+      }
+      backdatedAt = parsed;
+    }
 
     const customerPhone = optionalIndianMobileOrNull(dto.customerPhone);
     const customerName = dto.customerName?.trim() || null;
@@ -151,6 +172,7 @@ export class OrdersService {
           customerName,
           customerPhone,
           customerEmail,
+          ...(backdatedAt ? { createdAt: backdatedAt } : {}),
         },
       });
 
@@ -199,24 +221,19 @@ export class OrdersService {
     };
   }
 
-  async findPage(
-    shopCode: string,
-    page: number,
-    size: number,
-    q?: string,
-  ) {
+  async findPage(shopCode: string, page: number, size: number, q?: string) {
     const qt = q?.trim();
     const where: Prisma.OrderWhereInput = {
       shopCode,
       status: { not: OrderStatus.DRAFT },
       ...(qt
         ? {
-          OR: [
-            { customerName: { contains: qt, mode: 'insensitive' as const } },
-            { customerPhone: { contains: qt, mode: 'insensitive' as const } },
-            { id: { equals: qt } },
-          ],
-        }
+            OR: [
+              { customerName: { contains: qt, mode: 'insensitive' as const } },
+              { customerPhone: { contains: qt, mode: 'insensitive' as const } },
+              { id: { equals: qt } },
+            ],
+          }
         : {}),
     };
 
@@ -250,6 +267,19 @@ export class OrdersService {
       size,
       total,
     };
+  }
+
+  async remove(shopCode: string, id: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id, shopCode },
+      select: { id: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    // Order items are removed automatically via the OrderItem -> Order
+    // `onDelete: Cascade` relation configured in the Prisma schema.
+    await this.prisma.order.delete({ where: { id } });
   }
 
   async findOne(shopCode: string, id: string) {
@@ -293,10 +323,7 @@ export class OrdersService {
         const lineTotal = stockQty * catalogRate;
         const dispQ =
           i.posLabelQuantity != null ? Number(i.posLabelQuantity) : stockQty;
-        const dispU =
-          i.posLabelUnit?.trim() ||
-          i.productVariant?.unit ||
-          'PC';
+        const dispU = i.posLabelUnit?.trim() || i.productVariant?.unit || 'PC';
         const dispRate = dispQ > 0 ? lineTotal / dispQ : catalogRate;
         return {
           quantity: dispQ,

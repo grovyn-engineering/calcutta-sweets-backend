@@ -402,7 +402,7 @@ export default function OrderBillDetailPage() {
               <Button onClick={() => router.push("/orders")}>
                 Back to orders
               </Button>
-              <Tooltip title="Full invoice on A4 / PDF-style layout">
+              {/* <Tooltip title="Full invoice on A4 / PDF-style layout">
                 <Button
                   type="primary"
                   icon={<Printer className="h-4 w-4" />}
@@ -414,7 +414,7 @@ export default function OrderBillDetailPage() {
                 >
                   Print invoice (A4)
                 </Button>
-              </Tooltip>
+              </Tooltip> */}
               <Tooltip title="Narrow layout for 80mm thermal printers">
                 <Button
                   icon={<Receipt className="h-4 w-4" />}
