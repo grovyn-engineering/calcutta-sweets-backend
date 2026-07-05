@@ -11,7 +11,7 @@ import {
 
 @Injectable()
 export class SeedService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async run(): Promise<void> {
     if (!process.env['DATABASE_URL']) {
@@ -21,25 +21,28 @@ export class SeedService {
     }
 
     const shopCode = process.env['SEED_SHOP_CODE'] ?? 'SH000001';
-    const isFactory = shopCode.toLowerCase().includes('factory') || shopCode === 'FACTORY01';
+    const isFactory =
+      shopCode.toLowerCase().includes('factory') || shopCode === 'FACTORY01';
 
     if (process.env['SEED_CLEAN'] === 'true') {
       console.log(`🧹 Cleaning existing data for shop ${shopCode}...`);
       const productsToDelete = await this.prisma.product.findMany({
         where: { shopCode },
-        select: { id: true }
+        select: { id: true },
       });
-      const productIds = productsToDelete.map(p => p.id);
+      const productIds = productsToDelete.map((p) => p.id);
 
       await this.prisma.productVariant.deleteMany({
-        where: { productId: { in: productIds } }
+        where: { productId: { in: productIds } },
       });
       await this.prisma.product.deleteMany({
-        where: { shopCode }
+        where: { shopCode },
       });
     }
 
-    console.log(`🚀 Processing ${productMap.size} products into ${shopCode} (Factory: ${isFactory})`);
+    console.log(
+      `🚀 Processing ${productMap.size} products into ${shopCode} (Factory: ${isFactory})`,
+    );
 
     const categoryCache: Record<string, string> = {};
 
@@ -66,7 +69,11 @@ export class SeedService {
 
       for (const variant of variants) {
         // High stock for Factory, default for retail
-        const initialQuantity = isFactory ? 5000 : (variant.unit === Unit.KG ? 20 : 100);
+        const initialQuantity = isFactory
+          ? 5000
+          : variant.unit === Unit.KG
+            ? 20
+            : 100;
 
         await this.prisma.productVariant.create({
           data: {

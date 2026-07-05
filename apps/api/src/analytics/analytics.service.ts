@@ -38,7 +38,9 @@ function utcMonthStartFromDate(date: Date): Date {
 }
 
 function addUtcMonths(date: Date, delta: number): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1),
+  );
 }
 
 type ReportsSummaryQuery = {
@@ -49,7 +51,10 @@ type ReportsSummaryQuery = {
   bucket: 'day' | 'month';
 };
 
-function buildReportsRange(now: Date, query: ReportsSummaryQuery): {
+function buildReportsRange(
+  now: Date,
+  query: ReportsSummaryQuery,
+): {
   startKey: string;
   endKey: string;
   rangeStart: Date;
@@ -189,8 +194,7 @@ export class AnalyticsService {
 
     const lowStockAll = variantsForStock.filter(
       (v) =>
-        v.quantity <= 0 ||
-        (v.minStock != null && v.quantity <= v.minStock),
+        v.quantity <= 0 || (v.minStock != null && v.quantity <= v.minStock),
     );
     const lowStockVariants = lowStockAll
       .sort((a, b) => a.quantity - b.quantity)
@@ -239,12 +243,86 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * Revenue for an explicit calendar day, or an inclusive date range, plus a
+   * per-day breakdown. Powers the Overview "Revenue explorer" card so a single
+   * date (start === end) reads the same as the "Today" card: like getDashboard,
+   * this counts ALL orders regardless of status (no DRAFT exclusion), unlike
+   * getReportsSummary. All boundaries are UTC calendar days.
+   */
+  async getRevenueBreakdown(
+    shopCode: string,
+    query: { days: number; start?: string; end?: string },
+  ) {
+    const now = new Date();
+    const { startKey, endKey, rangeStart, rangeEndExclusive } =
+      buildReportsRange(now, {
+        days: query.days,
+        start: query.start,
+        end: query.end,
+        bucket: 'day',
+      });
+    const days =
+      Math.max(
+        1,
+        Math.round(
+          (rangeEndExclusive.getTime() - rangeStart.getTime()) /
+            (24 * 60 * 60 * 1000),
+        ),
+      ) || 1;
+    if (days > 366) {
+      throw new BadRequestException('date range cannot exceed 366 days');
+    }
+
+    const ordersInRange = await this.prisma.order.findMany({
+      where: {
+        shopCode,
+        createdAt: { gte: rangeStart, lt: rangeEndExclusive },
+      },
+      select: { createdAt: true, totalAmount: true },
+    });
+
+    const buckets = new Map<string, { revenue: number; orderCount: number }>();
+    for (let i = 0; i < days; i++) {
+      buckets.set(addUtcDays(startKey, i), { revenue: 0, orderCount: 0 });
+    }
+    for (const o of ordersInRange) {
+      const b = buckets.get(utcDayKey(o.createdAt));
+      if (b) {
+        b.revenue += o.totalAmount;
+        b.orderCount += 1;
+      }
+    }
+
+    const daily = [...buckets.entries()].map(([date, b]) => ({
+      date,
+      revenue: b.revenue,
+      orderCount: b.orderCount,
+    }));
+
+    const totals = ordersInRange.reduce(
+      (acc, o) => {
+        acc.orderCount += 1;
+        acc.revenue += o.totalAmount;
+        return acc;
+      },
+      { orderCount: 0, revenue: 0 },
+    );
+
+    return {
+      shopCode,
+      days,
+      range: { start: startKey, end: endKey },
+      generatedAt: now.toISOString(),
+      totals,
+      daily,
+    };
+  }
+
   async getReportsSummary(shopCode: string, query: ReportsSummaryQuery) {
     const now = new Date();
-    const { startKey, endKey, rangeStart, rangeEndExclusive } = buildReportsRange(
-      now,
-      query,
-    );
+    const { startKey, endKey, rangeStart, rangeEndExclusive } =
+      buildReportsRange(now, query);
     const days =
       Math.max(
         1,
@@ -335,10 +413,7 @@ export class AnalyticsService {
       { orderCount: 0, revenue: 0 },
     );
 
-    const productMap = new Map<
-      string,
-      { qtySold: number; revenue: number }
-    >();
+    const productMap = new Map<string, { qtySold: number; revenue: number }>();
     for (const line of itemsInRange) {
       const name = line.customName || line.product?.name || 'Manual Item';
       const prev = productMap.get(name) ?? { qtySold: 0, revenue: 0 };

@@ -27,7 +27,7 @@ import { UsersService } from './users.service';
 @Controller('users')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get()
   @RequirePermission('canAccessUsers')
@@ -38,7 +38,10 @@ export class UsersController {
     @Query('size') sizeStr?: string,
   ) {
     const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
-    const size = Math.min(100, Math.max(1, parseInt(sizeStr ?? '20', 10) || 20));
+    const size = Math.min(
+      100,
+      Math.max(1, parseInt(sizeStr ?? '20', 10) || 20),
+    );
     return this.usersService.findPage(req.effectiveShopCode!, page, size);
   }
 
@@ -55,10 +58,11 @@ export class UsersController {
   create(@Req() req: Request, @Body() dto: CreateUserDto) {
     const actor = req.user as User;
     const shopCode =
-      actor.role === UserRole.SUPER_ADMIN
-        ? dto.shopCode
-        : actor.shopCode;
-    if (actor.role !== UserRole.SUPER_ADMIN && dto.shopCode !== actor.shopCode) {
+      actor.role === UserRole.SUPER_ADMIN ? dto.shopCode : actor.shopCode;
+    if (
+      actor.role !== UserRole.SUPER_ADMIN &&
+      dto.shopCode !== actor.shopCode
+    ) {
       throw new BadRequestException(
         'You can only create users for your assigned shop',
       );
@@ -98,7 +102,10 @@ export class UsersController {
   }
 
   @Patch('profile/me')
-  updateMe(@Req() req: Request, @Body() dto: { name?: string; avatarUrl?: string; phone?: string }) {
+  updateMe(
+    @Req() req: Request,
+    @Body() dto: { name?: string; avatarUrl?: string; phone?: string },
+  ) {
     const userId = (req.user as any).sub || (req.user as any).id;
     return this.usersService.updateProfile(userId, dto);
   }

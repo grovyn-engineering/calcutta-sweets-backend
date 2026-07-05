@@ -25,8 +25,8 @@ import { CreateTransferDto } from './dto/create-transfer.dto';
 export class StockTransfersController {
   constructor(
     private readonly service: StockTransfersService,
-    private readonly shopsService: ShopsService
-  ) { }
+    private readonly shopsService: ShopsService,
+  ) {}
 
   @Post()
   create(@Req() req: Request, @Body() dto: CreateTransferDto) {

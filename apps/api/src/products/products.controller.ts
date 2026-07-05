@@ -53,8 +53,7 @@ export class ProductsController {
       Math.max(1, parseInt(sizeStr ?? '20', 10) || 20),
     );
     const st = status?.trim().toLowerCase();
-    const statusFilter =
-      st === 'active' || st === 'inactive' ? st : undefined;
+    const statusFilter = st === 'active' || st === 'inactive' ? st : undefined;
     return this.productsService.findPage(shop!, page, size, {
       search: (q ?? search)?.trim() || undefined,
       categoryId: categoryId?.trim() || undefined,
@@ -73,7 +72,11 @@ export class ProductsController {
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
   ) {
-    return this.productsService.update(id, updateProductDto, req.effectiveShopCode!);
+    return this.productsService.update(
+      id,
+      updateProductDto,
+      req.effectiveShopCode!,
+    );
   }
 
   @Delete(':id')

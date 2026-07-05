@@ -18,7 +18,6 @@ import { PublicModule } from './public/public.module';
 import { PaymentModule } from './payment/payment.module';
 import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -44,4 +43,4 @@ import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

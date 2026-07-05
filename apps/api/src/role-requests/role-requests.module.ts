@@ -6,9 +6,9 @@ import { EmailModule } from '../email/email.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [PrismaModule, EmailModule, AuthModule],
-    controllers: [RoleRequestsController],
-    providers: [RoleRequestsService],
-    exports: [RoleRequestsService],
+  imports: [PrismaModule, EmailModule, AuthModule],
+  controllers: [RoleRequestsController],
+  providers: [RoleRequestsService],
+  exports: [RoleRequestsService],
 })
-export class RoleRequestsModule { }
+export class RoleRequestsModule {}

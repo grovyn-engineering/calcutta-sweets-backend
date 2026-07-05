@@ -17,7 +17,7 @@ import type { Request } from 'express';
 export class ShopScopeGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
-    const user = req.user as User | undefined;
+    const user = req.user;
     if (!user) {
       throw new UnauthorizedException();
     }
@@ -27,7 +27,7 @@ export class ShopScopeGuard implements CanActivate {
       typeof raw === 'string'
         ? raw.trim()
         : Array.isArray(raw)
-          ? raw[0]?.trim() ?? ''
+          ? (raw[0]?.trim() ?? '')
           : '';
 
     const queryShop = String(
@@ -35,8 +35,7 @@ export class ShopScopeGuard implements CanActivate {
     ).trim();
 
     if (user.role === UserRole.SUPER_ADMIN) {
-      req.effectiveShopCode =
-        headerShop || queryShop || user.shopCode || '';
+      req.effectiveShopCode = headerShop || queryShop || user.shopCode || '';
       if (!req.effectiveShopCode) {
         throw new BadRequestException(
           'Missing shop context: send X-Shop header or ensure your account has a shop',
@@ -44,7 +43,9 @@ export class ShopScopeGuard implements CanActivate {
       }
     } else {
       if (headerShop && headerShop !== user.shopCode) {
-        throw new ForbiddenException('X-Shop does not match your assigned shop');
+        throw new ForbiddenException(
+          'X-Shop does not match your assigned shop',
+        );
       }
       req.effectiveShopCode = user.shopCode;
     }

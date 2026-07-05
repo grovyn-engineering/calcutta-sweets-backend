@@ -62,7 +62,7 @@ export function mergeEffectivePermissions(
   const out = { ...base };
   for (const k of ROLE_PERMISSION_FIELD_KEYS) {
     if (typeof o[k] === 'boolean') {
-      (out as Record<string, boolean>)[k] = o[k] as boolean;
+      (out as Record<string, boolean>)[k] = o[k];
     }
   }
   return out;

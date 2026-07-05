@@ -41,10 +41,7 @@ export class InventoryController {
 
   @Post('clone-catalog-from-factory')
   @RequirePermission('canAccessInventory')
-  cloneCatalogFromFactory(
-    @Req() req: Request,
-    @Body() body: CloneCatalogDto,
-  ) {
+  cloneCatalogFromFactory(@Req() req: Request, @Body() body: CloneCatalogDto) {
     return this.catalogSyncService.cloneFactoryCatalogBatch(
       req.effectiveShopCode!,
       body || {},
@@ -54,7 +51,9 @@ export class InventoryController {
   @Post('purge-shop-catalog')
   @RequirePermission('canAccessInventory')
   purgeShopCatalog(@Req() req: Request) {
-    return this.shopCatalogPurgeService.purgeCurrentShop(req.effectiveShopCode!);
+    return this.shopCatalogPurgeService.purgeCurrentShop(
+      req.effectiveShopCode!,
+    );
   }
 
   @Get('variants/lookup')
@@ -72,10 +71,7 @@ export class InventoryController {
 
   @Post('variants/bulk-delete')
   @RequirePermission('canAccessInventory')
-  bulkDeleteVariants(
-    @Req() req: Request,
-    @Body() dto: BulkDeleteVariantsDto,
-  ) {
+  bulkDeleteVariants(@Req() req: Request, @Body() dto: BulkDeleteVariantsDto) {
     return this.inventoryService.deleteVariantsByIds(
       req.effectiveShopCode!,
       dto.variantIds,
@@ -103,9 +99,7 @@ export class InventoryController {
       rawCat && rawCat.toLowerCase() !== 'all' ? rawCat : undefined;
     const searchText = (q ?? search)?.trim() || undefined;
     const onlyActive =
-      activeOnly === '1' ||
-      activeOnly === 'true' ||
-      activeOnly === 'yes';
+      activeOnly === '1' || activeOnly === 'true' || activeOnly === 'yes';
 
     return this.inventoryService.findVariantsPage(
       req.effectiveShopCode!,
@@ -132,11 +126,7 @@ export class InventoryController {
     @Param('id') id: string,
     @Body() dto: UpdateVariantDto,
   ) {
-    return this.inventoryService.updateVariant(
-      id,
-      dto,
-      req.effectiveShopCode!,
-    );
+    return this.inventoryService.updateVariant(id, dto, req.effectiveShopCode!);
   }
 
   @Post('upload')

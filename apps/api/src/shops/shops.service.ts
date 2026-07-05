@@ -155,10 +155,7 @@ export class ShopsService {
         ? updateShopDto
         : this.pickTaxOnlyUpdate(updateShopDto);
 
-    if (
-      actor.role !== UserRole.SUPER_ADMIN &&
-      Object.keys(data).length === 0
-    ) {
+    if (actor.role !== UserRole.SUPER_ADMIN && Object.keys(data).length === 0) {
       return this.prisma.shop.findUnique({ where: { id } });
     }
 

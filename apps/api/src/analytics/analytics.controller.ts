@@ -1,4 +1,11 @@
-import { BadRequestException, Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -9,12 +16,28 @@ import { AnalyticsService } from './analytics.service';
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) { }
+  constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('dashboard')
   @RequirePermission('canAccessDashboard')
   dashboard(@Req() req: Request) {
     return this.analyticsService.getDashboard(req.effectiveShopCode!);
+  }
+
+  @Get('dashboard/revenue')
+  @RequirePermission('canAccessDashboard')
+  dashboardRevenue(
+    @Req() req: Request,
+    @Query('days') daysStr?: string,
+    @Query('start') start?: string,
+    @Query('end') end?: string,
+  ) {
+    const days = Math.min(366, Math.max(1, parseInt(daysStr ?? '1', 10) || 1));
+    return this.analyticsService.getRevenueBreakdown(req.effectiveShopCode!, {
+      days,
+      start,
+      end,
+    });
   }
 
   @Get('reports/summary')
@@ -31,16 +54,13 @@ export class AnalyticsController {
       180,
       Math.max(7, parseInt(daysStr ?? '30', 10) || 30),
     );
-    return this.analyticsService.getReportsSummary(
-      req.effectiveShopCode!,
-      {
-        days,
-        start,
-        end,
-        month,
-        bucket: bucket === 'month' ? 'month' : 'day',
-      },
-    );
+    return this.analyticsService.getReportsSummary(req.effectiveShopCode!, {
+      days,
+      start,
+      end,
+      month,
+      bucket: bucket === 'month' ? 'month' : 'day',
+    });
   }
 
   @Get('gst-summary')
@@ -69,15 +89,12 @@ export class AnalyticsController {
       180,
       Math.max(7, parseInt(daysStr ?? '30', 10) || 30),
     );
-    return this.analyticsService.getReportsExportData(
-      req.effectiveShopCode!,
-      {
-        days,
-        start,
-        end,
-        month,
-        bucket: bucket === 'month' ? 'month' : 'day',
-      },
-    );
+    return this.analyticsService.getReportsExportData(req.effectiveShopCode!, {
+      days,
+      start,
+      end,
+      month,
+      bucket: bucket === 'month' ? 'month' : 'day',
+    });
   }
 }
