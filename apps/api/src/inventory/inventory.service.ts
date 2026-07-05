@@ -23,7 +23,7 @@ export type VariantListFilters = {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   absoluteAssetUrl(url: string): string {
     const u = url.trim();
@@ -36,7 +36,9 @@ export class InventoryService {
     return `${base}/${u}`;
   }
 
-  private mapVariantDetailAbsoluteUrls(row: VariantDetailRow): VariantDetailRow {
+  private mapVariantDetailAbsoluteUrls(
+    row: VariantDetailRow,
+  ): VariantDetailRow {
     return {
       ...row,
       product: {
@@ -143,8 +145,7 @@ export class InventoryService {
       }
     }
 
-    const variantName =
-      dto.name !== undefined ? dto.name.trim() : undefined;
+    const variantName = dto.name !== undefined ? dto.name.trim() : undefined;
     if (variantName !== undefined && !variantName) {
       throw new BadRequestException('Variant name cannot be empty');
     }
@@ -170,15 +171,23 @@ export class InventoryService {
         product: {
           update: {
             ...(productName !== undefined ? { name: productName } : {}),
-            ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
-            ...(dto.description !== undefined ? { description: dto.description } : {}),
-            ...(dto.isListedOnWebsite !== undefined ? { isListedOnWebsite: dto.isListedOnWebsite } : {}),
-            ...(dto.images !== undefined ? {
-              images: {
-                deleteMany: {},
-                create: dto.images.map(url => ({ url })),
-              }
-            } : {}),
+            ...(dto.categoryId !== undefined
+              ? { categoryId: dto.categoryId }
+              : {}),
+            ...(dto.description !== undefined
+              ? { description: dto.description }
+              : {}),
+            ...(dto.isListedOnWebsite !== undefined
+              ? { isListedOnWebsite: dto.isListedOnWebsite }
+              : {}),
+            ...(dto.images !== undefined
+              ? {
+                  images: {
+                    deleteMany: {},
+                    create: dto.images.map((url) => ({ url })),
+                  },
+                }
+              : {}),
           },
         },
       },
@@ -203,10 +212,10 @@ export class InventoryService {
       ...(filters.activeOnly ? { isActive: true } : {}),
       ...(category
         ? {
-          category: {
-            name: category,
-          },
-        }
+            category: {
+              name: category,
+            },
+          }
         : {}),
     };
 
@@ -214,29 +223,29 @@ export class InventoryService {
       product: productWhere,
       ...(search
         ? {
-          OR: [
-            {
-              product: {
+            OR: [
+              {
+                product: {
+                  name: {
+                    contains: search,
+                    mode: Prisma.QueryMode.insensitive,
+                  },
+                },
+              },
+              {
                 name: {
                   contains: search,
                   mode: Prisma.QueryMode.insensitive,
                 },
               },
-            },
-            {
-              name: {
-                contains: search,
-                mode: Prisma.QueryMode.insensitive,
+              {
+                barcode: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
               },
-            },
-            {
-              barcode: {
-                contains: search,
-                mode: Prisma.QueryMode.insensitive,
-              },
-            },
-          ],
-        }
+            ],
+          }
         : {}),
     };
 

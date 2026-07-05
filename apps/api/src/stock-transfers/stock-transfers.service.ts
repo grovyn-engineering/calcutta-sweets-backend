@@ -200,7 +200,7 @@ export class StockTransfersService {
         });
 
         // 2. Find or create destination variant
-        let destVariant = await tx.productVariant.findFirst({
+        const destVariant = await tx.productVariant.findFirst({
           where: {
             barcode: item.barcode,
             product: { shopCode: request.toShopCode },

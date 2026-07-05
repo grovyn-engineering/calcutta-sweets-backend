@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
+import RevenueExplorer from "@/components/DashboardHome/RevenueExplorer";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
@@ -279,6 +280,8 @@ export default function DashboardHome() {
           </Text>
         </Card>
       </div>
+
+      <RevenueExplorer />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Card

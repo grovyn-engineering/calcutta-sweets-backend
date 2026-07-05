@@ -123,11 +123,10 @@ export class UsersService {
       return;
     }
     if (actorRole === UserRole.MANAGER) {
-      if (
-        targetRole === UserRole.MANAGER ||
-        targetRole === UserRole.ADMIN
-      ) {
-        throw new ForbiddenException('You do not have permission to remove this user');
+      if (targetRole === UserRole.MANAGER || targetRole === UserRole.ADMIN) {
+        throw new ForbiddenException(
+          'You do not have permission to remove this user',
+        );
       }
       return;
     }
@@ -192,7 +191,9 @@ export class UsersService {
         data.permissionOverrides =
           Object.keys(cleaned).length > 0 ? cleaned : null;
       } else {
-        throw new BadRequestException('permissionOverrides must be an object or null');
+        throw new BadRequestException(
+          'permissionOverrides must be an object or null',
+        );
       }
     }
 
@@ -240,8 +241,16 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
-        id: true, email: true, name: true, role: true, shopCode: true,
-        isActive: true, avatarUrl: true, phone: true, createdAt: true, updatedAt: true,
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        shopCode: true,
+        isActive: true,
+        avatarUrl: true,
+        phone: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
     if (!user) {
@@ -250,7 +259,10 @@ export class UsersService {
     return user;
   }
 
-  async updateProfile(id: string, dto: { name?: string; avatarUrl?: string; phone?: string }) {
+  async updateProfile(
+    id: string,
+    dto: { name?: string; avatarUrl?: string; phone?: string },
+  ) {
     const phonePatch =
       dto.phone === undefined
         ? {}
@@ -269,8 +281,16 @@ export class UsersService {
         ...phonePatch,
       },
       select: {
-        id: true, email: true, name: true, role: true, shopCode: true,
-        isActive: true, avatarUrl: true, phone: true, createdAt: true, updatedAt: true,
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        shopCode: true,
+        isActive: true,
+        avatarUrl: true,
+        phone: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }

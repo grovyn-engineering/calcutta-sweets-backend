@@ -4,8 +4,8 @@ import { SettingsService } from './settings.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [AuthModule],
-    controllers: [SettingsController],
-    providers: [SettingsService],
+  imports: [AuthModule],
+  controllers: [SettingsController],
+  providers: [SettingsService],
 })
-export class SettingsModule { }
+export class SettingsModule {}

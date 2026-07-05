@@ -30,7 +30,9 @@ export class EmailService {
 
   async sendOtpEmail(email: string, otp: string) {
     const { data, error } = await this.resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Calcutta Sweets <no-reply@calcutta-sweets.com>',
+      from:
+        process.env.EMAIL_FROM ||
+        'Calcutta Sweets <no-reply@calcutta-sweets.com>',
       to: [email],
       subject: 'Your verification code',
       html: `
@@ -56,7 +58,9 @@ export class EmailService {
     status: string,
   ) {
     const { data, error } = await this.resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Calcutta Sweets <no-reply@calcutta-sweets.com>',
+      from:
+        process.env.EMAIL_FROM ||
+        'Calcutta Sweets <no-reply@calcutta-sweets.com>',
       to: [email],
       subject: `Access request ${status}`,
       html: `
@@ -74,9 +78,15 @@ export class EmailService {
     return data;
   }
 
-  async sendRoleRequestEmail(email: string, requestedRole: string, status: string) {
+  async sendRoleRequestEmail(
+    email: string,
+    requestedRole: string,
+    status: string,
+  ) {
     const { data, error } = await this.resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Calcutta Sweets <no-reply@calcutta-sweets.com>',
+      from:
+        process.env.EMAIL_FROM ||
+        'Calcutta Sweets <no-reply@calcutta-sweets.com>',
       to: [email],
       subject: `Role Request ${status}`,
       html: `

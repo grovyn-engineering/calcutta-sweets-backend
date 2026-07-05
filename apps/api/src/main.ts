@@ -36,7 +36,9 @@ async function bootstrap() {
     exclude: [{ path: 'health', method: RequestMethod.GET }],
   });
   const corsOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    ? process.env.CORS_ORIGIN.split(',')
+        .map((o) => o.trim())
+        .filter(Boolean)
     : null;
 
   app.enableCors({
@@ -63,7 +65,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  const httpServer = app.getHttpServer() as import('http').Server;
+  const httpServer = app.getHttpServer();
   httpServer.setTimeout(600_000);
   httpServer.headersTimeout = 610_000;
   console.log(`API running on http://localhost:${port}`);

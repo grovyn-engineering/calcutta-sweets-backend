@@ -27,7 +27,9 @@ export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Categories for this shop: products and stock rolled up from variants. */
-  async findAllWithShopSummary(shopCode: string): Promise<CategoryShopSummary[]> {
+  async findAllWithShopSummary(
+    shopCode: string,
+  ): Promise<CategoryShopSummary[]> {
     const categories = await this.prisma.category.findMany({
       orderBy: { name: 'asc' },
       include: {
@@ -119,8 +121,13 @@ export class CategoryService {
     try {
       return await this.prisma.category.create({ data: createCategoryDto });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException(`A category with the name "${createCategoryDto.name}" already exists.`);
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `A category with the name "${createCategoryDto.name}" already exists.`,
+        );
       }
       throw e;
     }
@@ -134,8 +141,13 @@ export class CategoryService {
         data: updateCategoryDto,
       });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException(`A category with the name "${updateCategoryDto.name}" already exists.`);
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `A category with the name "${updateCategoryDto.name}" already exists.`,
+        );
       }
       throw e;
     }

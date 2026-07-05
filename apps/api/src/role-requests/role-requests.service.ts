@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, RoleRequestKind, RequestStatus, UserRole } from '@prisma/client';
+import {
+  Prisma,
+  RoleRequestKind,
+  RequestStatus,
+  UserRole,
+} from '@prisma/client';
 import type { RolePermissions } from '../settings/effective-permissions';
 import { invalidateJwtUserCache } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
@@ -56,12 +61,16 @@ export class RoleRequestsService {
       where: { userId, status: RequestStatus.PENDING },
     });
     if (existing) {
-      throw new BadRequestException('You already have a pending access request');
+      throw new BadRequestException(
+        'You already have a pending access request',
+      );
     }
 
     if (dto.kind === RoleRequestKind.ROLE_CHANGE) {
       if (!dto.requestedRole) {
-        throw new BadRequestException('requestedRole is required for a role change');
+        throw new BadRequestException(
+          'requestedRole is required for a role change',
+        );
       }
       return this.prisma.roleRequest.create({
         data: {
@@ -75,9 +84,7 @@ export class RoleRequestsService {
       });
     }
 
-    const patch = this.normalizePermissionPatch(
-      dto.requestedPermissions as Record<string, unknown> | undefined,
-    );
+    const patch = this.normalizePermissionPatch(dto.requestedPermissions);
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException(
         'Select at least one permission to request',
@@ -98,7 +105,10 @@ export class RoleRequestsService {
     for (const k of Object.keys(patch) as (keyof RolePermissions)[]) {
       if (effective[k]) {
         throw new BadRequestException(
-          `You already have “${k.replace(/^canAccess/, '').replace(/([A-Z])/g, ' $1').trim()}” access`,
+          `You already have “${k
+            .replace(/^canAccess/, '')
+            .replace(/([A-Z])/g, ' $1')
+            .trim()}” access`,
         );
       }
     }
@@ -117,7 +127,9 @@ export class RoleRequestsService {
 
   async findAll(shopCode?: string) {
     return this.prisma.roleRequest.findMany({
-      where: shopCode ? { shopCode, status: RequestStatus.PENDING } : { status: RequestStatus.PENDING },
+      where: shopCode
+        ? { shopCode, status: RequestStatus.PENDING }
+        : { status: RequestStatus.PENDING },
       include: {
         user: { select: { name: true, email: true, role: true } },
       },
@@ -201,7 +213,12 @@ export class RoleRequestsService {
     invalidateJwtUserCache(request.userId);
 
     const summary = Object.keys(patch)
-      .map((k) => k.replace(/^canAccess/, '').replace(/([A-Z])/g, ' $1').trim())
+      .map((k) =>
+        k
+          .replace(/^canAccess/, '')
+          .replace(/([A-Z])/g, ' $1')
+          .trim(),
+      )
       .join(', ');
     await this.emailService.sendPermissionRequestEmail(
       request.user.email,
@@ -245,7 +262,10 @@ export class RoleRequestsService {
         Object.keys(patch).length > 0
           ? Object.keys(patch)
               .map((k) =>
-                k.replace(/^canAccess/, '').replace(/([A-Z])/g, ' $1').trim(),
+                k
+                  .replace(/^canAccess/, '')
+                  .replace(/([A-Z])/g, ' $1')
+                  .trim(),
               )
               .join(', ')
           : 'additional access';

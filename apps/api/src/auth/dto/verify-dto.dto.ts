@@ -1,5 +1,5 @@
-import { Transform } from "class-transformer";
-import { IsEmail, IsString, Length } from "class-validator";
+import { Transform } from 'class-transformer';
+import { IsEmail, IsString, Length } from 'class-validator';
 
 export class VerifyOtpDto {
   @IsEmail()

@@ -10,10 +10,7 @@ import type { CloneCatalogDto } from './dto/clone-catalog.dto';
 export class CatalogSyncService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async cloneFactoryCatalogBatch(
-    targetShopCode: string,
-    dto: CloneCatalogDto,
-  ) {
+  async cloneFactoryCatalogBatch(targetShopCode: string, dto: CloneCatalogDto) {
     const target = await this.prisma.shop.findUnique({
       where: { shopCode: targetShopCode },
     });

@@ -4,8 +4,8 @@ import { PublicService } from './public.service';
 import { PrismaModule } from '../prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [PublicController],
-    providers: [PublicService],
+  imports: [PrismaModule],
+  controllers: [PublicController],
+  providers: [PublicService],
 })
-export class PublicModule { }
+export class PublicModule {}

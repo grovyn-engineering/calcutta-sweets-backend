@@ -13,7 +13,7 @@ export type ActivityItemDto = {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getShopActivity(shopCode: string): Promise<{
     since: string;

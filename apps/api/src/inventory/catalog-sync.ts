@@ -58,7 +58,10 @@ export async function syncFactoryCatalogToShopBatch(
   skip: number,
   take: number = DEFAULT_BATCH,
 ): Promise<CatalogSyncBatchResult> {
-  const { factory, target } = await assertFactoryAndTarget(prisma, targetShopCode);
+  const { factory, target } = await assertFactoryAndTarget(
+    prisma,
+    targetShopCode,
+  );
 
   const totalFactoryProducts = await prisma.product.count({
     where: { shopCode: factory.shopCode },

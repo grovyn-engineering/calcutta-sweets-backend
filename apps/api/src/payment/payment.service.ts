@@ -22,8 +22,8 @@ export class PaymentService {
     if (this.key.length !== 16) {
       console.error(
         'CRITICAL: PAYTM_MERCHANT_KEY must be exactly 16 characters. ' +
-        `Current length: ${this.key.length}. ` +
-        'Please check your .env file.'
+          `Current length: ${this.key.length}. ` +
+          'Please check your .env file.',
       );
     }
   }
@@ -56,14 +56,14 @@ export class PaymentService {
       console.error('Paytm Signature Generation Error:', error.message);
       throw new HttpException(
         'Payment encryption failed. This is usually due to an invalid PAYTM_MERCHANT_KEY length (must be 16 chars).',
-        500
+        500,
       );
     }
 
     try {
       const response = await axios.post(
         `${this.baseUrl}/theia/api/v1/initiateTransaction` +
-        `?mid=${this.mid}&orderId=${orderId}`,
+          `?mid=${this.mid}&orderId=${orderId}`,
         { head: { signature }, body },
       );
 
@@ -78,9 +78,13 @@ export class PaymentService {
         mid: this.mid,
       };
     } catch (error) {
-      console.error('Paytm Initiate Error:', error.response?.data || error.message);
+      console.error(
+        'Paytm Initiate Error:',
+        error.response?.data || error.message,
+      );
       throw new HttpException(
-        error.response?.data?.body?.resultInfo?.resultMsg || 'Payment initiation failed',
+        error.response?.data?.body?.resultInfo?.resultMsg ||
+          'Payment initiation failed',
         400,
       );
     }

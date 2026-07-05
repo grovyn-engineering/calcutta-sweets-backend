@@ -25,14 +25,16 @@ import { UpdateShopDto } from './dto/update-shop.dto';
 @Controller('shops')
 @UseGuards(JwtAuthGuard, ShopScopeGuard)
 export class ShopsController {
-  constructor(private readonly shopsService: ShopsService) { }
+  constructor(private readonly shopsService: ShopsService) {}
 
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   async create(@Req() req: Request, @Body() createShopDto: CreateShopDto) {
     if (!(await this.shopsService.isFactory(req.effectiveShopCode!))) {
-      throw new ForbiddenException('Shop management is only allowed from the Factory scope');
+      throw new ForbiddenException(
+        'Shop management is only allowed from the Factory scope',
+      );
     }
     return this.shopsService.create(createShopDto);
   }
@@ -40,9 +42,14 @@ export class ShopsController {
   @Post('bulk-create')
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(RolesGuard)
-  async bulkCreate(@Req() req: Request, @Body() dto: CreateShopWithInventoryDto) {
+  async bulkCreate(
+    @Req() req: Request,
+    @Body() dto: CreateShopWithInventoryDto,
+  ) {
     if (!(await this.shopsService.isFactory(req.effectiveShopCode!))) {
-      throw new ForbiddenException('Shop management is only allowed from the Factory scope');
+      throw new ForbiddenException(
+        'Shop management is only allowed from the Factory scope',
+      );
     }
     return this.shopsService.createWithInitialInventory(dto);
   }

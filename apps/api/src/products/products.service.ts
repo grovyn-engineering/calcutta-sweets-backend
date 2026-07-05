@@ -10,7 +10,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async generateBarcode(shopCode: string): Promise<string> {
     const lastVariant = await this.prisma.productVariant.findFirst({
@@ -53,10 +53,16 @@ export class ProductsService {
             barcode,
             quantity: createProductDto.quantity ?? 0,
             unit: createProductDto.unit ?? Unit.PC,
-            ...(createProductDto.costPrice !== undefined ? { costPrice: createProductDto.costPrice } : {}),
+            ...(createProductDto.costPrice !== undefined
+              ? { costPrice: createProductDto.costPrice }
+              : {}),
             ...(createProductDto.sku ? { sku: createProductDto.sku } : {}),
-            ...(createProductDto.hsnCode ? { hsnCode: createProductDto.hsnCode } : {}),
-            ...(createProductDto.minStock !== undefined ? { minStock: createProductDto.minStock } : {}),
+            ...(createProductDto.hsnCode
+              ? { hsnCode: createProductDto.hsnCode }
+              : {}),
+            ...(createProductDto.minStock !== undefined
+              ? { minStock: createProductDto.minStock }
+              : {}),
           },
         },
       },
@@ -93,49 +99,49 @@ export class ProductsService {
       ...(opts?.status === 'inactive' ? { isActive: false } : {}),
       ...(search
         ? {
-          OR: [
-            {
-              name: {
-                contains: search,
-                mode: Prisma.QueryMode.insensitive,
-              },
-            },
-            {
-              category: {
+            OR: [
+              {
                 name: {
                   contains: search,
                   mode: Prisma.QueryMode.insensitive,
                 },
               },
-            },
-            {
-              variants: {
-                some: {
-                  OR: [
-                    {
-                      name: {
-                        contains: search,
-                        mode: Prisma.QueryMode.insensitive,
-                      },
-                    },
-                    {
-                      barcode: {
-                        contains: search,
-                        mode: Prisma.QueryMode.insensitive,
-                      },
-                    },
-                    {
-                      sku: {
-                        contains: search,
-                        mode: Prisma.QueryMode.insensitive,
-                      },
-                    },
-                  ],
+              {
+                category: {
+                  name: {
+                    contains: search,
+                    mode: Prisma.QueryMode.insensitive,
+                  },
                 },
               },
-            },
-          ],
-        }
+              {
+                variants: {
+                  some: {
+                    OR: [
+                      {
+                        name: {
+                          contains: search,
+                          mode: Prisma.QueryMode.insensitive,
+                        },
+                      },
+                      {
+                        barcode: {
+                          contains: search,
+                          mode: Prisma.QueryMode.insensitive,
+                        },
+                      },
+                      {
+                        sku: {
+                          contains: search,
+                          mode: Prisma.QueryMode.insensitive,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          }
         : {}),
     };
     const skip = (page - 1) * size;
@@ -198,7 +204,9 @@ export class ProductsService {
         where: { id: existing.id },
         data: {
           ...productFields,
-          ...(updateProductDto.isListedOnWebsite !== undefined ? { isListedOnWebsite: updateProductDto.isListedOnWebsite } : {}),
+          ...(updateProductDto.isListedOnWebsite !== undefined
+            ? { isListedOnWebsite: updateProductDto.isListedOnWebsite }
+            : {}),
         },
       });
 
