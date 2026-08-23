@@ -481,6 +481,7 @@ export class AnalyticsService {
           order: {
             select: {
               id: true,
+              billNo: true,
               createdAt: true,
               customerName: true,
               customerPhone: true,
@@ -495,6 +496,7 @@ export class AnalyticsService {
 
     const ordersPayload = orders.map((o) => ({
       id: o.id,
+      billNo: o.billNo,
       createdAt: o.createdAt.toISOString(),
       paymentMethod: o.paymentMethod,
       totalAmount: o.totalAmount,
@@ -511,6 +513,7 @@ export class AnalyticsService {
       const price = Number(row.price);
       return {
         orderId: row.orderId,
+        billNo: row.order.billNo,
         orderCreatedAt: row.order.createdAt.toISOString(),
         customerName: row.order.customerName,
         customerPhone: row.order.customerPhone,

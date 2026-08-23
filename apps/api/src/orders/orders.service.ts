@@ -270,6 +270,7 @@ export class OrdersService {
     return {
       data: rows.map((o) => ({
         id: o.id,
+        billNo: o.billNo,
         createdAt: o.createdAt.toISOString(),
         paymentMethod: o.paymentMethod,
         totalAmount: o.totalAmount,
@@ -323,6 +324,7 @@ export class OrdersService {
     );
     return {
       id: order.id,
+      billNo: order.billNo,
       createdAt: order.createdAt.toISOString(),
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount,
