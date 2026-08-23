@@ -482,8 +482,8 @@ export function BillingBillPanel({
         );
         return;
       }
-      const saved = payload as { id: string };
-      const invoiceNo = orderIdToInvoiceRef(saved.id);
+      const saved = payload as { id: string, billNo?: string | null };
+      const invoiceNo = saved.billNo || orderIdToInvoiceRef(saved.id);
       if (printMode === 'browser') {
         setReceiptPreviewHtml(
           buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo), {

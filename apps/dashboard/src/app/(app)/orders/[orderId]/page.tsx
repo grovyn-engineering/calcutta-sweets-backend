@@ -56,6 +56,7 @@ type OrderLineTabRow = OrderDetailItem & {
 
 type OrderDetail = {
   id: string;
+  billNo?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -171,7 +172,7 @@ export default function OrderBillDetailPage() {
     void load();
   }, [load]);
 
-  const invoiceRef = order ? orderIdToInvoiceRef(order.id) : "…";
+  const invoiceRef = order ? (order.billNo || orderIdToInvoiceRef(order.id)) : "…";
 
   const lineColumns = useMemo<AppTableColumn[]>(
     () => [
@@ -273,7 +274,7 @@ export default function OrderBillDetailPage() {
       shopPhone: currentShop?.phone ?? null,
       gstNumber: currentShop?.gstNumber ?? null,
       fssaiNumber: currentShop?.fssaiNumber ?? null,
-      invoiceNo: orderIdToInvoiceRef(order.id),
+      invoiceNo: order.billNo || orderIdToInvoiceRef(order.id),
       issuedAt: order.createdAt,
       customer,
       lines: order.items.map((i) => ({

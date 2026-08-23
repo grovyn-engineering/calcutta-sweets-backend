@@ -160,9 +160,24 @@ export class OrdersService {
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
+      const date = backdatedAt ? new Date(backdatedAt) : new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth(); // 0-indexed (0 = Jan, 3 = Apr)
+      const fyStartYear = month >= 3 ? year : year - 1;
+      const fyStr = `FY${fyStartYear.toString().slice(-2)}`;
+      
+      const seqId = `${shopCode}-${fyStr}`;
+      const sequence = await tx.invoiceSequence.upsert({
+        where: { id: seqId },
+        update: { current: { increment: 1 } },
+        create: { id: seqId, current: 1 },
+      });
+      const billNo = String(sequence.current).padStart(6, '0');
+
       const o = await tx.order.create({
         data: {
           shopCode,
+          billNo,
           totalAmount,
           discount,
           tax,
@@ -213,6 +228,7 @@ export class OrdersService {
 
     return {
       id: order.id,
+      billNo: order.billNo,
       createdAt: order.createdAt.toISOString(),
       totalAmount,
       tax,

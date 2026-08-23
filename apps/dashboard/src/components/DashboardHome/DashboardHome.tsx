@@ -447,9 +447,9 @@ export default function DashboardHome() {
               {
                 title: "Ref",
                 dataIndex: "id",
-                render: (id: string) => (
+                render: (id: string, record: any) => (
                   <span className="font-mono text-xs text-[var(--bistre-600)]">
-                    {orderIdToInvoiceRef(id)}
+                    {record.billNo ? record.billNo : orderIdToInvoiceRef(id)}
                   </span>
                 ),
               },

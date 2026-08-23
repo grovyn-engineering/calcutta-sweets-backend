@@ -30,6 +30,7 @@ function formatWhen(iso: string) {
 
 type OrderRow = {
   id: string;
+  billNo?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -71,9 +72,9 @@ const baseColumns: AppTableColumn[] = [
     label: "Bill ref",
     field: "id",
     width: 120,
-    render: (val) => (
+    render: (val, row: any) => (
       <span className="orders-bill-ref">
-        {val ? orderIdToInvoiceRef(String(val)) : "-"}
+        {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
       </span>
     ),
   },
@@ -152,7 +153,7 @@ export default function OrdersTable() {
 
   const confirmDelete = useCallback(
     (row: OrderRow) => {
-      const ref = row.id ? orderIdToInvoiceRef(row.id) : "this order";
+      const ref = row.billNo || (row.id ? orderIdToInvoiceRef(row.id) : "this order");
       modal.confirm({
         title: "Delete this order?",
         okText: "Delete order",

@@ -125,6 +125,8 @@ model OrderItem {
 // ================== ORDER ==================
 model Order {
   id String @id @default(uuid())
+  transactionId String @default(uuid()) @unique
+  billNo        String?
 
   shopCode String
   shop     Shop   @relation(fields: [shopCode], references: [shopCode])
@@ -152,6 +154,11 @@ model Order {
 
   createdAt DateTime    @default(now())
   items     OrderItem[]
+}
+
+model InvoiceSequence {
+  id      String @id
+  current Int    @default(0)
 }
 
 model Customer {
