@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Drawer, Tabs, Tooltip } from "antd";
+import { Button, Drawer, Segmented, Tabs, Tooltip } from "antd";
 import { Bluetooth, Receipt, ScanBarcode } from "lucide-react";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { BarcodeScannerInput } from "@/components/BarcodeScannerInput/BarcodeScannerInput";
@@ -367,12 +367,23 @@ export default function BillingPOSPage() {
     >
       <div className={`${styles.billingLayout} min-h-0`}>
         <div className={styles.billingMain}>
-          <div className="mb-1 flex items-center gap-3">
-            <h1 className="text-xl font-bold text-[var(--bistre-950)] m-0 leading-none">Billing POS</h1>
+          {/* Title and billing mode on one line; the mode switch replaces the old tab strip */}
+          <div className={styles.posHeader}>
+            <h1 className="m-0 leading-none">Billing POS</h1>
+            <Segmented<"standard" | "instant" | "raw">
+              value={billingTab}
+              onChange={setBillingTab}
+              options={[
+                { label: "Standard", value: "standard" },
+                { label: "Instant", value: "instant" },
+                { label: "Raw", value: "raw" },
+              ]}
+              aria-label="Billing mode"
+            />
           </div>
-          
+
           {billingTab === "standard" ? (
-            <div className="shrink-0 mb-2">
+            <div className="shrink-0">
               <BarcodeScannerInput onAddProduct={addRowManual} />
             </div>
           ) : null}
@@ -381,6 +392,7 @@ export default function BillingPOSPage() {
             className={`${styles.billingModeTabs} min-h-0 flex-1`}
             activeKey={billingTab}
             onChange={(k) => setBillingTab(k as "standard" | "instant" | "raw")}
+            renderTabBar={() => <span hidden />}
             items={[
               {
                 key: "standard",

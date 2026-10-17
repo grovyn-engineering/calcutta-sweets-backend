@@ -589,10 +589,10 @@ export function BillingBillPanel({
     >
       <Button
         type="default"
-        className={`!flex h-9 w-9 shrink-0 items-center justify-center !p-0 ${
+        className={`!flex h-8 w-8 shrink-0 items-center justify-center !p-0 ${
           saleDateTime
-            ? '!border-[var(--ochre-600)] !bg-[var(--ochre-600)] !text-white'
-            : 'border-[var(--pearl-bush)] text-[var(--ochre-600)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]'
+            ? '!border-[var(--ochre-500)] !bg-[var(--ochre-100)] !text-[var(--ochre-600)]'
+            : 'border-[var(--border)] text-[var(--bistre-600)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
         }`}
         icon={<CalendarClock className="h-4 w-4" aria-hidden />}
         onClick={openDateModal}
@@ -624,7 +624,7 @@ export function BillingBillPanel({
                 <Tooltip title="Add customer">
                   <Button
                     type="default"
-                    className="!flex h-9 w-9 shrink-0 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
+                    className="!flex h-8 w-8 shrink-0 items-center justify-center !p-0 text-[var(--bistre-600)] border-[var(--border)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                     icon={<UserPlus className="h-4 w-4" aria-hidden />}
                     onClick={() => setDetailsOpen(true)}
                     aria-label="Add customer"
@@ -643,7 +643,7 @@ export function BillingBillPanel({
             <Tooltip title="Add customer">
               <Button
                 type="default"
-                className="!flex h-9 w-9 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
+                className="!flex h-8 w-8 items-center justify-center !p-0 text-[var(--bistre-600)] border-[var(--border)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                 icon={<UserPlus className="h-4 w-4" aria-hidden />}
                 onClick={() => setDetailsOpen(true)}
                 aria-label="Add customer"
@@ -873,7 +873,7 @@ export function BillingBillPanel({
                       <button
                         type="button"
                         onClick={() => onRemove(item.lineId)}
-                        className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--bistre-400)] transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                         aria-label={`Remove ${item.name}`}
                       >
                         <svg
@@ -919,7 +919,7 @@ export function BillingBillPanel({
                       <button
                         type="button"
                         onClick={() => onRemove(item.lineId)}
-                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-[var(--bistre-400)] transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                         aria-label={`Remove ${item.name}`}
                       >
                         <svg
@@ -950,39 +950,23 @@ export function BillingBillPanel({
       </div>
 
       {items.length > 0 && (
-        <div className="shrink-0 space-y-2 rounded-t-2xl border-t-2 border-[var(--pearl-bush)] bg-[var(--linen-95)] px-3 pb-3 pt-2 sm:space-y-2.5 sm:px-4 sm:pb-3 sm:pt-2.5">
-          <div className="space-y-1 text-xs sm:text-sm">
-            <div className="flex justify-between gap-2 text-[var(--text-secondary)]">
-              <span>Items (incl. tax)</span>
-              <span className="shrink-0 font-medium tabular-nums text-[var(--text-primary)]">
-                ₹{itemsGrossTotal.toFixed(2)}
-              </span>
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-4 pt-3 sm:px-5">
+          {/* Totals: one tidy column, figures right-aligned */}
+          <dl className="m-0 space-y-1.5 text-[13px]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--text-secondary)]">Items (incl. tax)</dt>
+              <dd className="m-0 tabular-nums text-[var(--text-primary)]">₹{itemsGrossTotal.toFixed(2)}</dd>
             </div>
-            <div className="space-y-0.5">
-              <div className="flex min-w-0 justify-between gap-2 text-[var(--text-secondary)]">
-                <span className="min-w-0 truncate">CGST ({cgstRate}%)</span>
-                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-[var(--text-primary)]">
-                  ₹{cgstAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex min-w-0 justify-between gap-2 text-[var(--text-secondary)]">
-                <span className="min-w-0 truncate">SGST ({sgstRate}%)</span>
-                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-[var(--text-primary)]">
-                  ₹{sgstAmount.toFixed(2)}
-                </span>
-              </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--text-muted)]">CGST ({cgstRate}%)</dt>
+              <dd className="m-0 tabular-nums text-[var(--text-secondary)]">₹{cgstAmount.toFixed(2)}</dd>
             </div>
-            <div className="pt-0.5">
-              <Checkbox
-                checked={showGstinOnBill}
-                onChange={(e) => setShowGstinOnBill(e.target.checked)}
-                className="text-xs text-[var(--text-secondary)] [&_.ant-checkbox+span]:!ps-1"
-              >
-                Show Your GSTIN on printed bill
-              </Checkbox>
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--text-muted)]">SGST ({sgstRate}%)</dt>
+              <dd className="m-0 tabular-nums text-[var(--text-secondary)]">₹{sgstAmount.toFixed(2)}</dd>
             </div>
-            <div className="flex items-center justify-between gap-2 text-[var(--text-secondary)]">
-              <span className="flex min-w-0 items-center gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <dt className="flex items-center gap-2 text-[var(--text-secondary)]">
                 Discount
                 <button
                   type="button"
@@ -990,75 +974,63 @@ export function BillingBillPanel({
                     setTempDiscount(discount);
                     setIsDiscountModalOpen(true);
                   }}
-                  className="rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--ochre-10)] hover:text-[var(--ochre-500)]"
+                  className="inline-flex items-center gap-1 rounded px-1 text-xs font-medium text-[var(--ochre-600)] hover:bg-[var(--ochre-100)]"
                   aria-label="Edit discount"
                 >
-                  <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Pencil className="h-3 w-3" aria-hidden />
+                  Edit
                 </button>
-              </span>
-              <span className="shrink-0 font-medium tabular-nums text-[var(--text-primary)]">
-                ₹{discount.toFixed(2)}
-              </span>
+              </dt>
+              <dd className={`m-0 tabular-nums ${discount > 0 ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}`}>
+                {discount > 0 ? '−' : ''}₹{discount.toFixed(2)}
+              </dd>
             </div>
-          </div>
-          <div className="flex items-baseline justify-between gap-2 border-y border-[var(--pearl-bush)] py-1.5 sm:py-2">
-            <span className="text-xs font-semibold text-[var(--text-primary)] sm:text-sm">
-              Payable total
-            </span>
-            <span className="text-lg font-bold tabular-nums text-[var(--bistre-800)] sm:text-xl">
+          </dl>
+
+          <div className="mt-3 flex items-baseline justify-between gap-2 border-t border-[var(--border)] pt-3">
+            <span className="text-sm font-medium text-[var(--text-primary)]">Payable total</span>
+            <span className="text-2xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
               ₹{total.toFixed(2)}
             </span>
           </div>
 
-          <div>
-            <p className="mb-1 text-xs font-medium text-[var(--text-muted)] sm:text-xs">
-              Payment <span className="text-red-600">*</span>
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <Button
-                type={paymentMethod === 'CASH' ? 'primary' : 'default'}
-                className="flex h-9 items-center justify-center gap-1.5 px-2 text-xs font-medium sm:h-10 sm:gap-2 sm:text-sm"
-                icon={<Banknote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                onClick={() => setPaymentMethod('CASH')}
-                style={
-                  paymentMethod === 'CASH'
-                    ? {
-                      backgroundColor: 'var(--ochre-600)',
-                      borderColor: 'var(--ochre-600)',
-                    }
-                    : undefined
-                }
-              >
-                Cash
-              </Button>
-              <Button
-                type={paymentMethod === 'UPI_CARD' ? 'primary' : 'default'}
-                className="flex h-9 items-center justify-center gap-1.5 px-2 text-xs font-medium sm:h-10 sm:gap-2 sm:text-sm"
-                icon={<CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                onClick={() => setPaymentMethod('UPI_CARD')}
-                style={
-                  paymentMethod === 'UPI_CARD'
-                    ? {
-                      backgroundColor: 'var(--ochre-600)',
-                      borderColor: 'var(--ochre-600)',
-                    }
-                    : undefined
-                }
-              >
-                UPI / Card
-              </Button>
+          {/* Payment method: a choice, not an action, so it is never a solid button */}
+          <div className="mt-3" role="radiogroup" aria-label="Payment method">
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: 'CASH', label: 'Cash', icon: <Banknote className="h-4 w-4" aria-hidden /> },
+                  { value: 'UPI_CARD', label: 'UPI / Card', icon: <CreditCard className="h-4 w-4" aria-hidden /> },
+                ] as const
+              ).map((opt) => {
+                const selected = paymentMethod === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setPaymentMethod(opt.value)}
+                    className={`flex h-10 items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:shadow-[var(--ring)] ${
+                      selected
+                        ? 'border-[var(--ochre-500)] bg-[var(--ochre-100)] text-[var(--ochre-600)]'
+                        : 'border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--bistre-300)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {opt.icon}
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
+
           <div className="flex flex-col gap-2">
             <Tooltip title="Saves the sale (when applicable), then opens a receipt preview here. Use Print for the system dialog (PDF, network printer, etc.).">
               <Button
                 type="primary"
-                className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 sm:h-11 sm:text-base"
-                icon={<Receipt className="h-4 w-4 sm:h-5 sm:w-5" />}
-                style={{
-                  backgroundColor: 'var(--ochre-600)',
-                  borderColor: 'var(--ochre-600)',
-                }}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 text-[15px] font-semibold"
+                icon={<Receipt className="h-4 w-4" />}
                 disabled={!paymentMethod || checkoutBusy}
                 loading={checkoutBusyMode === 'browser'}
                 onClick={() => void completeCheckout('browser')}
@@ -1070,8 +1042,8 @@ export function BillingBillPanel({
               <Tooltip title="Same checkout, but prints silently to the TVS-style USB thermal printer via the POS app (ESC/POS).">
                 <Button
                   type="default"
-                  className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
-                  icon={<Printer className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  className="flex h-10 w-full items-center justify-center gap-2 text-sm font-medium"
+                  icon={<Printer className="h-4 w-4" />}
                   disabled={!paymentMethod || checkoutBusy}
                   loading={checkoutBusyMode === 'thermal'}
                   onClick={() => void completeCheckout('thermal')}
@@ -1097,6 +1069,15 @@ export function BillingBillPanel({
               </Button>
             </Tooltip> */}
           </div>
+
+          {/* Print option, kept apart from the money so the totals read cleanly */}
+          <Checkbox
+            checked={showGstinOnBill}
+            onChange={(e) => setShowGstinOnBill(e.target.checked)}
+            className="!mt-3 !flex text-xs text-[var(--text-muted)] [&_.ant-checkbox+span]:!ps-1.5"
+          >
+            Show your GSTIN on the printed bill
+          </Checkbox>
         </div>
       )}
 

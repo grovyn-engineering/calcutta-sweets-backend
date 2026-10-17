@@ -40,7 +40,6 @@ type ApiVariantRow = {
 };
 
 const PAGE_SIZE = 40;
-const PAGE_SIZE_OPTIONS = [10, 20, 40, 60, 100];
 
 const inr = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -187,7 +186,7 @@ function BillingPosManualSectionInner({
         key: 'imageUrl',
         label: '',
         field: 'imageUrl',
-        width: 56,
+        width: 52,
         align: 'center',
         render: (val, row) => {
           const r = row as ApiVariantRow;
@@ -233,20 +232,22 @@ function BillingPosManualSectionInner({
           const raw = String(val ?? '');
           return (
             <div className="billing-pos-barcode-wrap">
-              <button
-                type="button"
-                className="billing-pos-copy-btn"
-                aria-label="Copy barcode"
-                disabled={!raw}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (raw) await handleCopyBarcode(raw);
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>
-              </button>
               <span className="billing-pos-mono" title={raw || undefined}>{raw || '-'}</span>
+              {raw ? (
+                <button
+                  type="button"
+                  className="billing-pos-copy-btn"
+                  aria-label={`Copy barcode ${raw}`}
+                  title="Copy barcode"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await handleCopyBarcode(raw);
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2"/></svg>
+                </button>
+              ) : null}
             </div>
           );
         },
@@ -338,11 +339,10 @@ function BillingPosManualSectionInner({
 
   return (
     <section className={styles.section}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
-        <div className="flex flex-1 items-center gap-3 min-w-[280px]">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex min-w-[260px] flex-1 items-center gap-2">
           <Input
-            size="large"
-            className="w-full max-w-[360px] rounded-lg"
+            className="min-w-0 flex-1"
             allowClear
             placeholder={
               hideBarcodeColumn
@@ -355,8 +355,7 @@ function BillingPosManualSectionInner({
             aria-label="Search products"
           />
           <Select
-            size="large"
-            className="w-[200px]"
+            className="w-[190px] shrink-0"
             classNames={{
               popup: { root: pageStyles.categorySelectDropdown },
             }}
@@ -372,9 +371,7 @@ function BillingPosManualSectionInner({
         {showToolbarAddCustomer && onToolbarAddCustomer ? (
           <Button
             type="primary"
-            size="large"
-            className="rounded-lg shadow-sm font-semibold shrink-0"
-            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
+            className="shrink-0"
             icon={<UserPlus size={16} />}
             onClick={onToolbarAddCustomer}
           >
@@ -391,8 +388,7 @@ function BillingPosManualSectionInner({
             fetchFn={fetchFn}
             filterKey={filterKey}
             pageSize={PAGE_SIZE}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            maxBodyHeight="calc(100vh - 460px)"
+            maxBodyHeight="calc(100vh - 360px)"
             emptyTitle="No matching products"
             emptyDescription="No products match your search or category for this shop."
           />
