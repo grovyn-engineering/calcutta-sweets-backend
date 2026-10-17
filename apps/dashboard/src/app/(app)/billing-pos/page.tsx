@@ -116,6 +116,37 @@ export default function BillingPOSPage() {
       if (line.isRaw) {
         return [...prev, { ...line }];
       }
+      if (line.isInstant) {
+        // Repeat Add on an untouched instant line of the same item and unit bumps it;
+        // a line the cashier has edited (custom weight/unit) is kept as its own line.
+        const target = [...prev]
+          .reverse()
+          .find(
+            (i) =>
+              i.isInstant &&
+              !i.instantEdited &&
+              i.variantId === line.variantId &&
+              i.displayUnit === line.displayUnit
+          );
+        if (target) {
+          const q = target.displayQuantity + line.displayQuantity;
+          return prev.map((i) =>
+            i.lineId === target.lineId
+              ? {
+                  ...i,
+                  displayQuantity: q,
+                  stockUnitsToDeduct: computeInstantStockDeduction(
+                    i.variantLabel,
+                    i.inventoryUnit,
+                    q,
+                    i.displayUnit
+                  ),
+                }
+              : i
+          );
+        }
+        return [...prev, { ...line }];
+      }
       if (!line.isInstant) {
         const existing = prev.find(
           (i) => !i.isInstant && !i.isRaw && i.variantId === line.variantId
@@ -258,6 +289,7 @@ export default function BillingPOSPage() {
             displayQuantity: q,
             displayUnit: u,
             stockUnitsToDeduct: stock,
+            instantEdited: true,
           };
         })
       );

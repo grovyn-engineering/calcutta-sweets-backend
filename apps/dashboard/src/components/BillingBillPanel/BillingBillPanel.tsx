@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Button, Checkbox, Modal, InputNumber, Select, Tooltip } from 'antd';
+import { App, Button, Checkbox, Modal, InputNumber, Select, Space, Tooltip } from 'antd';
 import {
   UserPlus,
   Receipt,
@@ -12,6 +12,7 @@ import {
   UserRound,
   CalendarClock,
   ShoppingBag,
+  Info,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomerFormValues } from '../CustomerDetails';
@@ -72,6 +73,11 @@ export interface BillItem {
   inventoryUnit: string;
   imageUrl?: string | null;
   isInstant?: boolean;
+  /**
+   * Instant line whose quantity or unit the cashier has set by hand. Untouched instant
+   * lines absorb repeat "Add" clicks; edited ones stay separate (e.g. 250 g and 400 g).
+   */
+  instantEdited?: boolean;
   /** Manual line: not tied to catalog; checkout prints only (no order / stock). */
   isRaw?: boolean;
 }
@@ -810,14 +816,13 @@ export function BillingBillPanel({
                     </p>
                   </div>
                   {item.isInstant ? (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-medium text-[var(--bistre-400)]">
-                          Qty
-                        </span>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      {/* Quantity + unit as one control; one row like standard lines */}
+                      <Space.Compact size="small">
                         <InputNumber
                           size="small"
-                          className="!min-w-0 w-[4.75rem] sm:w-[5.25rem]"
+                          className="!w-[4.5rem]"
+                          aria-label={`Quantity of ${item.name}`}
                           min={
                             item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.001
                           }
@@ -833,14 +838,10 @@ export function BillingBillPanel({
                             });
                           }}
                         />
-                      </div>
-                      <div className="flex min-w-0 items-center gap-1">
-                        <span className="text-xs font-medium text-[var(--bistre-400)]">
-                          Unit
-                        </span>
                         <Select
                           size="small"
-                          className="min-w-[4rem] w-[4.75rem] sm:w-[5.25rem]"
+                          className="!w-[4.25rem]"
+                          aria-label={`Unit for ${item.name}`}
                           value={item.displayUnit}
                           options={allowedInstantDisplayUnits(
                             item.variantLabel,
@@ -864,11 +865,12 @@ export function BillingBillPanel({
                             n.parentElement ?? document.body
                           }
                         />
-                      </div>
+                      </Space.Compact>
                       <Tooltip title="Total uses the catalog price for the unit you select.">
-                        <span className="cursor-help text-[10px] text-[var(--text-muted)] underline decoration-dotted underline-offset-2">
-                          Pricing
-                        </span>
+                        <Info
+                          className="h-3.5 w-3.5 shrink-0 cursor-help text-[var(--bistre-300)]"
+                          aria-label="How the line total is priced"
+                        />
                       </Tooltip>
                       <button
                         type="button"
