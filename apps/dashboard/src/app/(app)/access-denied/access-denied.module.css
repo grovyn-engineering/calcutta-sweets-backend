@@ -17,11 +17,11 @@
     165deg,
     #ffffff 0%,
     var(--parchment) 45%,
-    rgba(126, 42, 51, 0.06) 100%
+    rgba(168, 79, 28, 0.06) 100%
   );
   box-shadow:
-    0 1px 2px rgba(44, 24, 16, 0.05),
-    0 16px 40px -20px rgba(44, 24, 16, 0.18);
+    0 1px 2px rgba(24, 24, 27, 0.05),
+    0 16px 40px -20px rgba(24, 24, 27, 0.18);
 }
 
 .iconWrap {
@@ -32,7 +32,7 @@
   width: 4.5rem;
   height: 4.5rem;
   border-radius: 16px;
-  background: rgba(126, 42, 51, 0.14);
+  background: rgba(168, 79, 28, 0.14);
   border: 1px solid rgba(166, 124, 0, 0.28);
 }
 
@@ -71,7 +71,7 @@
   color: #fff !important;
   background: var(--ochre-600) !important;
   border-color: var(--ochre-600) !important;
-  box-shadow: 0 1px 2px rgba(44, 24, 16, 0.12) !important;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.12) !important;
 }
 
 .primaryBtn:global(.ant-btn.ant-btn-primary:not(:disabled):hover) {
@@ -82,8 +82,8 @@
 
 .primaryBtn:global(.ant-btn.ant-btn-primary:not(:disabled):active) {
   color: #fff !important;
-  background: #4f1920 !important;
-  border-color: #4f1920 !important;
+  background: #74360f !important;
+  border-color: #74360f !important;
 }
 
 .primaryBtn:global(.ant-btn.ant-btn-primary:focus-visible) {

@@ -1,9 +1,9 @@
 /**
- * RawBT (ru.a402d.rawbtprinter) — fallback printing on Android via intent URL.
- * @see https://github.com/402d/DemoRawBtPrinter — rawbt:base64,<data>
+ * RawBT (ru.a402d.rawbtprinter): fallback printing on Android via intent URL.
+ * @see https://github.com/402d/DemoRawBtPrinter (rawbt:base64,<data>)
  *
  * `rawbt:base64` sends a **raw byte stream** to the printer. RawBT `{tags}` are for
- * template mode and are often printed as plain text in this path — we use plain
+ * template mode and are often printed as plain text in this path, so we use plain
  * UTF-8 lines plus ESC/POS feed + cut.
  *
  * **TVS RP 3230:** Space-padding for center adds leading spaces in the non-print strip.
@@ -24,7 +24,7 @@ const GS = 0x1d;
 
 /**
  * Line feeds after `ESC @` before the UTF-8 body (hardware top margin).
- * TVS/RawBT often eat the first visible lines under the tear bar — keep this high
+ * TVS/RawBT often eat the first visible lines under the tear bar, so keep this high
  * enough that “CALCUTTA SWEETS” and the first address line still print.
  */
 const RAWBT_TOP_MARGIN_LINE_FEEDS = 34;
@@ -41,7 +41,7 @@ export const THERMAL_RECEIPT_WIDTH = 48;
 /** ~12 dots per column at default Font A. */
 const DOTS_PER_FONT_A_COLUMN = 12;
 
-/** Extra left margin in dots (`GS L`) — clears ~2–3 mm left dead zone on TVS 80mm. */
+/** Extra left margin in dots (`GS L`); clears ~2–3 mm left dead zone on TVS 80mm. */
 export const THERMAL_LEFT_MARGIN_DOTS = 48;
 
 export function thermalReceiptEffectiveWidth(): number {
@@ -192,7 +192,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const w = thermalReceiptEffectiveWidth();
   const escLeft = String.fromCharCode(ESC, 0x61, 0);
   const escCenter = String.fromCharCode(ESC, 0x61, 1);
-  /** TVS: center in firmware — avoids leading spaces that the left edge clips. */
+  /** TVS: center in firmware to avoid leading spaces that the left edge clips. */
   const escPosCenteredLine = (s: string) => {
     const t = s.trim();
     if (!t) return '';
@@ -236,11 +236,11 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   const rule = '-'.repeat(w);
   const lines: string[] = [];
 
-  /** Top margin — TVS/RawBT often clip the first lines under the grip. */
+  /** Top margin: TVS/RawBT often clip the first lines under the grip. */
   for (let i = 0; i < RECEIPT_TOP_BLANK_LINES; i += 1) lines.push('');
   /**
    * Shop line: space-centered in full nominal width (48). `centerLine` used only left pad + `w` (44),
-   * which skews vs firmware-centered header lines — pad left+right to 48 cols to match paper center.
+   * which skews vs firmware-centered header lines, so pad left+right to 48 cols to match paper center.
    */
   {
     const title = shopName.toUpperCase();
@@ -449,7 +449,7 @@ export function launchRawBtPrintFromText(text: string): RawBtLaunchResult {
 export function launchRawBtPrintFromBill(
   bill: NativeAndroidBillPayload,
 ): RawBtLaunchResult {
-  /** Always rebuild — `thermalPlainText` on the bill can be stale vs layout fixes. */
+  /** Always rebuild: `thermalPlainText` on the bill can be stale vs layout fixes. */
   const text = buildPlainTextReceiptForRawBt(bill);
   return launchRawBtPrintFromText(text);
 }

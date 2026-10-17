@@ -1,6 +1,6 @@
 "use client";
 
-import { App, Button, Input, Modal } from "antd";
+import { App, Button, Input } from "antd";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -62,7 +62,7 @@ const PAGE_SIZE = 40;
 const PAGE_SIZE_OPTIONS = [10, 25, 40, 50];
 
 export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?: string }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const router = useRouter();
   const { effectiveShopCode, shops, shopsLoading } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
@@ -328,11 +328,12 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
 
   const handleCloneCatalogFromFactory = useCallback(() => {
     if (!shopKey || isFactory) return;
-    Modal.confirm({
-      title: "Copy full catalog from Factory?",
+    modal.confirm({
+      title: "Copy the factory catalog?",
       content:
-        "This shop will get the same products, categories, prices, and barcodes (CS…) as the factory. You can run it again safely. Large catalogs may take several minutes — keep this tab open.",
+        "Adds the factory's products, categories, prices and barcodes to this shop. Items that already exist are updated, not duplicated, so it is safe to run again. Large catalogs can take a few minutes, so keep this tab open.",
       okText: "Start copy",
+      cancelText: "Cancel",
       width: 480,
       onOk: async () => {
         setCloneCatalogBusy(true);
@@ -375,11 +376,11 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         }
       },
     });
-  }, [shopKey, isFactory, message]);
+  }, [shopKey, isFactory, message, modal]);
 
   const handlePurgeShopCatalog = useCallback(() => {
     if (!shopKey || isFactory) return;
-    Modal.confirm({
+    modal.confirm({
       title: "Delete all products for this shop?",
       content:
         "This permanently removes every product, variant, and stock record for the shop you have selected in the header. Orders and bills are kept (they are tax records), and shared categories stay. This cannot be undone.",
@@ -413,7 +414,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         }
       },
     });
-  }, [shopKey, isFactory, message]);
+  }, [shopKey, isFactory, message, modal]);
 
   const handlePrintAllFiltered = useCallback(async () => {
     if (!shopKey) return;
@@ -455,7 +456,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     if (!shopKey || isFactory) return;
     const ids = [...selectionRef.current];
     if (ids.length === 0) { message.warning("Select at least one row using the checkboxes."); return; }
-    Modal.confirm({
+    modal.confirm({
       title: `Delete ${ids.length} selected variant(s)?`,
       content: "POS order lines for these variants are removed. Products with no variants left are deleted; empty categories may be removed. This cannot be undone.",
       okText: "Delete selected",
@@ -493,7 +494,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         }
       },
     });
-  }, [shopKey, isFactory, message]);
+  }, [shopKey, isFactory, message, modal]);
 
   return (
     <div className={styles.root}>

@@ -426,7 +426,7 @@ function BillingPosRawSectionInner({
             can lose the USB device until you reconnect it in RawBT.
           </p>
           <div className="flex flex-col gap-2">
-            <Tooltip title="Saves when needed, then opens a receipt preview on this page — use Print for the system dialog.">
+            <Tooltip title="Saves when needed, then opens a receipt preview on this page. Use Print for the system dialog.">
               <Button
                 type="primary"
                 className="flex h-10 w-full items-center justify-center gap-2"
@@ -451,7 +451,7 @@ function BillingPosRawSectionInner({
               </Button>
             </Tooltip>
             {checkoutApi.showUsbThermal ? (
-              <Tooltip title="Prints via the Android app USB bridge (ESC/POS) — best match to SnapBizz-style cut.">
+              <Tooltip title="Prints via the Android app USB bridge (ESC/POS). Closest match to the SnapBizz-style cut.">
                 <Button
                   type="default"
                   className="flex h-10 w-full items-center justify-center gap-2 border-[var(--pearl-bush)]"
@@ -500,7 +500,7 @@ function BillingPosRawSectionInner({
         <p className="mt-4 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
           Open <strong>Review &amp; pay</strong>, pick payment, then use{' '}
           <strong>Generate bill</strong>, <strong>USB thermal</strong>, or{' '}
-          <strong>Print via RawBT</strong> — or the <strong>RawBT</strong> button in the panel
+          <strong>Print via RawBT</strong>, or the <strong>RawBT</strong> button in the panel
           header on Android. Catalog items deduct stock when you pay; custom lines appear on
           the receipt only.
         </p>

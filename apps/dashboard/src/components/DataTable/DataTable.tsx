@@ -26,7 +26,7 @@ export type DataTableProps = {
   columns: AppTableColumn[];
   // Local data
   data?: unknown[];
-  // Remote data — component manages page state, calls this when page/filterKey changes
+  // Remote data: the component manages page state, calls this when page/filterKey changes
   fetchFn?: (params: {
     page: number;
     pageSize: number;

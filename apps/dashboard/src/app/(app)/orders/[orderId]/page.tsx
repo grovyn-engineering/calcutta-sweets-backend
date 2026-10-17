@@ -89,12 +89,6 @@ function paymentLabel(raw: string) {
   return raw || "-";
 }
 
-function paymentTagColor(raw: string): string {
-  if (raw === "CASH") return "green";
-  if (raw === "UPI_CARD") return "purple";
-  if (raw === "ONLINE") return "blue";
-  return "default";
-}
 
 function statusTagColor(status: string): string {
   const u = status.toUpperCase();
@@ -395,7 +389,6 @@ export default function OrderBillDetailPage() {
                   ·
                 </span>
                 <Tag
-                  color={paymentTagColor(order.paymentMethod)}
                   className="m-0 shrink-0"
                 >
                   {paymentLabel(order.paymentMethod)}
@@ -411,10 +404,6 @@ export default function OrderBillDetailPage() {
                   type="primary"
                   icon={<Printer className="h-4 w-4" />}
                   onClick={() => handlePrint("a4")}
-                  style={{
-                    backgroundColor: "var(--ochre-600)",
-                    borderColor: "var(--ochre-600)",
-                  }}
                 >
                   Print invoice (A4)
                 </Button>
@@ -432,7 +421,7 @@ export default function OrderBillDetailPage() {
 
           <Card
             variant="borderless"
-            className="min-w-0 rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.55)] shadow-sm"
+            className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)]"
             styles={{
               body: { padding: 0 },
             }}
@@ -440,7 +429,7 @@ export default function OrderBillDetailPage() {
             <div className="p-5 sm:p-6">
               <Row gutter={[16, 16]}>
                 <Col xs={24} lg={13}>
-                  <div className="flex flex-col rounded-lg border border-[var(--pearl-bush)] bg-[rgba(255,255,255,0.5)] px-4 py-3 shadow-sm backdrop-blur-md">
+                  <div className="flex flex-col rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
                     <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--bistre-400)]">
                       <UserRound className="h-3.5 w-3.5" aria-hidden />
                       Customer
@@ -470,7 +459,7 @@ export default function OrderBillDetailPage() {
                   </div>
                 </Col>
                 <Col xs={24} lg={11}>
-                  <div className="flex flex-col rounded-lg border border-[rgba(126, 42, 51,0.15)] bg-[var(--linen-50)] px-4 py-3 shadow-sm">
+                  <div className="flex flex-col rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3">
                     <Text
                       type="secondary"
                       className="mb-2 text-xs font-medium"

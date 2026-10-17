@@ -104,8 +104,8 @@
   border-radius: 999px !important;
   border: 1px solid rgba(60, 42, 33, 0.09) !important;
   box-shadow:
-    0 1px 3px rgba(44, 24, 16, 0.045),
-    0 1px 1px rgba(44, 24, 16, 0.025) !important;
+    0 1px 3px rgba(24, 24, 27, 0.045),
+    0 1px 1px rgba(24, 24, 27, 0.025) !important;
 }
 
 .manualSearch:global(.ant-input-affix-wrapper-focused),
@@ -174,8 +174,8 @@
   color: #3c2a21 !important;
   background: #ffffff !important;
   box-shadow:
-    0 1px 3px rgba(44, 24, 16, 0.04),
-    0 1px 1px rgba(44, 24, 16, 0.02);
+    0 1px 3px rgba(24, 24, 27, 0.04),
+    0 1px 1px rgba(24, 24, 27, 0.02);
 }
 
 .customerIconBtn:global(.ant-btn):hover {

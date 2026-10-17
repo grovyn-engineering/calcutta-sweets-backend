@@ -77,7 +77,7 @@ function waitForPrintResult(timeoutMs: number): Promise<void> {
     const prev = w.onPrintResult;
     const timer = window.setTimeout(() => {
       w.onPrintResult = prev;
-      reject(new Error('Print timed out — check USB printer and permissions.'));
+      reject(new Error('Print timed out. Check the USB printer and permissions.'));
     }, timeoutMs);
     w.onPrintResult = (success, message) => {
       window.clearTimeout(timer);

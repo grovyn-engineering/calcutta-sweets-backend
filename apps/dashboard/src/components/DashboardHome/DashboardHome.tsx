@@ -103,7 +103,7 @@ function Metric({
       {accent && (
         <span
           aria-hidden
-          className="absolute left-0 top-5 h-6 w-[2px] bg-[var(--gold-500)]"
+          className="absolute left-0 top-5 h-6 w-[2px] bg-[var(--ochre-500)]"
         />
       )}
       <div className="text-[13px] font-medium text-[var(--text-secondary)]">{label}</div>

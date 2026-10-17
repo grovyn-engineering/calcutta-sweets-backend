@@ -38,8 +38,8 @@
   border: 1px solid var(--border);
   border-radius: 50%;
   overflow: hidden;
-  background: var(--espresso-950);
-  color: var(--gold-300);
+  background: var(--ochre-100);
+  color: var(--ochre-600);
   cursor: pointer;
 }
 

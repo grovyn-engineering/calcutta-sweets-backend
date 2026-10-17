@@ -69,7 +69,7 @@ function canDeleteUserRow(
 }
 
 export default function UsersManagement() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const router = useRouter();
   const { user: authUser } = useAuth();
   const baseUrl = getApiBaseUrl();
@@ -95,7 +95,7 @@ export default function UsersManagement() {
   const requestDeleteRef = useRef<(row: UserRow) => void>(() => {});
   useEffect(() => {
     requestDeleteRef.current = (row: UserRow) => {
-      Modal.confirm({
+      modal.confirm({
         title: "Remove this user?",
         content: `Remove ${row.email} from this shop? They will no longer be able to sign in. Users with sales or stock history are deactivated instead of deleted, so their records stay traceable.`,
         okText: "Remove user",
@@ -121,7 +121,7 @@ export default function UsersManagement() {
         },
       });
     };
-  }, [message]);
+  }, [message, modal]);
 
   const generateStrongPassword = useCallback(() => {
     const chars =

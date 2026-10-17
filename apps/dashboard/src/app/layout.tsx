@@ -1,19 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
-
-/* Brand display face (shared with the login screen) for page titles */
-const displaySerif = Cormorant_Garamond({
-  variable: "--font-display-serif",
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -44,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="light" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${displaySerif.variable} antialiased bg-[var(--linen)] min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--linen)] min-h-screen`}
       >
         <Providers>
           {children}

@@ -28,9 +28,9 @@
 }
 
 .roleTagSuper {
-  background: var(--espresso-950) !important;
-  color: var(--gold-300) !important;
-  border-color: var(--espresso-950) !important;
+  background: var(--ochre-100) !important;
+  color: var(--ochre-600) !important;
+  border-color: var(--ochre-200) !important;
 }
 
 .roleTagDefault {

@@ -9,86 +9,96 @@
  * module that references them picks up the new look automatically.
  */
 :root {
-  /* Ink - warm neutral scale (text, borders) */
-  --bistre-950: #1c1612;
-  --bistre-900: #2a221c;
-  --bistre-800: #3a2f27;
-  --bistre-700: #4a3d33;
-  --bistre-600: #5e5148;
-  --bistre-500: #6b5d52;
-  --bistre-400: #7f7064;
-  --bistre-300: #a89a8e;
-  --bistre-200: #d6ccc1;
-  --bistre-100: #ece6dd;
+  /*
+   * Calcutta Sweets - operations palette.
+   * Clean neutrals for long working sessions, one brand accent (deep copper from the
+   * logo) for actions/selection, and status colours that never compete with it.
+   */
+
+  /* Ink - neutral scale (text, icons, borders) */
+  --bistre-950: #18181b;
+  --bistre-900: #27272a;
+  --bistre-800: #3f3f46;
+  --bistre-700: #52525b;
+  --bistre-600: #52525b;
+  --bistre-500: #5f5f69;
+  --bistre-400: #71717a;
+  --bistre-300: #a1a1aa;
+  --bistre-200: #d4d4d8;
+  --bistre-100: #e4e4e7;
   --bistre: var(--bistre-800);
-  --bistre-80: rgba(28, 22, 18, 0.8);
-  --bistre-60: rgba(28, 22, 18, 0.6);
-  --bistre-50: rgba(28, 22, 18, 0.5);
+  --bistre-80: rgba(24, 24, 27, 0.8);
+  --bistre-60: rgba(24, 24, 27, 0.6);
+  --bistre-50: rgba(24, 24, 27, 0.5);
 
-  /* Porcelain - canvas & subtle fills */
-  --linen: #f5f1ea;
-  --linen-100: #fbf9f6;
-  --linen-95: #f5f1ea;
-  --linen-90: #f0ebe4;
-  --linen-80: #e9e2d8;
+  /* Canvas & subtle fills (neutral stone, a touch warm) */
+  --linen: #f7f7f6;
+  --linen-100: #fbfbfa;
+  --linen-95: #f7f7f6;
+  --linen-90: #f0f0ee;
+  --linen-80: #e7e7e4;
 
-  /* Burgundy - CTA, links, selected states (500 on white = 9.3:1) */
-  --ochre-600: #66212a;
-  --ochre-500: #7e2a33;
-  --ochre-400: #973843;
-  --ochre-300: #c27a82;
-  --ochre-200: #e8c9cc;
-  --ochre-100: #f7ebec;
-  --ochre-50: #fbf5f5;
-  --ochre-20: rgba(126, 42, 51, 0.2);
-  --ochre-10: rgba(126, 42, 51, 0.1);
-  --ochre-2: rgba(126, 42, 51, 0.02);
+  /* Copper - brand accent from the logo: CTA, links, selection (500 on white = 5.5:1) */
+  --ochre-800: #5c2b0c;
+  --ochre-700: #74360f;
+  --ochre-600: #8f4218;
+  --ochre-500: #a84f1c;
+  --ochre-400: #c8773a;
+  --ochre-300: #e0a27a;
+  --ochre-200: #f3d2bc;
+  --ochre-100: #fdf1e8;
+  --ochre-50: #fef8f3;
+  --ochre-20: rgba(168, 79, 28, 0.2);
+  --ochre-10: rgba(168, 79, 28, 0.1);
+  --ochre-2: rgba(168, 79, 28, 0.02);
   --ochre: var(--ochre-500);
   --ochre-light: var(--ochre-400);
   --ochre-dark: var(--ochre-600);
 
-  /* Champagne gold - logo, accents on dark, highlights (700 for text on light) */
-  --gold-300: #e6c08a;
-  --gold-400: #d8b375;
-  --gold-500: #c9a35c;
-  --gold-700: #8a6a2f;
-  --gold-100: #f6edd6;
-  --gold-50: #fbf6ea;
+  /* Highlight aliases (previously gold) now follow the brand accent */
+  --gold-300: var(--ochre-300);
+  --gold-400: var(--ochre-400);
+  --gold-500: var(--ochre-500);
+  --gold-700: var(--ochre-600);
+  --gold-100: var(--ochre-100);
+  --gold-50: var(--ochre-50);
 
-  /* Espresso - dark chrome (sidebar, hero cards) */
-  --espresso-950: #16110e;
-  --espresso-900: #1f1814;
-  --espresso-800: #2a211b;
-  --espresso-text: #cfc4b8;
-  --espresso-muted: #8c8073;
-  --espresso-line: rgba(255, 255, 255, 0.07);
+  /* Ink aliases (previously the dark espresso chrome) */
+  --espresso-950: var(--bistre-950);
+  --espresso-900: var(--bistre-900);
+  --espresso-800: var(--bistre-800);
+  --espresso-text: var(--bistre-700);
+  --espresso-muted: var(--bistre-400);
+  --espresso-line: var(--border);
 
   /* Subtle surface / hairline border */
-  --parchment: #fbf9f6;
-  --pearl-bush: #ece6dd;
+  --parchment: #fbfbfa;
+  --pearl-bush: #e6e6e3;
 
   /* Surfaces & elevation */
   --surface: #ffffff;
-  --surface-subtle: #fbf9f6;
-  --border: #ece6dd;
-  --border-strong: #ddd4c8;
+  --surface-subtle: #fbfbfa;
+  --border: #e6e6e3;
+  --border-strong: #d4d4d1;
   /* Flat by default: borders do the separating, shadow only for overlays */
-  --shadow-xs: 0 1px 0 rgba(28, 22, 18, 0.03);
-  --shadow-sm: 0 1px 0 rgba(28, 22, 18, 0.03);
-  --shadow-md: 0 1px 2px rgba(28, 22, 18, 0.06), 0 10px 24px -14px rgba(28, 22, 18, 0.22);
-  --ring: 0 0 0 3px rgba(126, 42, 51, 0.16);
+  --shadow-xs: 0 1px 0 rgba(24, 24, 27, 0.03);
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-md: 0 1px 2px rgba(24, 24, 27, 0.06), 0 10px 24px -14px rgba(24, 24, 27, 0.2);
+  --ring: 0 0 0 3px rgba(168, 79, 28, 0.18);
 
-  /* Status */
-  --success: #2f7d5b;
-  --success-bg: #e8f3ed;
-  --warning: #a8661a;
-  --warning-bg: #fbf0df;
-  --danger: #b4412f;
-  --danger-bg: #fbe9e5;
+  /* Status (paid / in stock, low stock, cancelled / out of stock, informational) */
+  --success: #15803d;
+  --success-bg: #dcfce7;
+  --warning: #a16207;
+  --warning-bg: #fef9c3;
+  --danger: #b91c1c;
+  --danger-bg: #fee2e2;
+  --info: #1d4ed8;
+  --info-bg: #dbeafe;
 
   /* Semantic - Text */
   --text-primary: var(--bistre-950);
-  --text-secondary: var(--bistre-600);
+  --text-secondary: var(--bistre-700);
   --text-muted: var(--bistre-400);
   --text-disabled: var(--bistre-300);
 
@@ -155,7 +165,6 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --font-sans: var(--font-geist-sans);
-  --font-display: var(--font-display-serif);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -260,12 +269,12 @@ body {
 }
 
 ::selection {
-  background: var(--gold-100);
+  background: var(--ochre-200);
   color: var(--bistre-950);
 }
 
 :focus-visible {
-  outline: 2px solid var(--gold-500);
+  outline: 2px solid var(--ochre-400);
   outline-offset: 2px;
 }
 

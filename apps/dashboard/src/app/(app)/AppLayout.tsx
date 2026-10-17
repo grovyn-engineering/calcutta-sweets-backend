@@ -25,7 +25,7 @@ import { Drawer, Button, Dropdown, Layout, Menu, Select, Space, Tag } from 'antd
 import Image from 'next/image';
 import Link from 'next/link';
 
-import logo from '@/assets/logo-dark.svg';
+import logo from '@/assets/logo.svg';
 import { ActivityNotificationsBell } from '@/components/ActivityNotificationsBell/ActivityNotificationsBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShop } from '@/contexts/ShopContext';
@@ -375,7 +375,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       className="rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-[var(--espresso-950)] flex items-center justify-center text-[var(--gold-300)] font-medium text-sm">
+                    <div className="h-8 w-8 rounded-full bg-[var(--ochre-100)] flex items-center justify-center text-[var(--ochre-600)] font-semibold text-sm">
                       {(user?.name || 'U').charAt(0).toUpperCase()}
                     </div>
                   )}

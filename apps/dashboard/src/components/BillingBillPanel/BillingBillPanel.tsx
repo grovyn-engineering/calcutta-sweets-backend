@@ -523,7 +523,7 @@ export function BillingBillPanel({
             inlinePreview: true,
           }),
         );
-        message.success('Sale saved — review the receipt, then print or close.');
+        message.success('Sale saved. Review the receipt, then print or close.');
       } else if (printMode === 'thermal') {
         await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo, saved));
         message.success('Bill saved and sent to USB thermal printer.');
@@ -533,7 +533,7 @@ export function BillingBillPanel({
           message.error(r.error);
           return;
         }
-        message.success('Bill saved — opening RawBT…');
+        message.success('Bill saved. Opening RawBT…');
       }
       setPaymentMethod(null);
       setDiscount(0);
@@ -609,7 +609,7 @@ export function BillingBillPanel({
         <header className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="font-[family-name:var(--font-display-serif)] text-[22px] font-semibold leading-none text-[var(--text-primary)]">
+              <h2 className="text-[17px] font-semibold leading-tight text-[var(--text-primary)]">
                 Current sale
               </h2>
               <p className="mt-1.5 text-xs text-[var(--text-muted)]">
@@ -1050,7 +1050,7 @@ export function BillingBillPanel({
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Tooltip title="Saves the sale (when applicable), then opens a receipt preview here — use Print for the system dialog (PDF, network printer, etc.).">
+            <Tooltip title="Saves the sale (when applicable), then opens a receipt preview here. Use Print for the system dialog (PDF, network printer, etc.).">
               <Button
                 type="primary"
                 className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 sm:h-11 sm:text-base"
@@ -1204,7 +1204,7 @@ export function BillingBillPanel({
       >
         <div className="space-y-3 py-4">
           <p className="text-sm text-[var(--text-secondary)]">
-            Pick a past date and time for this bill. This is optional — leave it
+            Pick a past date and time for this bill. This is optional; leave it
             as-is to use the current date and time when the bill is generated.
           </p>
           <input

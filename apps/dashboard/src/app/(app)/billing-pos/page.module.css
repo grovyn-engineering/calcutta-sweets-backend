@@ -31,7 +31,7 @@
   background: linear-gradient(180deg,
       var(--linen-95) 0%,
       var(--parchment) 100%);
-  box-shadow: 0 -8px 28px -12px rgba(44, 24, 16, 0.2);
+  box-shadow: 0 -8px 28px -12px rgba(24, 24, 27, 0.2);
 }
 
 .mobileBillBar:focus-visible {
@@ -197,14 +197,14 @@
 :global(.ant-input-affix-wrapper).scanInput {
   min-height: 52px;
   border-radius: 12px;
-  border: 1px solid rgba(44, 24, 16, 0.1);
+  border: 1px solid rgba(24, 24, 27, 0.1);
   background: #ffffff !important;
   font-size: 1.125rem;
   font-weight: 500;
   letter-spacing: 0.005em;
   box-shadow:
-    0 2px 4px rgba(44, 24, 16, 0.02),
-    0 1px 2px rgba(44, 24, 16, 0.04);
+    0 2px 4px rgba(24, 24, 27, 0.02),
+    0 1px 2px rgba(24, 24, 27, 0.04);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -213,8 +213,8 @@
   border-color: var(--ochre-400) !important;
   background: #ffffff !important;
   box-shadow:
-    0 4px 16px rgba(126, 42, 51, 0.08),
-    0 0 0 4px rgba(126, 42, 51, 0.15) !important;
+    0 4px 16px rgba(168, 79, 28, 0.08),
+    0 0 0 4px rgba(168, 79, 28, 0.15) !important;
 }
 
 .scanInput :global(.ant-input) {
@@ -226,11 +226,11 @@
   min-height: 44px;
   height: 44px;
   border-radius: 12px;
-  border: 1px solid rgba(44, 24, 16, 0.08);
+  border: 1px solid rgba(24, 24, 27, 0.08);
   background: #ffffff !important;
   box-shadow:
-    0 2px 8px rgba(44, 24, 16, 0.03),
-    0 1px 2px rgba(44, 24, 16, 0.02);
+    0 2px 8px rgba(24, 24, 27, 0.03),
+    0 1px 2px rgba(24, 24, 27, 0.02);
   padding-left: 18px;
   padding-right: 18px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -241,8 +241,8 @@
   border-color: var(--ochre-400) !important;
   background: #ffffff !important;
   box-shadow:
-    0 4px 16px rgba(126, 42, 51, 0.06),
-    0 0 0 4px rgba(126, 42, 51, 0.1) !important;
+    0 4px 16px rgba(168, 79, 28, 0.06),
+    0 0 0 4px rgba(168, 79, 28, 0.1) !important;
 }
 
 .categorySelect {
@@ -254,13 +254,13 @@
   height: 44px !important;
   min-height: 44px !important;
   border-radius: 12px !important;
-  border: 1px solid rgba(44, 24, 16, 0.08) !important;
+  border: 1px solid rgba(24, 24, 27, 0.08) !important;
   background: #ffffff !important;
   display: flex !important;
   align-items: center !important;
   box-shadow:
-    0 2px 8px rgba(44, 24, 16, 0.03),
-    0 1px 2px rgba(44, 24, 16, 0.02);
+    0 2px 8px rgba(24, 24, 27, 0.03),
+    0 1px 2px rgba(24, 24, 27, 0.02);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
@@ -269,8 +269,8 @@
   border-color: var(--ochre-400) !important;
   background: #ffffff !important;
   box-shadow:
-    0 4px 12px rgba(126, 42, 51, 0.06),
-    0 0 0 4px rgba(126, 42, 51, 0.1) !important;
+    0 4px 12px rgba(168, 79, 28, 0.06),
+    0 0 0 4px rgba(168, 79, 28, 0.1) !important;
 }
 
 .categorySelectDropdown :global(.ant-select-item-option-selected) {

@@ -16,7 +16,7 @@ type RevenuePayload = {
   daily: { date: string; revenue: number; orderCount: number }[];
 };
 
-/** UTC calendar day (YYYY-MM-DD) offset from today — matches backend day math. */
+/** UTC calendar day (YYYY-MM-DD) offset from today; matches the backend day math. */
 function utcDayOffset(delta: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + delta);

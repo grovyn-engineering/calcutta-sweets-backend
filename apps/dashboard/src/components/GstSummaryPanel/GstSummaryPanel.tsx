@@ -96,8 +96,8 @@ export default function GstSummaryPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopKey]);
 
-  const sgstMid = data ? `${data.sgstRate.toFixed(1)}%` : "—";
-  const cgstMid = data ? `${data.cgstRate.toFixed(1)}%` : "—";
+  const sgstMid = data ? `${data.sgstRate.toFixed(1)}%` : "-";
+  const cgstMid = data ? `${data.cgstRate.toFixed(1)}%` : "-";
 
   if (!shopKey) {
     return (

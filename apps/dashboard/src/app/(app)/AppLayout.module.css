@@ -1,17 +1,17 @@
-/* Espresso rail carrying the gold logo; white top bar over an ivory canvas. */
+/* Light rail with the copper logo; white top bar over a neutral stone canvas. */
 .layout {
   background: var(--linen);
   overflow-x: hidden;
 }
 
 .sider {
-  background: var(--espresso-950) !important;
-  border-right: 1px solid var(--espresso-line);
+  background: var(--surface) !important;
+  border-right: 1px solid var(--border);
   display: none !important;
 }
 
 .sider:global(.ant-layout-sider-light) {
-  background: var(--espresso-950) !important;
+  background: var(--surface) !important;
 }
 
 .sider :global(.ant-layout-sider-children) {
@@ -28,7 +28,7 @@
 }
 
 .logoLink {
-  border-bottom: 1px solid var(--espresso-line);
+  border-bottom: 1px solid var(--border);
   background: transparent;
   color: inherit;
   text-decoration: none;
@@ -85,13 +85,13 @@
   padding-inline: 12px !important;
   border-radius: 6px !important;
   font-size: 13.5px;
-  color: var(--espresso-text) !important;
+  color: var(--bistre-700) !important;
   font-weight: 500;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .menu :global(.ant-menu-item .ant-menu-item-icon) {
-  color: var(--espresso-muted);
+  color: var(--bistre-400);
   transition: color 0.15s ease;
 }
 
@@ -100,23 +100,23 @@
 }
 
 .menu :global(.ant-menu-item:hover) {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
+  background: var(--linen-90) !important;
+  color: var(--bistre-950) !important;
 }
 
 .menu :global(.ant-menu-item:hover .ant-menu-item-icon) {
-  color: var(--gold-300);
+  color: var(--bistre-700);
 }
 
 .menu :global(.ant-menu-item-selected),
 .menu :global(.ant-menu-item-selected:hover) {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #fbf6ee !important;
-  font-weight: 500;
+  background: var(--ochre-100) !important;
+  color: var(--ochre-600) !important;
+  font-weight: 600;
 }
 
 .menu :global(.ant-menu-item-selected .ant-menu-item-icon) {
-  color: var(--gold-300) !important;
+  color: var(--ochre-500) !important;
 }
 
 .menu :global(.ant-menu-item-selected)::before {
@@ -125,14 +125,15 @@
   left: -10px;
   top: 8px;
   bottom: 8px;
-  width: 2px;
-  background: var(--gold-400);
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ochre-500);
 }
 
 /* Quiet hairline between nav groups (sell / catalogue / admin) */
 .menu :global(.ant-menu-item-divider) {
   margin: 10px 22px !important;
-  border-color: var(--espresso-line) !important;
+  border-color: var(--border) !important;
 }
 
 .mainLayout {
@@ -263,7 +264,7 @@
 .headerShopSelect:global(.ant-select-focused) :global(.ant-select-selector),
 .headerShopSelect:global(.ant-select-open) :global(.ant-select-selector) {
   border-color: var(--ochre-400) !important;
-  box-shadow: 0 0 0 2px rgba(126, 42, 51, 0.12) !important;
+  box-shadow: 0 0 0 2px rgba(168, 79, 28, 0.12) !important;
 }
 
 .content {
@@ -282,21 +283,21 @@
 }
 
 /*
- * One consistent page-title treatment for every screen: brand serif, same
- * size everywhere (pages previously mixed text-xl / text-2xl / 24px).
+ * One consistent page-title treatment for every screen: clean sans, same size
+ * everywhere (pages previously mixed text-xl / text-2xl / 24px).
  */
 .content :global(h1) {
-  font-family: var(--font-display-serif), Georgia, serif !important;
-  font-size: 30px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.005em;
-  line-height: 1.1 !important;
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.2 !important;
   color: var(--bistre-950) !important;
 }
 
 @media (max-width: 639px) {
   .content :global(h1) {
-    font-size: 26px !important;
+    font-size: 21px !important;
   }
 }
 
@@ -317,7 +318,7 @@
 }
 
 .mobileDrawer :global(.ant-drawer-content) {
-  background: var(--espresso-950) !important;
+  background: var(--surface) !important;
 }
 
 .mobileDrawer :global(.ant-drawer-body) {
@@ -336,7 +337,7 @@
 
 .mobileDrawerShopSwitcher {
   padding: 16px;
-  border-top: 1px solid var(--espresso-line);
+  border-top: 1px solid var(--border);
   margin-top: auto;
 }
 
@@ -344,7 +345,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--espresso-950);
+  background: var(--surface);
 }
 
 .mobileDrawerHeader {
@@ -352,8 +353,8 @@
   align-items: center;
   padding: 8px 16px;
   height: 64px;
-  border-bottom: 1px solid var(--espresso-line);
-  background: var(--espresso-950);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
   gap: 12px;
 }
 
@@ -364,18 +365,18 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border: 1px solid var(--espresso-line) !important;
-  background: var(--espresso-800) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
   border-radius: 50% !important;
-  color: var(--espresso-text) !important;
+  color: var(--bistre-700) !important;
   transition: all 0.2s ease !important;
-  box-shadow: 0 2px 4px rgba(44, 24, 16, 0.04) !important;
+  box-shadow: 0 2px 4px rgba(24, 24, 27, 0.04) !important;
 }
 
 .closeButton:hover {
-  background: var(--espresso-800) !important;
-  border-color: rgba(230, 192, 138, 0.3) !important;
-  color: var(--gold-300) !important;
+  background: var(--linen-90) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--bistre-950) !important;
   transform: scale(1.05);
 }
 
@@ -444,23 +445,23 @@
 /* Signed-in footer inside the rail */
 .siderFooter {
   padding: 14px 22px 18px;
-  border-top: 1px solid var(--espresso-line);
+  border-top: 1px solid var(--border);
 }
 
 .siderFooterShop {
   font-size: 12px;
-  color: var(--espresso-muted);
+  color: var(--bistre-400);
 }
 
 .siderFooterName {
   font-size: 13px;
   font-weight: 600;
-  color: #f5efe7;
+  color: var(--bistre-950);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .mobileDrawerShopSwitcher p {
-  color: var(--espresso-muted) !important;
+  color: var(--bistre-400) !important;
 }

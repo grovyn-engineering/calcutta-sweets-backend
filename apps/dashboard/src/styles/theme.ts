@@ -1,48 +1,44 @@
 /**
- * Calcutta Sweets - Brand Color Palette
- * Warm ink (Bistre), Ivory (Linen), Burgundy (Ochre), Champagne gold, Espresso chrome
+ * Calcutta Sweets - operations palette (mirrors the CSS variables in app/globals.css).
+ * Neutral ink + stone canvas, one brand accent (deep copper from the logo), status colours.
  */
 export const colors = {
-  /* Bistre - Dark brown scale (text, dark backgrounds) */
-  bistre950: '#1c1612',
-  bistre900: '#2a221c',
-  bistre800: '#3a2f27',
-  bistre700: '#4a3d33',
-  bistre600: '#5e5148',
-  bistre500: '#6b5d52',
-  bistre400: '#7f7064',
-  bistre300: '#a89a8e',
-  bistre200: '#d6ccc1',
-  bistre100: '#ece6dd',
+  /* Ink - neutral scale (text, icons, borders) */
+  bistre950: '#18181b',
+  bistre900: '#27272a',
+  bistre800: '#3f3f46',
+  bistre700: '#52525b',
+  bistre600: '#52525b',
+  bistre500: '#5f5f69',
+  bistre400: '#71717a',
+  bistre300: '#a1a1aa',
+  bistre200: '#d4d4d8',
+  bistre100: '#e4e4e7',
 
-  /* Linen - Cream backgrounds */
-  linen: '#f5f1ea',
-  linen95: '#f5f1ea',
-  linen90: '#f0ebe4',
-  linen80: '#e9e2d8',
+  /* Canvas & subtle fills */
+  linen: '#f7f7f6',
+  linen95: '#f7f7f6',
+  linen90: '#f0f0ee',
+  linen80: '#e7e7e4',
 
-  /* Ochre - CTA, accents */
-  ochre600: '#66212a',
-  ochre500: '#7e2a33',
-  ochre400: '#973843',
-  ochre300: '#c27a82',
-  ochre200: '#e8c9cc',
-  ochre100: '#f7ebec',
+  /* Copper - brand accent: CTA, links, selection */
+  ochre700: '#74360f',
+  ochre600: '#8f4218',
+  ochre500: '#a84f1c',
+  ochre400: '#c8773a',
+  ochre300: '#e0a27a',
+  ochre200: '#f3d2bc',
+  ochre100: '#fdf1e8',
 
-  gold300: '#e6c08a',
-  gold500: '#c9a35c',
-  gold700: '#8a6a2f',
-  espresso950: '#16110e',
-
-  parchment: '#fbf9f6',
-  pearlBush: '#ece6dd',
+  parchment: '#fbfbfa',
+  pearlBush: '#e6e6e3',
 } as const;
 
 /** Semantic tokens for consistent usage */
 export const semantic = {
   text: {
     primary: colors.bistre950,
-    secondary: colors.bistre600,
+    secondary: colors.bistre700,
     muted: colors.bistre400,
     disabled: colors.bistre300,
   },
@@ -51,5 +47,11 @@ export const semantic = {
     hover: colors.ochre400,
     active: colors.ochre600,
     muted: colors.ochre200,
+  },
+  status: {
+    success: '#15803d',
+    warning: '#a16207',
+    danger: '#b91c1c',
+    info: '#1d4ed8',
   },
 } as const;

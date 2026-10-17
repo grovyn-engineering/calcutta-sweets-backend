@@ -53,7 +53,7 @@
 .content {
   background: white;
   border-radius: 16px;
-  border: 1px solid rgba(44, 24, 16, 0.08);
+  border: 1px solid rgba(24, 24, 27, 0.08);
   overflow: hidden;
   padding: 1rem 1.25rem 1.25rem;
   display: flex;

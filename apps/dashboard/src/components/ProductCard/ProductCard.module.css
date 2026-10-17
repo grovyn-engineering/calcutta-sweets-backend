@@ -4,7 +4,7 @@
   border-radius: 16px;
   border: 1px solid var(--pearl-bush);
   background: linear-gradient(180deg, #ffffff 0%, #fff 48%);
-  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+  box-shadow: 0 1px 3px rgba(24, 24, 27, 0.06);
   overflow: hidden;
 }
 

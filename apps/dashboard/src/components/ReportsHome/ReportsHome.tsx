@@ -53,7 +53,7 @@ const { Text, Title } = Typography;
 
 type ReportsPayload = {
   days: number;
-  /** New value each successful summary fetch — use to remount charts. */
+  /** New value on each successful summary fetch, used to remount charts. */
   generatedAt: string;
   bucket: "day" | "month";
   range: { start: string; end: string };
@@ -74,8 +74,8 @@ function paymentLabel(raw: string) {
   return raw || "Other";
 }
 
-/* Burgundy, gold, teal, slate, taupe - distinct hues that sit with the brand palette */
-const PIE_COLORS = ["#7e2a33", "#c9a35c", "#2f6f6a", "#4a6a8a", "#8c8073"];
+/* Copper (brand), teal, blue, mustard, slate - distinct hues, readable on white */
+const PIE_COLORS = ["#a84f1c", "#0f766e", "#2563eb", "#ca8a04", "#64748b"];
 
 /** Presets for rolling window reports (API clamps days to 7–180). */
 const REPORT_QUICK_DAY_PRESETS = [7, 30, 90, 180] as const;
