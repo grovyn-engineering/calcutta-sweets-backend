@@ -195,11 +195,7 @@ export class PaymentService {
 
     return this.prisma
       .$transaction(async (tx) => {
-        const billNo = await OrdersService.allocateBillNo(
-          tx,
-          order.shopCode,
-          new Date(),
-        );
+        const billNo = await OrdersService.allocateBillNo(tx, order.shopCode);
         const flipped = await tx.order.updateMany({
           where: { id: orderId, status: OrderStatus.DRAFT },
           data: {

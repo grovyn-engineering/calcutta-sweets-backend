@@ -32,7 +32,7 @@ import RevenueExplorer from "@/components/DashboardHome/RevenueExplorer";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
-import { orderIdToInvoiceRef } from "@/lib/printInvoice";
+import { billRefOf } from "@/lib/printInvoice";
 
 const { Text, Title } = Typography;
 
@@ -411,7 +411,7 @@ export default function DashboardHome() {
                 dataIndex: "id",
                 render: (id: string, record: any) => (
                   <span className="font-mono text-xs text-[var(--bistre-600)]">
-                    {record.billNo ? record.billNo : orderIdToInvoiceRef(id)}
+                    {billRefOf({ ...record, id })}
                   </span>
                 ),
               },

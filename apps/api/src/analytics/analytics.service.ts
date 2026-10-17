@@ -232,6 +232,7 @@ export class AnalyticsService {
       recentOrders: recentOrders.map((o) => ({
         id: o.id,
         billNo: o.billNo,
+        legacyBillRef: o.legacyBillRef,
         createdAt: o.createdAt.toISOString(),
         totalAmount: o.totalAmount,
         paymentMethod: o.paymentMethod,
@@ -410,6 +411,7 @@ export class AnalyticsService {
             select: {
               id: true,
               billNo: true,
+              legacyBillRef: true,
               createdAt: true,
               customerName: true,
               customerPhone: true,
@@ -423,6 +425,7 @@ export class AnalyticsService {
     const ordersPayload = orders.map((o) => ({
       id: o.id,
       billNo: o.billNo,
+      legacyBillRef: o.legacyBillRef,
       createdAt: o.createdAt.toISOString(),
       paymentMethod: o.paymentMethod,
       totalAmount: num(o.totalAmount),
@@ -439,6 +442,7 @@ export class AnalyticsService {
       return {
         orderId: row.orderId,
         billNo: row.order.billNo,
+        legacyBillRef: row.order.legacyBillRef,
         orderCreatedAt: row.order.createdAt.toISOString(),
         customerName: row.order.customerName,
         customerPhone: row.order.customerPhone,

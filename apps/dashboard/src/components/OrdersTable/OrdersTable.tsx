@@ -6,7 +6,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { orderIdToInvoiceRef } from "@/lib/printInvoice";
+import { billRefOf } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
 import { Globe, Receipt, Search, Store, Trash2 } from "lucide-react";
 import styles from "./OrdersTable.module.css";
@@ -31,6 +31,7 @@ function formatWhen(iso: string) {
 type OrderRow = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -85,7 +86,7 @@ const baseColumns: AppTableColumn[] = [
           style={cancelled ? { textDecoration: "line-through", opacity: 0.6 } : undefined}
           title={cancelled ? "Cancelled" : undefined}
         >
-          {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
+          {val ? billRefOf({ ...row, id: String(val) }) : "-"}
           {cancelled ? " (cancelled)" : ""}
         </span>
       );
@@ -172,7 +173,7 @@ export default function OrdersTable() {
 
   const confirmDelete = useCallback(
     (row: OrderRow) => {
-      const ref = row.billNo || (row.id ? orderIdToInvoiceRef(row.id) : "this order");
+      const ref = row.id ? billRefOf(row) : "this order";
       modal.confirm({
         title: "Cancel this bill?",
         okText: "Cancel bill",

@@ -32,7 +32,12 @@ describe('Data integrity (e2e)', () => {
     barcode: string,
     price: number,
     quantity: number,
-    opts: { unit?: Unit; name?: string; taxRate?: number; product?: string } = {},
+    opts: {
+      unit?: Unit;
+      name?: string;
+      taxRate?: number;
+      product?: string;
+    } = {},
   ) {
     const product = await prisma.product.create({
       data: {
@@ -89,7 +94,10 @@ describe('Data integrity (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(RedisService)
-      .useValue({ quit: async () => undefined, onModuleDestroy: async () => undefined })
+      .useValue({
+        quit: async () => undefined,
+        onModuleDestroy: async () => undefined,
+      })
       .compile();
     app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
@@ -214,21 +222,6 @@ describe('Data integrity (e2e)', () => {
       expect(lines[0].productName).toBe('Item TAX5');
     });
 
-    it('B-18 / B-11: bill numbers follow the Indian FY in IST and are unique', async () => {
-      const v = await variant(SHOP_B, 'BILL1', 10, 100);
-      const at = async (createdAt?: string) =>
-        (
-          await sale('cashierB', [{ variantId: v.id, quantity: 1, unitPrice: 10 }], {
-            createdAt,
-          })
-        ).body.billNo as string;
-      // 2026-03-31 22:30 IST is still FY 25-26; 2026-04-01 01:30 IST is FY 26-27.
-      expect(await at('2026-03-31T17:00:00.000Z')).toBe('25-26/000001');
-      expect(await at('2026-03-31T20:00:00.000Z')).toMatch(/^26-27\/\d{6}$/);
-      const many = await Promise.all(Array.from({ length: 5 }, () => at()));
-      expect(new Set(many).size).toBe(5);
-    });
-
     it('B-17: a repeat customer keeps details the cashier did not re-enter', async () => {
       const v = await variant(SHOP_A, 'CUST1', 10, 10);
       const line = [{ variantId: v.id, quantity: 1, unitPrice: 10 }];
@@ -258,7 +251,10 @@ describe('Data integrity (e2e)', () => {
       ]).expect(201);
       expect(await stock(v.id)).toBe(6);
 
-      await http().delete(`/api/orders/${order.id}`).set(as('cashier')).expect(403);
+      await http()
+        .delete(`/api/orders/${order.id}`)
+        .set(as('cashier'))
+        .expect(403);
 
       const attempts = await Promise.all(
         [1, 2, 3].map(() =>
@@ -271,7 +267,9 @@ describe('Data integrity (e2e)', () => {
       expect(attempts.filter((r) => r.status === 201)).toHaveLength(1);
       expect(await stock(v.id)).toBe(10);
 
-      const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+      const saved = await prisma.order.findUniqueOrThrow({
+        where: { id: order.id },
+      });
       expect(saved.status).toBe('CANCELLED');
       expect(saved.billNo).toBe(order.billNo);
       expect(saved.cancelReason).toBe('customer returned');
@@ -288,16 +286,26 @@ describe('Data integrity (e2e)', () => {
         .set(as('cashier'))
         .send({
           items: [
-            { barcode: 'XFER1', productName: 'Kaju', variantName: '1kg', quantity: 2.5 },
+            {
+              barcode: 'XFER1',
+              productName: 'Kaju',
+              variantName: '1kg',
+              quantity: 2.5,
+            },
           ],
         })
         .expect(201);
 
-      await http().get(`/api/stock-transfers/${req.id}`).set(as('cashierB')).expect(404);
+      await http()
+        .get(`/api/stock-transfers/${req.id}`)
+        .set(as('cashierB'))
+        .expect(404);
 
       const results = await Promise.all(
         Array.from({ length: 5 }, () =>
-          http().patch(`/api/stock-transfers/${req.id}/fulfill`).set(as('factory')),
+          http()
+            .patch(`/api/stock-transfers/${req.id}/fulfill`)
+            .set(as('factory')),
         ),
       );
       expect(results.filter((x) => x.status === 200)).toHaveLength(1);
@@ -312,22 +320,37 @@ describe('Data integrity (e2e)', () => {
         .post('/api/stock-transfers')
         .set(as('cashier'))
         .send({
-          items: [{ barcode: 'XFER2', productName: 'p', variantName: 'v', quantity: 1 }],
+          items: [
+            {
+              barcode: 'XFER2',
+              productName: 'p',
+              variantName: 'v',
+              quantity: 1,
+            },
+          ],
         })
         .expect(201);
-      await http().patch(`/api/stock-transfers/${req.id}/fulfill`).set(as('admin')).expect(403);
+      await http()
+        .patch(`/api/stock-transfers/${req.id}/fulfill`)
+        .set(as('admin'))
+        .expect(403);
     });
   });
 
   describe('website orders and payments', () => {
-    const webOrder = (variantId: string, quantity: number, pickupTime?: string) =>
+    const webOrder = (
+      variantId: string,
+      quantity: number,
+      pickupTime?: string,
+    ) =>
       http()
         .post('/api/public/order')
         .send({
           shopCode: SHOP_A,
           customerName: 'Web',
           customerPhone: '9876500009',
-          pickupTime: pickupTime ?? new Date(Date.now() + 86_400_000).toISOString(),
+          pickupTime:
+            pickupTime ?? new Date(Date.now() + 86_400_000).toISOString(),
           items: [{ productId: 'ignored', variantId, quantity }],
         });
 
@@ -337,7 +360,11 @@ describe('Data integrity (e2e)', () => {
       await webOrder(v.id, 1, 'not-a-date').expect(400);
       await webOrder(v.id, 99).expect(400);
       const ok = await webOrder(v.id, 2).expect(201);
-      expect(ok.body).toMatchObject({ status: 'DRAFT', totalAmount: 80, tax: 3.81 });
+      expect(ok.body).toMatchObject({
+        status: 'DRAFT',
+        totalAmount: 80,
+        tax: 3.81,
+      });
     });
 
     it('B-05: underpaid callbacks are refused; duplicate good callbacks settle once', async () => {
@@ -363,28 +390,342 @@ describe('Data integrity (e2e)', () => {
 
       const under = await callback('1.00');
       expect(under.headers.location).toContain('/payment/failure');
-      expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe('DRAFT');
+      expect(
+        (await prisma.order.findUniqueOrThrow({ where: { id: order.id } }))
+          .status,
+      ).toBe('DRAFT');
 
       const paid = await Promise.all([1, 2, 3].map(() => callback('80.00')));
-      for (const r of paid) expect(r.headers.location).toContain('/payment/success');
+      for (const r of paid)
+        expect(r.headers.location).toContain('/payment/success');
 
-      const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+      const saved = await prisma.order.findUniqueOrThrow({
+        where: { id: order.id },
+      });
       expect(saved.status).toBe('PAID');
       expect(saved.paymentMethod).toBe('ONLINE');
-      expect(saved.billNo).toMatch(/^\d{2}-\d{2}\/\d{6}$/);
+      expect(saved.billNo).toMatch(/^\d{6}$/);
       expect(await stock(v.id)).toBe(8);
+    });
+  });
+
+  describe('bill numbers', () => {
+    const DIGITS6 = /^\d{6}$/;
+    const num = (billNo: string) => Number(billNo);
+    const sell = async (
+      who: string,
+      variantId: string,
+      extra: Record<string, unknown> = {},
+    ) => {
+      const res = await sale(
+        who,
+        [{ variantId, quantity: 1, unitPrice: 10 }],
+        extra,
+      ).expect(201);
+      return res.body as { id: string; billNo: string };
+    };
+
+    const payWebsiteOrder = async (variantId: string) => {
+      const { body: order } = await http()
+        .post('/api/public/order')
+        .send({
+          shopCode: SHOP_A,
+          customerName: 'Web',
+          customerPhone: '9876500010',
+          pickupTime: new Date(Date.now() + 86_400_000).toISOString(),
+          items: [{ productId: 'ignored', variantId, quantity: 1 }],
+        })
+        .expect(201);
+      expect(order.billNo ?? null).toBeNull(); // numbered only once paid
+      const params = {
+        ORDERID: order.id,
+        STATUS: 'TXN_SUCCESS',
+        TXNID: `T-${order.id}`,
+        TXNAMOUNT: Number(order.totalAmount).toFixed(2),
+      };
+      const CHECKSUMHASH = await PaytmChecksum.generateSignature(
+        params,
+        process.env.PAYTM_MERCHANT_KEY!,
+      );
+      await http()
+        .post('/api/payment/callback')
+        .type('form')
+        .send({ ...params, CHECKSUMHASH });
+      return prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    };
+
+    it('are digits only, zero-padded to 6 and consecutive per shop', async () => {
+      const v = await variant(SHOP_B, 'BN1', 10, 100);
+      const a = await sell('cashierB', v.id);
+      const b = await sell('cashierB', v.id);
+      expect(a.billNo).toMatch(DIGITS6);
+      expect(a.billNo.startsWith('0')).toBe(true); // leading zeros kept (string, not number)
+      expect(num(b.billNo)).toBe(num(a.billNo) + 1);
+    });
+
+    it('do not reset at the financial year (31 Mar -> 1 Apr IST)', async () => {
+      const v = await variant(SHOP_B, 'BN2', 10, 100);
+      // 2026-03-31 22:30 IST is FY 25-26; 2026-04-01 01:30 IST is FY 26-27.
+      const lastOfYear = await sell('cashierB', v.id, {
+        createdAt: '2026-03-31T17:00:00.000Z',
+      });
+      const firstOfYear = await sell('cashierB', v.id, {
+        createdAt: '2026-03-31T20:00:00.000Z',
+      });
+      expect(firstOfYear.billNo).toMatch(DIGITS6);
+      expect(num(firstOfYear.billNo)).toBe(num(lastOfYear.billNo) + 1);
+    });
+
+    it('are unique and gap-free under concurrent sales', async () => {
+      const v = await variant(SHOP_B, 'BN3', 10, 100);
+      const before = num((await sell('cashierB', v.id)).billNo);
+      const bills = await Promise.all(
+        Array.from({ length: 10 }, () => sell('cashierB', v.id)),
+      );
+      const numbers = bills.map((b) => num(b.billNo)).sort((x, y) => x - y);
+      expect(numbers).toEqual(
+        Array.from({ length: 10 }, (_, i) => before + 1 + i),
+      );
+    });
+
+    it('are not consumed by a failed sale', async () => {
+      const v = await variant(SHOP_B, 'BN4', 10, 1);
+      const ok = await sell('cashierB', v.id);
+      await sale('cashierB', [
+        { variantId: v.id, quantity: 5, unitPrice: 10 },
+      ]).expect(400);
+      await prisma.productVariant.update({
+        where: { id: v.id },
+        data: { quantity: { increment: 1 } },
+      });
+      await prisma.stockMovement.create({
+        data: {
+          shopCode: SHOP_B,
+          variantId: v.id,
+          reason: 'ADJUSTMENT',
+          delta: 1,
+          balance: 1,
+        },
+      });
+      const next = await sell('cashierB', v.id);
+      expect(num(next.billNo)).toBe(num(ok.billNo) + 1);
+    });
+
+    it('cannot be chosen by the client', async () => {
+      const v = await variant(SHOP_B, 'BN5', 10, 10);
+      await sale(
+        'cashierB',
+        [{ variantId: v.id, quantity: 1, unitPrice: 10 }],
+        {
+          billNo: '999999',
+        },
+      ).expect(400);
+    });
+
+    it('POS and website sales share one series; website bills are numbered at payment', async () => {
+      const v = await variant(SHOP_A, 'BN6', 10, 50);
+      const pos1 = await sell('cashier', v.id);
+      const web = await payWebsiteOrder(v.id);
+      const pos2 = await sell('cashier', v.id);
+      expect(web.status).toBe('PAID');
+      expect(web.billNo).toMatch(DIGITS6);
+      expect(num(web.billNo!)).toBe(num(pos1.billNo) + 1);
+      expect(num(pos2.billNo)).toBe(num(pos1.billNo) + 2);
+    });
+
+    it('a cancelled bill keeps its number and the number is never reused', async () => {
+      const v = await variant(SHOP_A, 'BN7', 10, 10);
+      const bill = await sell('cashier', v.id);
+      await http()
+        .post(`/api/orders/${bill.id}/cancel`)
+        .set(as('manager'))
+        .send({ reason: 'test' })
+        .expect(201);
+      const after = await sell('cashier', v.id);
+      const saved = await prisma.order.findUniqueOrThrow({
+        where: { id: bill.id },
+      });
+      expect(saved.billNo).toBe(bill.billNo);
+      expect(num(after.billNo)).toBe(num(bill.billNo) + 1);
+    });
+
+    it('the database rejects duplicates, non-digit numbers and edits to issued numbers', async () => {
+      const v = await variant(SHOP_A, 'BN8', 10, 10);
+      const bill = await sell('cashier', v.id);
+      const base = { shopCode: SHOP_A, totalAmount: 1 };
+      await expect(
+        prisma.order.create({ data: { ...base, billNo: bill.billNo } }),
+      ).rejects.toThrow(); // (shopCode, billNo) unique
+      await expect(
+        prisma.order.create({ data: { ...base, billNo: '26-27/000001' } }),
+      ).rejects.toThrow(/digits only/);
+      await expect(
+        prisma.order.update({
+          where: { id: bill.id },
+          data: { billNo: '000777' },
+        }),
+      ).rejects.toThrow(/cannot be changed/);
+      // Other fields of an issued bill stay editable (e.g. cancellation).
+      await prisma.order.update({
+        where: { id: bill.id },
+        data: { cancelReason: 'note' },
+      });
+    });
+
+    it('a bill can be found by its number', async () => {
+      const v = await variant(SHOP_A, 'BN9', 10, 10);
+      const bill = await sell('cashier', v.id);
+      const { body } = await http()
+        .get(`/api/orders?q=${bill.billNo}`)
+        .set(as('manager'))
+        .expect(200);
+      const rows = (body.data ?? body.items ?? body) as {
+        id: string;
+        billNo: string;
+      }[];
+      expect(rows.map((r) => r.id)).toContain(bill.id);
+      expect(rows.find((r) => r.id === bill.id)?.billNo).toBe(bill.billNo);
+    });
+
+    describe('legacy bills (issued before bill numbers existed)', () => {
+      const printedRef = (id: string) =>
+        id.replace(/-/g, '').slice(0, 12).toUpperCase();
+
+      /**
+       * A bill as migration 20261018090000 leaves it: no billNo, printed ref stored.
+       * The migration backfills before installing the guard, so replay that here by
+       * skipping triggers for this one transaction (local superuser test DB only).
+       */
+      const legacyBill = async () => {
+        const o = await prisma.order.create({
+          data: {
+            shopCode: SHOP_A,
+            totalAmount: 50,
+            status: 'PAID',
+            createdAt: new Date(),
+            items: {
+              create: [{ customName: 'Old sweet', quantity: 1, price: 50 }],
+            },
+          },
+        });
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe(
+            'SET LOCAL session_replication_role = replica',
+          );
+          await tx.$executeRaw`UPDATE "Order" SET "legacyBillRef" = ${printedRef(o.id)} WHERE "id" = ${o.id}`;
+        });
+        return prisma.order.findUniqueOrThrow({ where: { id: o.id } });
+      };
+
+      it('keep their printed reference in lists, detail, search and report exports', async () => {
+        const old = await legacyBill();
+        const ref = old.legacyBillRef!;
+        expect(old.billNo).toBeNull();
+
+        const detail = await http()
+          .get(`/api/orders/${old.id}`)
+          .set(as('manager'))
+          .expect(200);
+        expect(detail.body).toMatchObject({ billNo: null, legacyBillRef: ref });
+
+        const found = await http()
+          .get(`/api/orders?q=${ref.toLowerCase()}`)
+          .set(as('manager'))
+          .expect(200);
+        const row = (
+          found.body.data as { id: string; legacyBillRef: string | null }[]
+        ).find((r) => r.id === old.id);
+        expect(row?.legacyBillRef).toBe(ref);
+
+        // Reports cut days at IST midnight.
+        const today = new Date(Date.now() + 330 * 60_000)
+          .toISOString()
+          .slice(0, 10);
+        const exp = await http()
+          .get(`/api/analytics/reports/export-data?start=${today}&end=${today}`)
+          .set(as('super'))
+          .set('X-Shop', SHOP_A)
+          .expect(200);
+        const expOrder = (
+          exp.body.export.orders as {
+            id: string;
+            legacyBillRef: string | null;
+          }[]
+        ).find((o) => o.id === old.id);
+        const expLine = (
+          exp.body.export.lineItems as {
+            orderId: string;
+            legacyBillRef: string | null;
+          }[]
+        ).find((l) => l.orderId === old.id);
+        expect(expOrder?.legacyBillRef).toBe(ref);
+        expect(expLine?.legacyBillRef).toBe(ref);
+      });
+
+      it('can still be cancelled and keep their reference', async () => {
+        const old = await legacyBill();
+        await http()
+          .post(`/api/orders/${old.id}/cancel`)
+          .set(as('manager'))
+          .send({ reason: 'legacy cancel' })
+          .expect(201);
+        const saved = await prisma.order.findUniqueOrThrow({
+          where: { id: old.id },
+        });
+        expect(saved.status).toBe('CANCELLED');
+        expect(saved.legacyBillRef).toBe(old.legacyBillRef);
+        expect(saved.billNo).toBeNull();
+      });
+
+      it('the database keeps legacy references write-once', async () => {
+        const old = await legacyBill();
+        const v = await variant(SHOP_A, 'BN10', 10, 10);
+        const numbered = await sell('cashier', v.id);
+        await expect(
+          prisma.order.update({
+            where: { id: old.id },
+            data: { legacyBillRef: 'CHANGED' },
+          }),
+        ).rejects.toThrow(/cannot be set or changed/);
+        await expect(
+          prisma.order.update({
+            where: { id: old.id },
+            data: { billNo: '000999' },
+          }),
+        ).rejects.toThrow(/legacy reference/);
+        await expect(
+          prisma.order.update({
+            where: { id: numbered.id },
+            data: { legacyBillRef: 'ABC' },
+          }),
+        ).rejects.toThrow(/cannot be set or changed/);
+        await expect(
+          prisma.order.create({
+            data: { shopCode: SHOP_A, totalAmount: 1, legacyBillRef: 'NEW' },
+          }),
+        ).rejects.toThrow(/only for bills issued before/);
+      });
     });
   });
 
   describe('analytics', () => {
     it('B-10: dashboard, explorer and reports agree and only count PAID sales', async () => {
       const v = await variant(SHOP_B, 'REV1', 100, 100);
-      const before = await http().get('/api/analytics/dashboard').set(as('super')).set('X-Shop', SHOP_B).expect(200);
-      await sale('cashierB', [{ variantId: v.id, quantity: 1, unitPrice: 100 }]).expect(201);
+      const before = await http()
+        .get('/api/analytics/dashboard')
+        .set(as('super'))
+        .set('X-Shop', SHOP_B)
+        .expect(200);
+      await sale('cashierB', [
+        { variantId: v.id, quantity: 1, unitPrice: 100 },
+      ]).expect(201);
       const { body: cancelled } = await sale('cashierB', [
         { variantId: v.id, quantity: 1, unitPrice: 100 },
       ]).expect(201);
-      await prisma.order.update({ where: { id: cancelled.id }, data: { status: 'CANCELLED' } });
+      await prisma.order.update({
+        where: { id: cancelled.id },
+        data: { status: 'CANCELLED' },
+      });
       await prisma.order.create({
         data: {
           shopCode: SHOP_B,
@@ -395,7 +736,11 @@ describe('Data integrity (e2e)', () => {
         },
       });
 
-      const dash = await http().get('/api/analytics/dashboard').set(as('super')).set('X-Shop', SHOP_B).expect(200);
+      const dash = await http()
+        .get('/api/analytics/dashboard')
+        .set(as('super'))
+        .set('X-Shop', SHOP_B)
+        .expect(200);
       expect(dash.body.today.revenue - before.body.today.revenue).toBe(100);
 
       const today = dash.body.last7Days[6].date as string;
@@ -410,16 +755,23 @@ describe('Data integrity (e2e)', () => {
     it('B-11: days are cut at IST midnight', async () => {
       const v = await variant(SHOP_B, 'IST1', 10, 10);
       // 2026-06-30 19:00 UTC = 2026-07-01 00:30 IST
-      await sale('cashierB', [{ variantId: v.id, quantity: 1, unitPrice: 10 }], {
-        createdAt: '2026-06-30T19:00:00.000Z',
-      }).expect(201);
+      await sale(
+        'cashierB',
+        [{ variantId: v.id, quantity: 1, unitPrice: 10 }],
+        {
+          createdAt: '2026-06-30T19:00:00.000Z',
+        },
+      ).expect(201);
       const res = await http()
         .get('/api/analytics/reports/summary?start=2026-06-30&end=2026-07-01')
         .set(as('super'))
         .set('X-Shop', SHOP_B)
         .expect(200);
       const byDay = Object.fromEntries(
-        res.body.daily.map((d: { date: string; orderCount: number }) => [d.date, d.orderCount]),
+        res.body.daily.map((d: { date: string; orderCount: number }) => [
+          d.date,
+          d.orderCount,
+        ]),
       );
       expect(byDay).toEqual({ '2026-06-30': 0, '2026-07-01': 1 });
     });
@@ -436,7 +788,10 @@ describe('Data integrity (e2e)', () => {
         .set(as('cashier'))
         .send({ variantIds: [v.id] })
         .expect(201);
-      const detail = await http().get(`/api/orders/${order.id}`).set(as('cashier')).expect(200);
+      const detail = await http()
+        .get(`/api/orders/${order.id}`)
+        .set(as('cashier'))
+        .expect(200);
       expect(detail.body.items).toHaveLength(1);
       expect(detail.body.items[0].productName).toBe('Rasgulla');
       expect(detail.body.subtotal).toBe(detail.body.totalAmount);
@@ -447,22 +802,50 @@ describe('Data integrity (e2e)', () => {
       const { body: order } = await sale('cashier', [
         { variantId: v.id, quantity: 1, unitPrice: 15 },
       ]).expect(201);
-      await http().delete(`/api/products/${v.productId}`).set(as('cashier')).expect(200);
-      const line = await prisma.orderItem.findFirstOrThrow({ where: { orderId: order.id } });
-      expect(line).toMatchObject({ productName: 'Samosa', productVariantId: null });
+      await http()
+        .delete(`/api/products/${v.productId}`)
+        .set(as('cashier'))
+        .expect(200);
+      const line = await prisma.orderItem.findFirstOrThrow({
+        where: { orderId: order.id },
+      });
+      expect(line).toMatchObject({
+        productName: 'Samosa',
+        productVariantId: null,
+      });
     });
 
     it('B-07: only a super admin can purge, with confirmation, and orders survive', async () => {
       const v = await variant(SHOP_B, 'PURGE1', 10, 10);
-      await sale('cashierB', [{ variantId: v.id, quantity: 1, unitPrice: 10 }]).expect(201);
+      await sale('cashierB', [
+        { variantId: v.id, quantity: 1, unitPrice: 10 },
+      ]).expect(201);
       const orders = await prisma.order.count({ where: { shopCode: SHOP_B } });
 
-      await http().post('/api/inventory/purge-shop-catalog').set(as('cashierB')).send({ confirmShopCode: SHOP_B }).expect(403);
-      await http().post('/api/inventory/purge-shop-catalog').set(as('super')).set('X-Shop', SHOP_B).send({ confirmShopCode: 'wrong' }).expect(400);
-      await http().post('/api/inventory/purge-shop-catalog').set(as('super')).set('X-Shop', SHOP_B).send({ confirmShopCode: SHOP_B }).expect(201);
+      await http()
+        .post('/api/inventory/purge-shop-catalog')
+        .set(as('cashierB'))
+        .send({ confirmShopCode: SHOP_B })
+        .expect(403);
+      await http()
+        .post('/api/inventory/purge-shop-catalog')
+        .set(as('super'))
+        .set('X-Shop', SHOP_B)
+        .send({ confirmShopCode: 'wrong' })
+        .expect(400);
+      await http()
+        .post('/api/inventory/purge-shop-catalog')
+        .set(as('super'))
+        .set('X-Shop', SHOP_B)
+        .send({ confirmShopCode: SHOP_B })
+        .expect(201);
 
-      expect(await prisma.order.count({ where: { shopCode: SHOP_B } })).toBe(orders);
-      expect(await prisma.productVariant.count({ where: { shopCode: SHOP_B } })).toBe(0);
+      expect(await prisma.order.count({ where: { shopCode: SHOP_B } })).toBe(
+        orders,
+      );
+      expect(
+        await prisma.productVariant.count({ where: { shopCode: SHOP_B } }),
+      ).toBe(0);
     });
   });
 
@@ -470,18 +853,29 @@ describe('Data integrity (e2e)', () => {
     it('B-15: negative stock rejected, stale edits conflict, changes are ledgered', async () => {
       const v = await variant(SHOP_A, 'EDIT1', 10, 10);
       const patch = (body: object) =>
-        http().patch(`/api/inventory/variants/${v.id}`).set(as('cashier')).send(body);
+        http()
+          .patch(`/api/inventory/variants/${v.id}`)
+          .set(as('cashier'))
+          .send(body);
 
       await patch({ quantity: -25 }).expect(400);
       await patch({ price: -5 }).expect(400);
       await patch({ quantity: 15, expectedQuantity: 9 }).expect(409);
-      await patch({ quantity: 15, expectedQuantity: 10, stockNote: 'recount' }).expect(200);
+      await patch({
+        quantity: 15,
+        expectedQuantity: 10,
+        stockNote: 'recount',
+      }).expect(200);
       expect(await stock(v.id)).toBe(15);
       const last = await prisma.stockMovement.findFirstOrThrow({
         where: { variantId: v.id },
         orderBy: { createdAt: 'desc' },
       });
-      expect(last).toMatchObject({ reason: 'ADJUSTMENT', note: 'recount', userId: userId.cashier });
+      expect(last).toMatchObject({
+        reason: 'ADJUSTMENT',
+        note: 'recount',
+        userId: userId.cashier,
+      });
       expect(Number(last.delta)).toBe(5);
     });
   });
@@ -496,16 +890,33 @@ describe('Data integrity (e2e)', () => {
       await http()
         .post('/api/users')
         .set(as('admin'))
-        .send({ email: 'x@test.local', password: 'Passw0rd!x', role: 'ADMIN', shopCode: SHOP_A })
+        .send({
+          email: 'x@test.local',
+          password: 'Passw0rd!x',
+          role: 'ADMIN',
+          shopCode: SHOP_A,
+        })
         .expect(403);
-      const u = await prisma.user.findUniqueOrThrow({ where: { id: userId.cashier } });
+      const u = await prisma.user.findUniqueOrThrow({
+        where: { id: userId.cashier },
+      });
       expect(u.role).toBe('CASHIER');
     });
 
     it('B-24: only a super admin can rename a shared category', async () => {
-      const cat = await prisma.category.create({ data: { name: 'Sweets-e2e' } });
-      await http().patch(`/api/category/${cat.id}`).set(as('admin')).send({ name: 'Hacked' }).expect(403);
-      await http().patch(`/api/category/${cat.id}`).set(as('super')).send({ name: 'Mithai-e2e' }).expect(200);
+      const cat = await prisma.category.create({
+        data: { name: 'Sweets-e2e' },
+      });
+      await http()
+        .patch(`/api/category/${cat.id}`)
+        .set(as('admin'))
+        .send({ name: 'Hacked' })
+        .expect(403);
+      await http()
+        .patch(`/api/category/${cat.id}`)
+        .set(as('super'))
+        .send({ name: 'Mithai-e2e' })
+        .expect(200);
     });
   });
 
@@ -525,14 +936,23 @@ describe('Data integrity (e2e)', () => {
     });
 
     it('B-07: a shop with sales cannot be deleted', async () => {
-      const shop = await prisma.shop.findUniqueOrThrow({ where: { shopCode: SHOP_A } });
-      await http().delete(`/api/shops/${shop.id}`).set(as('super')).set('X-Shop', FACTORY).expect(400);
+      const shop = await prisma.shop.findUniqueOrThrow({
+        where: { shopCode: SHOP_A },
+      });
+      await http()
+        .delete(`/api/shops/${shop.id}`)
+        .set(as('super'))
+        .set('X-Shop', FACTORY)
+        .expect(400);
     });
   });
 
   it('money is returned as JSON numbers, not Decimal strings', async () => {
     const v = await variant(SHOP_A, 'JSON1', 12.5, 3);
-    const res = await http().get(`/api/inventory/variants/${v.id}`).set(as('cashier')).expect(200);
+    const res = await http()
+      .get(`/api/inventory/variants/${v.id}`)
+      .set(as('cashier'))
+      .expect(200);
     expect(res.body.price).toBe(12.5);
     expect(res.body.quantity).toBe(3);
     expect(new Prisma.Decimal(res.body.price).eq(12.5)).toBe(true);

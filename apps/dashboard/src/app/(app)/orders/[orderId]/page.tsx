@@ -24,8 +24,8 @@ import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import {
   buildPrintReceiptHtml,
+  billRefOf,
   openPrintableInvoice,
-  orderIdToInvoiceRef,
   type InvoicePrintFormat,
 } from "@/lib/printInvoice";
 
@@ -57,6 +57,7 @@ type OrderLineTabRow = OrderDetailItem & {
 type OrderDetail = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -174,7 +175,7 @@ export default function OrderBillDetailPage() {
     void load();
   }, [load]);
 
-  const invoiceRef = order ? (order.billNo || orderIdToInvoiceRef(order.id)) : "…";
+  const invoiceRef = order ? billRefOf(order) : "…";
 
   const lineColumns = useMemo<AppTableColumn[]>(
     () => [
@@ -276,7 +277,7 @@ export default function OrderBillDetailPage() {
       shopPhone: currentShop?.phone ?? null,
       gstNumber: currentShop?.gstNumber ?? null,
       fssaiNumber: currentShop?.fssaiNumber ?? null,
-      invoiceNo: order.billNo || orderIdToInvoiceRef(order.id),
+      invoiceNo: billRefOf(order),
       issuedAt: order.createdAt,
       customer,
       lines: order.items.map((i) => ({

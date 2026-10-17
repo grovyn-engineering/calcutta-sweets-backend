@@ -145,7 +145,11 @@ model OrderItem {
 model Order {
   id String @id @default(uuid())
   transactionId String @default(uuid()) @unique
+  /// Digits-only, per-shop series (e.g. "000042"). Set by the server, immutable once issued.
   billNo        String?
+  /// Reference printed on bills issued before bill numbers existed (first 12 hex chars of
+  /// the id, upper-case). Backfilled once by migration; never set for new orders.
+  legacyBillRef String?
 
   shopCode String
   shop     Shop   @relation(fields: [shopCode], references: [shopCode])
@@ -178,9 +182,11 @@ model Order {
 
   @@unique([shopCode, billNo])
   @@index([shopCode, createdAt])
+  @@index([shopCode, legacyBillRef])
 }
 
-/// Generic gap-free counters: invoice series (`<shop>-FY<yy>`), barcodes (`BARCODE-<shop>`), shop codes (`SHOPCODE`).
+/// Generic gap-free counters: bill numbers (`BILL-<shop>`, one continuous digits-only series per shop),
+/// barcodes (`BARCODE-<shop>`), shop codes (`SHOPCODE`). Legacy per-FY bill counters (`<shop>-FY<yy>`) are kept for audit only.
 model InvoiceSequence {
   id      String @id
   current Int    @default(0)

@@ -12,7 +12,6 @@ import {
   optionalIndianMobileOrNull,
 } from '../common/indian-mobile';
 import { dec, inclusiveTax, money, num, qty } from '../common/money';
-import { istFinancialYear } from '../common/ist';
 import { applyStockChange, LONG_TX, nextSequence } from '../common/stock';
 
 type Tx = Prisma.TransactionClient;
@@ -88,14 +87,22 @@ export class OrdersService {
     });
   }
 
-  /** Next bill number for the shop's financial-year series, e.g. `26-27/000042`. */
-  static async allocateBillNo(tx: Tx, shopCode: string, at: Date) {
-    const fy = istFinancialYear(at);
-    const seq = await nextSequence(
-      tx,
-      `${shopCode}-FY${String(fy.startYear).slice(-2)}`,
-    );
-    return `${fy.label}/${String(seq).padStart(6, '0')}`;
+  /**
+   * Next bill number for the shop: digits only, zero-padded to 6, e.g. `000042`.
+   *
+   * One continuous series per shop, shared by POS and website sales. It never resets
+   * at the financial year: without a year prefix a reset would reissue `000001` and
+   * collide with the (shopCode, billNo) unique index. A continuous series is still
+   * consecutive and unique within every FY (GST Rule 46); a bill's FY is derived from
+   * Order.createdAt when needed.
+   *
+   * Must run inside the transaction that creates/pays the order: the increment locks
+   * the counter row and rolls back with the order, so a failed sale never consumes
+   * or reuses a number.
+   */
+  static async allocateBillNo(tx: Tx, shopCode: string): Promise<string> {
+    const seq = await nextSequence(tx, `BILL-${shopCode}`);
+    return String(seq).padStart(6, '0');
   }
 
   async createPosOrder(
@@ -189,7 +196,6 @@ export class OrdersService {
       }
       backdatedAt = parsed;
     }
-    const saleAt = backdatedAt ?? new Date();
 
     const customerPhone = optionalIndianMobileOrNull(dto.customerPhone);
     const customerName = dto.customerName?.trim() || null;
@@ -222,7 +228,7 @@ export class OrdersService {
         });
       }
 
-      const billNo = await OrdersService.allocateBillNo(tx, shopCode, saleAt);
+      const billNo = await OrdersService.allocateBillNo(tx, shopCode);
       const o = await tx.order.create({
         data: {
           shopCode,
@@ -331,6 +337,7 @@ export class OrdersService {
               { customerName: { contains: qt, mode: 'insensitive' as const } },
               { customerPhone: { contains: qt, mode: 'insensitive' as const } },
               { billNo: { contains: qt, mode: 'insensitive' as const } },
+              { legacyBillRef: { contains: qt, mode: 'insensitive' as const } },
               { id: { equals: qt } },
             ],
           }
@@ -355,6 +362,7 @@ export class OrdersService {
       data: rows.map((o) => ({
         id: o.id,
         billNo: o.billNo,
+        legacyBillRef: o.legacyBillRef,
         createdAt: o.createdAt.toISOString(),
         paymentMethod: o.paymentMethod,
         totalAmount: o.totalAmount,
@@ -453,6 +461,7 @@ export class OrdersService {
     return {
       id: order.id,
       billNo: order.billNo,
+      legacyBillRef: order.legacyBillRef,
       createdAt: order.createdAt.toISOString(),
       paymentMethod: order.paymentMethod,
       totalAmount: order.totalAmount,

@@ -6,11 +6,12 @@ import { Receipt } from "lucide-react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { formatInrFull } from "@/lib/chartFormat";
-import { orderIdToInvoiceRef } from "@/lib/printInvoice";
+import { billRefOf } from "@/lib/printInvoice";
 
 type OrderRow = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -48,7 +49,7 @@ const columns: AppTableColumn[] = [
     width: 108,
     render: (val, row: any) => (
       <span className="orders-bill-ref">
-        {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
+        {val ? billRefOf({ ...row, id: String(val) }) : "-"}
       </span>
     ),
   },

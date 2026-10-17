@@ -3,11 +3,12 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 import { chartDayLabel, formatInrForPdf } from "@/lib/chartFormat";
-import { orderIdToInvoiceRef } from "@/lib/printInvoice";
+import { billRefOf } from "@/lib/printInvoice";
 
 export type ReportsExportOrderRow = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -22,6 +23,7 @@ export type ReportsExportOrderRow = {
 export type ReportsExportLineItem = {
   orderId: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   orderCreatedAt: string;
   customerName: string | null;
   customerPhone: string | null;
@@ -179,7 +181,7 @@ export async function downloadReportsExcel(
   ]);
   for (const o of p.export.orders) {
     wsOrd.addRow([
-      o.billNo || orderIdToInvoiceRef(o.id),
+      billRefOf(o),
       o.id,
       formatIsoLocal(o.createdAt),
       paymentLabel(o.paymentMethod),
@@ -214,7 +216,7 @@ export async function downloadReportsExcel(
   ]);
   for (const li of p.export.lineItems) {
     wsLines.addRow([
-      li.billNo || orderIdToInvoiceRef(li.orderId),
+      billRefOf({ ...li, id: li.orderId }),
       li.orderId,
       formatIsoLocal(li.orderCreatedAt),
       paymentLabel(li.paymentMethod),
@@ -395,7 +397,7 @@ export async function downloadReportsPdf(
       ],
     ],
     body: ordSlice.map((o) => [
-      o.billNo || orderIdToInvoiceRef(o.id),
+      billRefOf(o),
       formatIsoLocal(o.createdAt),
       paymentLabel(o.paymentMethod),
       (o.customerName ?? "Walk-in").slice(0, 28),
@@ -441,7 +443,7 @@ export async function downloadReportsPdf(
       ],
     ],
     body: lineSlice.map((li) => [
-      li.billNo || orderIdToInvoiceRef(li.orderId),
+      billRefOf({ ...li, id: li.orderId }),
       `${li.productName} (${li.variantName ?? "-"})`.slice(0, 40),
       String(li.quantity),
       formatInrForPdf(li.unitPrice),

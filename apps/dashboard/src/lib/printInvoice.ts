@@ -832,3 +832,16 @@ export function makeInvoiceNo(prefix = 'INV'): string {
 export function orderIdToInvoiceRef(id: string): string {
   return id.replace(/-/g, '').slice(0, 12).toUpperCase();
 }
+
+/**
+ * The reference to show/print for an order: its bill number, else the reference printed
+ * on bills issued before bill numbers existed (stored by the API as `legacyBillRef`),
+ * else the id-derived reference (unpaid website drafts that never became bills).
+ */
+export function billRefOf(order: {
+  id: string;
+  billNo?: string | null;
+  legacyBillRef?: string | null;
+}): string {
+  return order.billNo || order.legacyBillRef || orderIdToInvoiceRef(order.id);
+}
