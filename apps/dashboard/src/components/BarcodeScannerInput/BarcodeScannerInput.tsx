@@ -109,18 +109,31 @@ export function BarcodeScannerInput({
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onPressEnter={() => void handleScan(value)}
-      placeholder="Scan product barcode…"
+      placeholder="Scan or type a barcode"
       size="large"
-      prefix={<ScanBarcode className="h-5 w-5 text-[var(--ochre-501)]" />}
+      prefix={
+        <ScanBarcode
+          className="mr-1 h-[18px] w-[18px] text-[var(--ochre-500)]"
+          strokeWidth={1.8}
+          aria-hidden
+        />
+      }
+      suffix={
+        <kbd className="hidden rounded border border-[var(--border)] bg-[var(--surface-subtle)] px-1.5 py-px font-sans text-[11px] text-[var(--text-muted)] sm:inline">
+          Enter ↵
+        </kbd>
+      }
       disabled={disabled || busy}
       allowClear
       autoFocus
       autoComplete="off"
       spellCheck={false}
       style={{
-        borderRadius: '0.75rem',
-        border: '1px solid var(--ochre-200)',
-        boxShadow: busy ? '0 0 0 2px var(--ochre-100)' : 'none',
+        height: 48,
+        borderRadius: 10,
+        background: 'var(--surface)',
+        borderColor: 'var(--border-strong)',
+        boxShadow: busy ? 'var(--ring)' : 'none',
       }}
     />
   );

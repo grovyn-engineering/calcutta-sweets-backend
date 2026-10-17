@@ -417,7 +417,7 @@ function BillingPosRawSectionInner({
 
       {showCheckoutButtons && checkoutApi ? (
         <div className="mt-5 rounded-xl border border-[var(--pearl-bush)] bg-[var(--linen-95)] p-3 sm:p-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+          <p className="mb-2 text-xs font-medium text-[var(--bistre-400)]">
             Print this raw sale
           </p>
           <p className="mb-3 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">

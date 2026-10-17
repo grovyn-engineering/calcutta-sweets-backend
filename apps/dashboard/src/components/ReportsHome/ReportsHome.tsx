@@ -47,7 +47,7 @@ import {
   type ReportsExportPayload,
 } from "@/lib/reportsExport";
 import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
-import ReportsOrdersTabulator from "@/components/ReportsOrdersTabulator/ReportsOrdersTabulator";
+import ReportsOrdersTable from "@/components/ReportsOrdersTable/ReportsOrdersTable";
 
 const { Text, Title } = Typography;
 
@@ -70,10 +70,12 @@ type ReportsPayload = {
 function paymentLabel(raw: string) {
   if (raw === "CASH") return "Cash";
   if (raw === "UPI_CARD") return "UPI / Card";
+  if (raw === "ONLINE") return "Online";
   return raw || "Other";
 }
 
-const PIE_COLORS = ["#c9932d", "#6b4a30", "#8b7355", "#a67c23", "#4e3420"];
+/* Burgundy, gold, teal, slate, taupe - distinct hues that sit with the brand palette */
+const PIE_COLORS = ["#7e2a33", "#c9a35c", "#2f6f6a", "#4a6a8a", "#8c8073"];
 
 /** Presets for rolling window reports (API clamps days to 7–180). */
 const REPORT_QUICK_DAY_PRESETS = [7, 30, 90, 180] as const;
@@ -557,7 +559,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                         data={barData}
                         margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--pearl-bush)" />
+                        <CartesianGrid vertical={false} stroke="var(--pearl-bush)" />
                         <XAxis
                           dataKey="label"
                           interval="preserveStartEnd"
@@ -578,7 +580,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                           contentStyle={{
                             borderRadius: 10,
                             borderColor: "var(--pearl-bush)",
-                            background: "#fffef9",
+                            background: "#ffffff",
                           }}
                           formatter={(value, name) => {
                             if (name === "revenue")
@@ -653,7 +655,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                           contentStyle={{
                             borderRadius: 10,
                             borderColor: "var(--pearl-bush)",
-                            background: "#fffef9",
+                            background: "#ffffff",
                           }}
                           formatter={(value, _name, item) => {
                             const o = item?.payload as {
@@ -737,7 +739,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
               Click a row to open bill details. Same data as the Orders list.
             </Text>
             <div className="max-h-[550px]">
-              <ReportsOrdersTabulator />
+              <ReportsOrdersTable />
             </div>
           </Card>
         </>

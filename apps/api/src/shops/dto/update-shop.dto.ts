@@ -2,9 +2,11 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsNumber,
+  Max,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 /** Patch payload for Shop. Super admins may set all fields; other roles may only update CGST/SGST. */
@@ -94,10 +96,14 @@ export class UpdateShopDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(20)
   cgstRate?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(20)
   sgstRate?: number;
 }

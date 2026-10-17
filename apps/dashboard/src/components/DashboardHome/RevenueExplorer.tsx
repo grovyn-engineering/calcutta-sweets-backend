@@ -2,7 +2,6 @@
 
 import { Button, Card, Empty, Input, Spin, Statistic, Table, Typography } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarRange } from "lucide-react";
 
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
@@ -86,7 +85,6 @@ export default function RevenueExplorer() {
       className="rounded-xl border border-[var(--pearl-bush)] shadow-sm"
       title={
         <span className="flex items-center gap-2">
-          <CalendarRange className="h-4 w-4 text-[var(--ochre-600)]" aria-hidden />
           Revenue explorer
         </span>
       }
@@ -163,8 +161,8 @@ export default function RevenueExplorer() {
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No data." />
       ) : (
         <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-lg border border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-[var(--border)]">
+            <div className="sm:px-6 sm:first:pl-0">
               <Statistic
                 title={
                   singleDay
@@ -173,17 +171,17 @@ export default function RevenueExplorer() {
                 }
                 value={data.totals.revenue}
                 formatter={(v) => formatInrFull(Number(v))}
-                styles={{ content: { color: "var(--bistre-800)", fontWeight: 700 } }}
+                styles={{ content: { color: "var(--text-primary)", fontWeight: 600 } }}
               />
             </div>
-            <div className="rounded-lg border border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+            <div className="sm:px-6 sm:first:pl-0">
               <Statistic
                 title="Bills"
                 value={data.totals.orderCount}
-                styles={{ content: { color: "var(--bistre-800)", fontWeight: 700 } }}
+                styles={{ content: { color: "var(--text-primary)", fontWeight: 600 } }}
               />
             </div>
-            <div className="rounded-lg border border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+            <div className="sm:px-6 sm:first:pl-0">
               <Statistic
                 title={data.days === 1 ? "Day" : "Avg / day"}
                 value={
@@ -194,7 +192,7 @@ export default function RevenueExplorer() {
                 formatter={(v) =>
                   data.days === 1 ? "1 day" : formatInrFull(Number(v))
                 }
-                styles={{ content: { color: "var(--bistre-800)", fontWeight: 700 } }}
+                styles={{ content: { color: "var(--text-primary)", fontWeight: 600 } }}
               />
             </div>
           </div>

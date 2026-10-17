@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Checkbox, Form, Select, Button, message, Tag } from "antd";
-import { ShieldCheck, KeyRound } from "lucide-react";
+import { Check, KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiFetch } from "../../../../lib/api";
 import { PERMISSION_ROWS } from "../../../../lib/rolePermissions";
@@ -126,136 +126,128 @@ export function RolesSection() {
 
   return (
     <div className={styles.root}>
-      <div className={styles.currentCard}>
-        <p className={styles.currentLabel}>Your role today</p>
-        <div className={styles.currentRow}>
+      {/* Who you are */}
+      <div className={styles.roleRow}>
+        <div>
+          <p className={styles.eyebrow}>Current role</p>
           <Tag className={roleTagClass}>{formatRole(user?.role)}</Tag>
         </div>
+        {isSuperAdmin ? (
+          <p className={styles.roleNote}>
+            Super Admins manage shops, users and access.{" "}
+            <a href="#access-requests" className={styles.inlineLink}>
+              Review access requests
+            </a>
+          </p>
+        ) : null}
       </div>
 
-      {isSuperAdmin ? (
-        <div className={styles.callout}>
-          <div className={styles.calloutIcon} aria-hidden>
-            <ShieldCheck className="h-5 w-5" strokeWidth={1.75} />
-          </div>
-          <div className={styles.calloutBody}>
-            <p className={styles.calloutTitle}>Full access</p>
-            <p className={styles.calloutDesc}>
-              Super Admins manage shops, users, and access requests. Use{" "}
-              <strong>Role & Permissions Management</strong> below to approve
-              others.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <Form
-            layout="vertical"
-            onFinish={onRoleFinish}
-            className={styles.form}
-          >
-            <div className={styles.sectionTitleRow}>
-              <span className={styles.sectionIcon} aria-hidden>
-                <ShieldCheck className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <span className={styles.sectionTitle}>Different role</span>
-            </div>
-            <div className={styles.grid}>
+      {/* What you can do */}
+      <div>
+        <h3 className={styles.blockTitle}>What you can access</h3>
+        <ul className={styles.accessList}>
+          {PERMISSION_ROWS.map((row) => {
+            const allowed = isSuperAdmin || Boolean(permissions?.[row.key]);
+            return (
+              <li
+                key={row.key}
+                className={`${styles.accessItem} ${allowed ? "" : styles.accessItemOff}`.trim()}
+              >
+                {allowed ? (
+                  <Check className={styles.accessIconOn} aria-hidden />
+                ) : (
+                  <Lock className={styles.accessIconOff} aria-hidden />
+                )}
+                <span>{row.label}</span>
+                <span className="sr-only">{allowed ? "allowed" : "not included"}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {isSuperAdmin ? null : (
+        <div>
+          <h3 className={styles.blockTitle}>Need more access?</h3>
+          <p className={styles.blockHint}>
+            Requests go to a super admin, and you&apos;ll get an email when they decide. You can
+            have one pending request at a time.
+          </p>
+          <div className={styles.requestGrid}>
+            <Form layout="vertical" onFinish={onRoleFinish} className={styles.requestCard} requiredMark={false}>
+              <div className={styles.requestHead}>
+                <ShieldCheck className={styles.requestIcon} strokeWidth={1.8} aria-hidden />
+                <div>
+                  <p className={styles.requestTitle}>Change your role</p>
+                  <p className={styles.requestDesc}>For a new job title, e.g. Cashier to Manager.</p>
+                </div>
+              </div>
               <Form.Item
-                label="Request a different role"
+                label="New role"
                 name="requestedRole"
                 rules={[{ required: true, message: "Choose a role" }]}
-                extra="Your super admin will approve or decline this request."
               >
                 <Select
                   placeholder="Select role"
-                  size="large"
-                  className={`w-full ${styles.select}`}
+                  className="w-full"
                   options={[
                     { value: "MANAGER", label: "Manager" },
                     { value: "CASHIER", label: "Cashier" },
                     { value: "ADMIN", label: "Admin" },
-                  ]}
+                  ].filter((o) => o.value !== user?.role)}
                 />
               </Form.Item>
-            </div>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={roleLoading}
-              size="large"
-              className={`${styles.submit} w-full md:w-auto`}
-              style={{
-                backgroundColor: "var(--ochre-600)",
-                borderColor: "var(--ochre-600)",
-              }}
-            >
-              Submit role request
-            </Button>
-          </Form>
-
-          {permissionOptions.length > 0 ? (
-            <div className={styles.permissionBlock}>
-              <Form
-                form={permForm}
-                layout="vertical"
-                onFinish={onPermissionFinish}
-                className={styles.form}
-              >
-                <div className={styles.sectionTitleRow}>
-                  <span className={styles.sectionIcon} aria-hidden>
-                    <KeyRound className="h-4 w-4" strokeWidth={2} />
-                  </span>
-                  <span className={styles.sectionTitle}>
-                    Extra access (same role)
-                  </span>
-                </div>
-                <p className={styles.permissionIntro}>
-                  Turn on areas you need for your work without changing your
-                  job title. Only options you don’t have yet are listed.
-                </p>
-                <Form.Item
-                  name="keys"
-                  rules={[
-                    {
-                      validator: async (_, value: string[] | undefined) => {
-                        if (value && value.length > 0) return;
-                        throw new Error("Choose one or more areas");
-                      },
-                    },
-                  ]}
-                  extra="Super admin can approve each request. You can only have one pending request at a time (role or permissions)."
-                >
-                  <Checkbox.Group
-                    className={styles.checkboxGroup}
-                    options={permissionOptions}
-                  />
-                </Form.Item>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={permLoading}
-                  size="large"
-                  className={`${styles.submit} w-full md:w-auto`}
-                  style={{
-                    backgroundColor: "var(--ochre-600)",
-                    borderColor: "var(--ochre-600)",
-                  }}
-                >
-                  Submit permission request
+              <div className={styles.requestFooter}>
+                <Button type="primary" htmlType="submit" loading={roleLoading}>
+                  Send role request
                 </Button>
-              </Form>
-            </div>
-          ) : (
-            <div className={styles.allAccessNote}>
-              <p className={styles.allAccessText}>
-                For your current role, you already have every optional area the
-                team can grant here. Ask a super admin if you need something
-                else.
-              </p>
-            </div>
-          )}
-        </>
+              </div>
+            </Form>
+
+            <Form
+              form={permForm}
+              layout="vertical"
+              onFinish={onPermissionFinish}
+              className={styles.requestCard}
+              requiredMark={false}
+            >
+              <div className={styles.requestHead}>
+                <KeyRound className={styles.requestIcon} strokeWidth={1.8} aria-hidden />
+                <div>
+                  <p className={styles.requestTitle}>Add areas to your role</p>
+                  <p className={styles.requestDesc}>Keep your role and unlock specific screens.</p>
+                </div>
+              </div>
+              {permissionOptions.length > 0 ? (
+                <>
+                  <Form.Item
+                    name="keys"
+                    rules={[
+                      {
+                        validator: async (_, value: string[] | undefined) => {
+                          if (value && value.length > 0) return;
+                          throw new Error("Choose one or more areas");
+                        },
+                      },
+                    ]}
+                  >
+                    <Checkbox.Group className={styles.checkboxGroup} options={permissionOptions} />
+                  </Form.Item>
+                  <div className={styles.requestFooter}>
+                    <Button type="primary" htmlType="submit" loading={permLoading}>
+                      Send access request
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className={styles.allAccessText}>
+                  Your role already includes every area that can be added here. Ask a super admin if
+                  you need something else.
+                </p>
+              )}
+            </Form>
+          </div>
+        </div>
       )}
     </div>
   );

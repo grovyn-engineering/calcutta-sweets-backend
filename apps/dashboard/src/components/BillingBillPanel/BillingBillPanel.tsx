@@ -11,6 +11,7 @@ import {
   Pencil,
   UserRound,
   CalendarClock,
+  ShoppingBag,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomerFormValues } from '../CustomerDetails';
@@ -125,6 +126,16 @@ export interface BillingBillPanelProps {
   onCheckoutApi?: (api: BillingPosCheckoutApi | null) => void;
 }
 
+/** Totals the API stored for a saved sale (POST /orders/pos response). */
+type SavedBill = {
+  totalAmount?: number;
+  tax?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  discount?: number;
+  createdAt?: string;
+};
+
 export function BillingBillPanel({
   items,
   onQuantityChange,
@@ -232,7 +243,18 @@ export function BillingBillPanel({
   const rawManualNameOnBill =
     items.some((i) => i.isRaw) && Boolean(manualSaleCustomer?.name?.trim());
 
-  const buildNativeAndroidBill = (billNo: string): NativeAndroidBillPayload => {
+  const buildNativeAndroidBill = (
+    billNo: string,
+    saved?: SavedBill,
+  ): NativeAndroidBillPayload => {
+    // Print what the server stored (it prices and taxes the bill); fall back to the
+    // cart's own figures only if the save response is missing them.
+    const billTotal = saved?.totalAmount ?? total;
+    const billTax = saved?.tax ?? gstAmount;
+    const billCgst = saved?.cgstAmount ?? cgstAmount;
+    const billSgst = saved?.sgstAmount ?? sgstAmount;
+    const billDiscount = saved?.discount ?? discount;
+    const billIssuedAt = saved?.createdAt ?? (saleDateTime ?? new Date()).toISOString();
     const hasRaw = items.some((i) => i.isRaw);
     const hasCatalog = items.some((i) => !i.isRaw);
     const isMixed = hasRaw && hasCatalog;
@@ -275,7 +297,7 @@ export function BillingBillPanel({
       showCustomerGstin = customerGstinVal.length > 0;
     }
 
-    const taxableBase = Math.max(0, total - gstAmount);
+    const taxableBase = Math.max(0, billTotal - billTax);
 
     const base: NativeAndroidBillPayload = {
       shopName,
@@ -309,22 +331,22 @@ export function BillingBillPanel({
       }),
       taxableBase,
       subtotal: taxableBase,
-      discount,
-      tax: gstAmount,
+      discount: billDiscount,
+      tax: billTax,
       taxLabel: `GST ${(cgstRate + sgstRate).toFixed(1)}%`,
       cgstPercent: cgstRate,
       sgstPercent: sgstRate,
-      cgstAmount,
-      sgstAmount,
-      total,
+      cgstAmount: billCgst,
+      sgstAmount: billSgst,
+      total: billTotal,
       paymentMode: paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
-      amountPaid: total,
+      amountPaid: billTotal,
       footerMessage: 'Thank You. Come Again!',
       footerNote: '* Tax not payable on reverse charge basis',
       bankAccountNumber: currentShop?.bankAccountNumber?.trim() ?? '',
       bankIfsc: currentShop?.bankIfsc?.trim() ?? '',
       poweredBy: THERMAL_POWERED_BY_LINE,
-      issuedAt: (saleDateTime ?? new Date()).toISOString(),
+      issuedAt: billIssuedAt,
     };
     return {
       ...base,
@@ -332,7 +354,18 @@ export function BillingBillPanel({
     };
   };
 
-  const buildPrintInvoiceInput = (invoiceNo: string): PrintInvoiceInput => {
+  const buildPrintInvoiceInput = (
+    invoiceNo: string,
+    saved?: SavedBill,
+  ): PrintInvoiceInput => {
+    // Print what the server stored (it prices and taxes the bill); fall back to the
+    // cart's own figures only if the save response is missing them.
+    const billTotal = saved?.totalAmount ?? total;
+    const billTax = saved?.tax ?? gstAmount;
+    const billCgst = saved?.cgstAmount ?? cgstAmount;
+    const billSgst = saved?.sgstAmount ?? sgstAmount;
+    const billDiscount = saved?.discount ?? discount;
+    const billIssuedAt = saved?.createdAt ?? (saleDateTime ?? new Date()).toISOString();
     const hasRaw = items.some((i) => i.isRaw);
     const hasCatalog = items.some((i) => !i.isRaw);
     const isMixed = hasRaw && hasCatalog;
@@ -363,7 +396,7 @@ export function BillingBillPanel({
         : null;
     })();
 
-    const taxableBase = Math.max(0, total - gstAmount);
+    const taxableBase = Math.max(0, billTotal - billTax);
 
     return {
       shopName,
@@ -374,7 +407,7 @@ export function BillingBillPanel({
       fssaiNumber: currentShop?.fssaiNumber ?? null,
       showGstinOnBill: showGstinOnBill,
       invoiceNo,
-      issuedAt: (saleDateTime ?? new Date()).toISOString(),
+      issuedAt: billIssuedAt,
       customer: printCustomer,
       lines: items.map((i) => ({
         name: i.name,
@@ -390,13 +423,13 @@ export function BillingBillPanel({
       })),
       subtotal: taxableBase,
       gstRate: totalTaxRate,
-      gstAmount,
+      gstAmount: billTax,
       cgstPercent: cgstRate,
       sgstPercent: sgstRate,
-      cgstAmountSplit: cgstAmount,
-      sgstAmountSplit: sgstAmount,
-      discount,
-      total,
+      cgstAmountSplit: billCgst,
+      sgstAmountSplit: billSgst,
+      discount: billDiscount,
+      total: billTotal,
       returnHref:
         typeof window !== 'undefined'
           ? `${window.location.origin}/billing-pos`
@@ -482,20 +515,20 @@ export function BillingBillPanel({
         );
         return;
       }
-      const saved = payload as { id: string, billNo?: string | null };
+      const saved = payload as SavedBill & { id: string; billNo?: string | null };
       const invoiceNo = saved.billNo || orderIdToInvoiceRef(saved.id);
       if (printMode === 'browser') {
         setReceiptPreviewHtml(
-          buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo), {
+          buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo, saved), {
             inlinePreview: true,
           }),
         );
         message.success('Sale saved — review the receipt, then print or close.');
       } else if (printMode === 'thermal') {
-        await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
+        await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo, saved));
         message.success('Bill saved and sent to USB thermal printer.');
       } else {
-        const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo));
+        const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo, saved));
         if (!r.ok) {
           message.error(r.error);
           return;
@@ -573,13 +606,13 @@ export function BillingBillPanel({
       className={`flex min-h-0 flex-1 flex-col overflow-hidden ${className}`}
     >
       {layout === 'sidebar' && (
-        <header className="shrink-0 border-b border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+        <header className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              <h2 className="font-[family-name:var(--font-display-serif)] text-[22px] font-semibold leading-none text-[var(--text-primary)]">
                 Current sale
               </h2>
-              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
                 {items.length === 0
                   ? 'Scan a barcode or add a line below'
                   : `${lineCount} line${lineCount === 1 ? '' : 's'} · Order #${orderId}`}
@@ -628,7 +661,7 @@ export function BillingBillPanel({
                 <UserRound className="h-4 w-4" aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
+                <p className="text-xs font-medium text-[var(--bistre-400)]">
                   Customer (raw bill)
                 </p>
                 <p className="truncate font-semibold text-[var(--text-primary)]">
@@ -658,7 +691,7 @@ export function BillingBillPanel({
                   <UserRound className="h-4 w-4" aria-hidden />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
+                  <p className="text-xs font-medium text-[var(--bistre-400)]">
                     Customer
                   </p>
                   <p className="truncate font-semibold text-[var(--text-primary)]">
@@ -721,9 +754,14 @@ export function BillingBillPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:py-4">
         {items.length === 0 ? (
-          <div className="py-10 text-center text-sm text-[var(--text-muted)]">
-            No lines yet. Scan a barcode, use Standard or Instant billing, or Raw for
-            manual lines.
+          <div className="flex flex-col items-center px-6 py-14 text-center">
+            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--bistre-400)]">
+              <ShoppingBag className="h-5 w-5" strokeWidth={1.6} aria-hidden />
+            </span>
+            <p className="text-sm font-medium text-[var(--text-primary)]">No items yet</p>
+            <p className="mt-1 max-w-[16rem] text-[13px] leading-relaxed text-[var(--text-muted)]">
+              Scan a barcode, use Standard or Instant billing, or Raw for manual lines.
+            </p>
           </div>
         ) : (
           <ul className="space-y-2 pr-1 sm:space-y-2.5">
@@ -774,7 +812,7 @@ export function BillingBillPanel({
                   {item.isInstant ? (
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+                        <span className="text-xs font-medium text-[var(--bistre-400)]">
                           Qty
                         </span>
                         <InputNumber
@@ -797,7 +835,7 @@ export function BillingBillPanel({
                         />
                       </div>
                       <div className="flex min-w-0 items-center gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+                        <span className="text-xs font-medium text-[var(--bistre-400)]">
                           Unit
                         </span>
                         <Select
@@ -973,7 +1011,7 @@ export function BillingBillPanel({
           </div>
 
           <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)] sm:text-xs sm:normal-case sm:tracking-normal">
+            <p className="mb-1 text-xs font-medium text-[var(--text-muted)] sm:text-xs">
               Payment <span className="text-red-600">*</span>
             </p>
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2">

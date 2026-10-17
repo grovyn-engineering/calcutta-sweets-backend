@@ -7,7 +7,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { TableEmptyState, TableLoadingOverlay } from "./TableDataOverlay";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { TableEmptyState } from "./TableDataOverlay";
 import styles from "./DataTable.module.css";
 
 export type AppTableColumn = {
@@ -51,6 +52,12 @@ export type DataTableProps = {
 
 type FetchSpec = { page: number; pageSize: number; nonce: number };
 
+/** Clicks on these inside a row act on the control, not the row. */
+const INTERACTIVE_SELECTOR =
+  'a, button, input, select, textarea, label, [role="button"], [role="checkbox"], [data-row-click="ignore"]';
+
+const SKELETON_ROWS = 8;
+
 function getRowKey(row: unknown, rowKey: string, index: number): string {
   const v = (row as Record<string, unknown>)[rowKey];
   return v != null ? String(v) : String(index);
@@ -79,6 +86,12 @@ function buildPageNumbers(page: number, totalPages: number): (number | "…")[] 
   return pages;
 }
 
+function alignClass(align: AppTableColumn["align"]): string {
+  if (align === "right") return styles.alignRight;
+  if (align === "center") return styles.alignCenter;
+  return "";
+}
+
 export function DataTable({
   columns,
   data: localData,
@@ -100,7 +113,10 @@ export function DataTable({
 }: DataTableProps) {
   const isRemote = Boolean(fetchFn);
   const fetchFnRef = useRef(fetchFn);
-  fetchFnRef.current = fetchFn;
+  // Declared before the fetch effect so it always sees the latest fetchFn.
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  });
 
   const [fetchSpec, setFetchSpec] = useState<FetchSpec>({
     page: 1,
@@ -111,8 +127,11 @@ export function DataTable({
   const [accData, setAccData] = useState<unknown[]>([]);
   const [lastPage, setLastPage] = useState(1);
   const [fetching, setFetching] = useState(false);
+  // False until the first remote response lands: drives the skeleton rows.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(!isRemote);
   const fetchGenRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const prevFilterKeyRef = useRef<string | number | undefined>(filterKey);
 
   // Reset to page 1 when filterKey changes
@@ -123,7 +142,7 @@ export function DataTable({
     setFetchSpec((s) => ({ ...s, page: 1, nonce: s.nonce + 1 }));
   }, [filterKey, tableType]);
 
-  // Remote fetch
+  // Remote fetch. Previous rows stay on screen (dimmed) until the next page arrives.
   useEffect(() => {
     if (!fetchFnRef.current) return;
     const gen = ++fetchGenRef.current;
@@ -145,9 +164,18 @@ export function DataTable({
         /* errors handled by caller */
       })
       .finally(() => {
-        if (gen === fetchGenRef.current) setFetching(false);
+        if (gen === fetchGenRef.current) {
+          setFetching(false);
+          setHasLoadedOnce(true);
+        }
       });
   }, [fetchSpec, tableType]);
+
+  // A new page (not an infinite-scroll append) starts at the top of the list.
+  useEffect(() => {
+    if (tableType !== "pagination") return;
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [fetchSpec.page, fetchSpec.pageSize, tableType]);
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -163,7 +191,7 @@ export function DataTable({
           setFetchSpec((s) => ({ ...s, page: s.page + 1 }));
         }
       },
-      { threshold: 0.1 }
+      { root: scrollRef.current, threshold: 0.1 }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -191,7 +219,9 @@ export function DataTable({
 
   // Notify parent of visible rows (for select-all etc.)
   const onVisibleRowsChangeRef = useRef(onVisibleRowsChange);
-  onVisibleRowsChangeRef.current = onVisibleRowsChange;
+  useEffect(() => {
+    onVisibleRowsChangeRef.current = onVisibleRowsChange;
+  });
   useEffect(() => {
     onVisibleRowsChangeRef.current?.(displayedRows);
   }, [displayedRows]);
@@ -203,7 +233,11 @@ export function DataTable({
   }, [isRemote, lastPage, localData, tableType, fetchSpec.pageSize]);
 
   const isLoading = externalLoading !== undefined ? externalLoading : fetching;
-  const isEmpty = !isLoading && displayedRows.length === 0;
+  const showSkeleton =
+    displayedRows.length === 0 && (isLoading || (isRemote && !hasLoadedOnce));
+  const isEmpty = !showSkeleton && displayedRows.length === 0;
+  // Refreshing over existing rows: keep them, dim them, show a thin progress bar.
+  const isRefreshing = isLoading && displayedRows.length > 0;
 
   const maxHeightStyle =
     typeof maxBodyHeight === "number" ? `${maxBodyHeight}px` : maxBodyHeight;
@@ -227,38 +261,84 @@ export function DataTable({
     tableType === "pagination" &&
     (isRemote ? totalPages > 0 : (localData?.length ?? 0) > 0 || isLoading);
 
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent<HTMLTableRowElement>, row: unknown) => {
+      if (!onRowClick) return;
+      if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
+      onRowClick(row);
+    },
+    [onRowClick]
+  );
+
+  const handleRowKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableRowElement>, row: unknown) => {
+      if (!onRowClick || e.target !== e.currentTarget) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onRowClick(row);
+      }
+    },
+    [onRowClick]
+  );
+
+  const rowsFrom = (fetchSpec.page - 1) * fetchSpec.pageSize + 1;
+  const rowsTo = rowsFrom + displayedRows.length - 1;
+
   return (
     <div className={`${styles.root} ${className ?? ""}`.trim()}>
-      <table className={styles.table}>
-        <thead className={styles.thead}>
-          <tr>
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className={styles.th}
-                style={{
-                  width: col.width,
-                  minWidth: col.minWidth,
-                  textAlign:
-                    (col.align as React.CSSProperties["textAlign"]) ?? "left",
-                }}
-              >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-      </table>
       <div
+        ref={scrollRef}
         className={styles.scrollArea}
-        style={{
-          maxHeight: maxHeightStyle,
-          minHeight: (isLoading && displayedRows.length === 0) ? 300 : undefined,
-        }}
+        style={{ maxHeight: maxHeightStyle }}
+        aria-busy={isLoading || undefined}
       >
+        {/* One table so the header and body share column widths */}
         <table className={styles.table}>
-          <tbody className={styles.tbody}>
-            {isEmpty ? (
+          <colgroup>
+            {columns.map((col) => (
+              <col
+                key={col.key}
+                style={{ width: col.width, minWidth: col.minWidth }}
+              />
+            ))}
+          </colgroup>
+          <thead className={styles.thead}>
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  scope="col"
+                  className={`${styles.th} ${alignClass(col.align)}`.trim()}
+                  style={{ minWidth: col.minWidth }}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody
+            className={`${styles.tbody} ${isRefreshing ? styles.tbodyRefreshing : ""}`.trim()}
+          >
+            {showSkeleton ? (
+              Array.from(
+                { length: Math.min(fetchSpec.pageSize, SKELETON_ROWS) },
+                (_, i) => (
+                  <tr key={`skeleton-${i}`} className={styles.tr} aria-hidden>
+                    {columns.map((col, c) => (
+                      <td
+                        key={col.key}
+                        className={`${styles.td} ${alignClass(col.align)}`.trim()}
+                      >
+                        <span
+                          className={styles.skeletonBar}
+                          style={{ width: `${40 + ((i * 17 + c * 29) % 50)}%` }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                )
+              )
+            ) : isEmpty ? (
               <tr>
                 <td colSpan={columns.length} className={styles.emptyCell}>
                   <TableEmptyState
@@ -277,7 +357,9 @@ export function DataTable({
                   <tr
                     key={key}
                     className={`${styles.tr} ${onRowClick ? styles.trClickable : ""}`.trim()}
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    onClick={onRowClick ? (e) => handleRowClick(e, row) : undefined}
+                    onKeyDown={onRowClick ? (e) => handleRowKeyDown(e, row) : undefined}
+                    tabIndex={onRowClick ? 0 : undefined}
                   >
                     {columns.map((col) => {
                       const val = getValue(row, col.field);
@@ -289,14 +371,7 @@ export function DataTable({
                       return (
                         <td
                           key={col.key}
-                          className={`${styles.td} ${col.className ?? ""}`.trim()}
-                          style={{
-                            width: col.width,
-                            minWidth: col.minWidth,
-                            textAlign:
-                              (col.align as React.CSSProperties["textAlign"]) ??
-                              "left",
-                          }}
+                          className={`${styles.td} ${alignClass(col.align)} ${col.className ?? ""}`.trim()}
                         >
                           {content}
                         </td>
@@ -306,7 +381,7 @@ export function DataTable({
                 );
               })
             )}
-            {tableType === "infiniteScroll" && !isEmpty && (
+            {tableType === "infiniteScroll" && !isEmpty && !showSkeleton && (
               <tr aria-hidden>
                 <td colSpan={columns.length} style={{ padding: 0, border: 0 }}>
                   <div ref={sentinelRef} style={{ height: 1 }} />
@@ -316,50 +391,58 @@ export function DataTable({
           </tbody>
         </table>
 
-        {isLoading && (
-          <div className={styles.loadingOverlay}>
-            <TableLoadingOverlay />
-          </div>
-        )}
-
-        {tableType === "infiniteScroll" && fetching && !isEmpty && (
-          <div className={styles.infiniteLoader}>
-            <TableLoadingOverlay />
-          </div>
+        {tableType === "infiniteScroll" && fetching && displayedRows.length > 0 && (
+          <div className={styles.infiniteLoader}>Loading more…</div>
         )}
       </div>
 
+      {/* Thin bar instead of a blurred overlay: rows stay readable while a page loads */}
+      {isRefreshing && <span className={styles.progressBar} aria-hidden />}
+
       {showPagination && (
         <div className={styles.pagination}>
-          {pageSizeOptions && pageSizeOptions.length > 0 && (
-            <select
-              className={styles.pageSizeSelect}
-              value={fetchSpec.pageSize}
-              onChange={(e) => {
-                setFetchSpec((s) => ({
-                  ...s,
-                  page: 1,
-                  pageSize: Number(e.target.value),
-                  nonce: s.nonce + 1,
-                }));
-              }}
-              aria-label="Rows per page"
-            >
-              {pageSizeOptions.map((n) => (
-                <option key={n} value={n}>
-                  {n} / page
-                </option>
-              ))}
-            </select>
-          )}
-          <div className={styles.pageButtons}>
+          <div className={styles.paginationMeta}>
+            {pageSizeOptions && pageSizeOptions.length > 0 && (
+              <label className={styles.pageSizeLabel}>
+                <span>Rows</span>
+                <select
+                  className={styles.pageSizeSelect}
+                  value={fetchSpec.pageSize}
+                  onChange={(e) => {
+                    setFetchSpec((s) => ({
+                      ...s,
+                      page: 1,
+                      pageSize: Number(e.target.value),
+                      nonce: s.nonce + 1,
+                    }));
+                  }}
+                  aria-label="Rows per page"
+                >
+                  {pageSizeOptions.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {displayedRows.length > 0 && (
+              <span className={styles.pageInfo}>
+                {rowsFrom}–{rowsTo}
+                {!isRemote && localData ? ` of ${localData.length}` : ""}
+              </span>
+            )}
+          </div>
+          <nav className={styles.pageButtons} aria-label="Pagination">
             <button
+              type="button"
               className={styles.pageBtn}
               onClick={() => goToPage(fetchSpec.page - 1)}
               disabled={fetchSpec.page <= 1 || isLoading}
               aria-label="Previous page"
             >
-              ‹ Prev
+              <ChevronLeft className={styles.pageBtnIcon} aria-hidden />
+              <span className={styles.pageBtnText}>Prev</span>
             </button>
             {pageNumbers.map((p, i) =>
               p === "…" ? (
@@ -368,12 +451,13 @@ export function DataTable({
                 </span>
               ) : (
                 <button
+                  type="button"
                   key={p}
                   className={`${styles.pageBtn} ${
                     p === fetchSpec.page ? styles.pageBtnActive : ""
                   }`.trim()}
                   onClick={() => goToPage(p)}
-                  disabled={isLoading}
+                  disabled={isLoading && p !== fetchSpec.page}
                   aria-current={p === fetchSpec.page ? "page" : undefined}
                 >
                   {p}
@@ -381,19 +465,16 @@ export function DataTable({
               )
             )}
             <button
+              type="button"
               className={styles.pageBtn}
               onClick={() => goToPage(fetchSpec.page + 1)}
               disabled={fetchSpec.page >= totalPages || isLoading}
               aria-label="Next page"
             >
-              Next ›
+              <span className={styles.pageBtnText}>Next</span>
+              <ChevronRight className={styles.pageBtnIcon} aria-hidden />
             </button>
-          </div>
-          {totalPages > 0 && (
-            <span className={styles.pageInfo}>
-              {fetchSpec.page} / {totalPages}
-            </span>
-          )}
+          </nav>
         </div>
       )}
     </div>

@@ -97,7 +97,7 @@ export default function UsersManagement() {
     requestDeleteRef.current = (row: UserRow) => {
       Modal.confirm({
         title: "Remove this user?",
-        content: `Permanently remove ${row.email} from this shop? They will no longer be able to sign in.`,
+        content: `Remove ${row.email} from this shop? They will no longer be able to sign in. Users with sales or stock history are deactivated instead of deleted, so their records stay traceable.`,
         okText: "Remove user",
         okType: "danger",
         cancelText: "Cancel",
@@ -114,7 +114,9 @@ export default function UsersManagement() {
             );
             throw new Error(String(data?.message ?? res.statusText));
           }
-          message.success("User removed");
+          message.success(
+            data?.deactivated ? "User deactivated (has sales history)" : "User removed",
+          );
           setRefreshKey((k) => k + 1);
         },
       });

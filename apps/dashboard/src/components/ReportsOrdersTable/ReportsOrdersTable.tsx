@@ -63,6 +63,8 @@ const columns: AppTableColumn[] = [
         return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
       if (raw === "UPI_CARD")
         return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
+      if (raw === "ONLINE")
+        return <span className="orders-pay-pill orders-pay-pill--upi">Online</span>;
       return <span className="orders-pay-pill">{raw || "-"}</span>;
     },
   },
@@ -100,7 +102,7 @@ const columns: AppTableColumn[] = [
   },
 ];
 
-export default function ReportsOrdersTabulator() {
+export default function ReportsOrdersTable() {
   const router = useRouter();
 
   const fetchFn = useMemo(() => {

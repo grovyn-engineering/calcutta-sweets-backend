@@ -45,7 +45,10 @@ export class CategoryService {
 
     return categories.map((cat) => {
       const products: CategoryProductSummary[] = cat.products.map((p) => {
-        const totalStock = p.variants.reduce((s, v) => s + v.quantity, 0);
+        const totalStock = p.variants.reduce(
+          (s, v) => s + Number(v.quantity),
+          0,
+        );
         return { id: p.id, name: p.name, totalStock };
       });
       const totalStock = products.reduce((s, p) => s + p.totalStock, 0);
@@ -80,7 +83,7 @@ export class CategoryService {
       },
       _sum: { quantity: true },
     });
-    const totalStock = agg._sum.quantity ?? 0;
+    const totalStock = Number(agg._sum.quantity ?? 0);
     return { ...category, totalStock };
   }
 

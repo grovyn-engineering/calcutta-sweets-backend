@@ -2,9 +2,11 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsNumber,
+  Max,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 export class CreateShopDto {
@@ -12,8 +14,10 @@ export class CreateShopDto {
   @MaxLength(200)
   name: string;
 
+  /** Ignored: the server always generates the shop code. Accepted for older clients. */
+  @IsOptional()
   @IsString()
-  shopCode: string;
+  shopCode?: string;
 
   @IsOptional()
   @IsString()
@@ -91,10 +95,14 @@ export class CreateShopDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(20)
   cgstRate?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(20)
   sgstRate?: number;
 }

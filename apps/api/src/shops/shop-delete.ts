@@ -30,23 +30,20 @@ export async function deleteShopAndDependencies(
 
   const shopCode = shop.shopCode;
 
+  // Orders are GST records that must be retained; a shop with sales cannot be erased.
+  const orderCount = await prisma.order.count({ where: { shopCode } });
+  if (orderCount > 0) {
+    throw new Error(
+      `This shop has ${orderCount} orders and cannot be deleted. Deactivate its users instead.`,
+    );
+  }
+
   return prisma.$transaction(async (tx) => {
     const userRows = await tx.user.findMany({
       where: { shopCode },
       select: { id: true },
     });
     const userIds = userRows.map((u) => u.id);
-
-    const oi = await tx.orderItem.deleteMany({
-      where: { order: { shopCode } },
-    });
-
-    await tx.order.updateMany({
-      where: { shopCode },
-      data: { createdById: null },
-    });
-
-    const ord = await tx.order.deleteMany({ where: { shopCode } });
 
     const st = await tx.stockTransferRequest.deleteMany({
       where: {
@@ -61,44 +58,30 @@ export async function deleteShopAndDependencies(
           : { shopCode },
     });
 
-    if (userIds.length) {
-      await tx.order.updateMany({
-        where: { createdById: { in: userIds } },
-        data: { createdById: null },
-      });
-    }
-
+    await tx.customer.deleteMany({ where: { shopCode } });
+    await tx.stockMovement.deleteMany({ where: { shopCode } });
     const usr = await tx.user.deleteMany({ where: { shopCode } });
 
-    const pv = await tx.productVariant.deleteMany({
-      where: { product: { shopCode } },
-    });
+    const pv = await tx.productVariant.deleteMany({ where: { shopCode } });
     const img = await tx.productImage.deleteMany({
       where: { product: { shopCode } },
     });
     const pr = await tx.product.deleteMany({ where: { shopCode } });
 
-    const emptyCats = await tx.category.findMany({
-      where: { products: { none: {} } },
-      select: { id: true },
-    });
-    const cat = await tx.category.deleteMany({
-      where: { id: { in: emptyCats.map((c) => c.id) } },
-    });
-
     await tx.shop.delete({ where: { id: shopId } });
 
+    // Categories are shared across shops and are kept.
     return {
       shopCode,
-      orderItems: oi.count,
-      orders: ord.count,
+      orderItems: 0,
+      orders: 0,
       stockTransfers: st.count,
       roleRequests: rr.count,
       users: usr.count,
       variants: pv.count,
       images: img.count,
       products: pr.count,
-      orphanCategoriesRemoved: cat.count,
+      orphanCategoriesRemoved: 0,
     };
   });
 }

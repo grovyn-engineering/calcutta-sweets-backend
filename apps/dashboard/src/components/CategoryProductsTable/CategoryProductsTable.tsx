@@ -4,7 +4,7 @@ import { memo, useMemo } from "react";
 import { LayoutGrid } from "lucide-react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { dedupeInFlight, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
-import styles from "./CategoryProductsTabulator.module.css";
+import styles from "./CategoryProductsTable.module.css";
 
 type ApiVariant = { id: string; quantity: number; price: number };
 type ApiProduct = { id: string; name: string; variants: ApiVariant[] };
@@ -38,17 +38,17 @@ function mapProductToRow(p: ApiProduct): TabRow {
   };
 }
 
-export type CategoryProductsTabulatorProps = {
+export type CategoryProductsTableProps = {
   categoryId: string;
   refreshKey: number;
   onOpenVariant: (variantId: string) => void;
 };
 
-function CategoryProductsTabulatorInner({
+function CategoryProductsTableInner({
   categoryId,
   refreshKey,
   onOpenVariant,
-}: CategoryProductsTabulatorProps) {
+}: CategoryProductsTableProps) {
   const filterKey = `${categoryId}|${refreshKey}`;
 
   const columns: AppTableColumn[] = useMemo(
@@ -138,7 +138,7 @@ function CategoryProductsTabulatorInner({
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.tabulatorInner}>
+      <div className={styles.tableSlot}>
         <DataTable
           columns={columns}
           fetchFn={fetchFn}
@@ -153,4 +153,4 @@ function CategoryProductsTabulatorInner({
   );
 }
 
-export const CategoryProductsTabulator = memo(CategoryProductsTabulatorInner);
+export const CategoryProductsTable = memo(CategoryProductsTableInner);

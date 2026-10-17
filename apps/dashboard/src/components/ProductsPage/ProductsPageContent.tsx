@@ -210,30 +210,30 @@ export function ProductsPageContent({
     }
   };
 
-  const showingAll = !hasMore && items.length >= total;
 
   return (
     <div className={styles.root}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Products</h1>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--ochre-600)] bg-[var(--ochre-50)] px-2.5 py-1 rounded border border-[var(--ochre-100)] leading-none mt-0.5">
-            {items.length} of {total} {hasMore ? "loaded" : "total"}
-          </span>
+      <header className={styles.header}>
+        <div>
+          <h1>Products</h1>
+          <p className={styles.subtitle}>
+            {hasMore
+              ? `Showing ${items.length} of ${total} products`
+              : `${total} ${total === 1 ? "product" : "products"}`}
+          </p>
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-3 min-w-[300px]">
+        <div className={styles.headerActions}>
           <Input
             allowClear
-            size="large"
-            placeholder="Search products, variants, barcodes…"
+            placeholder="Search products, variants, barcodes"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-[300px] rounded-lg"
-            prefix={<Search size={16} className="text-[var(--text-muted)]" />}
+            className={styles.search}
+            prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
+            aria-label="Search products"
           />
           <Segmented<StatusFilter>
-            size="large"
             options={[
               { label: "All", value: "all" },
               { label: "Active", value: "active" },
@@ -241,21 +241,12 @@ export function ProductsPageContent({
             ]}
             value={status}
             onChange={setStatus}
-            className="font-medium p-1 rounded-lg"
-            style={{ backgroundColor: 'rgba(44,24,16,0.03)', border: '1px solid rgba(44,24,16,0.05)' }}
           />
-          <Button
-            type="primary"
-            size="large"
-            icon={<Plus size={16} />}
-            onClick={() => setCreateOpen(true)}
-            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
-            className="font-semibold rounded-lg"
-          >
+          <Button type="primary" icon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
             New product
           </Button>
         </div>
-      </div>
+      </header>
 
       {loadError ? (
         <p className={styles.errorBanner} role="alert">

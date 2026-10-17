@@ -5,7 +5,6 @@ import {
   Empty,
   Flex,
   Spin,
-  Statistic,
   Table,
   Tag,
   Typography,
@@ -23,10 +22,7 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AlertTriangle,
   ArrowRight,
-  IndianRupee,
-  Package,
   Receipt,
   ShoppingBag,
 } from "lucide-react";
@@ -72,6 +68,7 @@ type DashboardPayload = {
 function paymentLabel(raw: string) {
   if (raw === "CASH") return "Cash";
   if (raw === "UPI_CARD") return "UPI / Card";
+  if (raw === "ONLINE") return "Online";
   return raw || "-";
 }
 
@@ -87,6 +84,40 @@ function formatWhen(iso: string) {
 }
 
 const chartStroke = "var(--ochre-500)";
+
+function Metric({
+  label,
+  value,
+  note,
+  accent,
+  tone,
+}: {
+  label: string;
+  value: string;
+  note: React.ReactNode;
+  accent?: boolean;
+  tone?: "warning";
+}) {
+  return (
+    <div className="relative px-5 py-4 sm:px-6 sm:py-5">
+      {accent && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-5 h-6 w-[2px] bg-[var(--gold-500)]"
+        />
+      )}
+      <div className="text-[13px] font-medium text-[var(--text-secondary)]">{label}</div>
+      <div
+        className={`mt-1.5 text-[26px] font-semibold leading-tight tracking-[-0.01em] tabular-nums ${
+          tone === "warning" ? "text-[var(--warning)]" : "text-[var(--text-primary)]"
+        }`}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-[13px] text-[var(--text-muted)]">{note}</div>
+    </div>
+  );
+}
 
 function DashboardSkeleton() {
   return (
@@ -170,7 +201,7 @@ export default function DashboardHome() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 pb-6">
       <div className="shrink-0 px-1 sm:px-0">
-        <Title level={2} className="!mb-1 !text-[var(--text-primary)] !text-xl sm:!text-2xl">
+        <Title level={1} className="!mb-1 !text-[var(--text-primary)] !text-xl sm:!text-2xl">
           Dashboard
         </Title>
         <Text className="text-[var(--text-secondary)] text-xs sm:text-sm">
@@ -179,107 +210,41 @@ export default function DashboardHome() {
         </Text>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card
-          variant="borderless"
-          className="h-full rounded-xl border border-[var(--pearl-bush)] bg-gradient-to-br from-[#fffef9] to-[var(--linen-95)] shadow-sm"
-        >
-          <div className="mb-3 flex items-center gap-2 text-[var(--ochre-600)]">
-            <IndianRupee className="h-5 w-5" aria-hidden />
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-              Today
-            </span>
-          </div>
-          <Statistic
-            title="Revenue"
-            value={data.today.revenue}
-            formatter={(v) => formatInrFull(Number(v))}
-            styles={{
-              content: { color: "var(--bistre-800)", fontWeight: 700 },
-            }}
-          />
-          <Text type="secondary" className="mt-2 block text-sm">
-            {data.today.orderCount} bill
-            {data.today.orderCount === 1 ? "" : "s"}
-          </Text>
-        </Card>
-
-        <Card
-          variant="borderless"
-          className="h-full rounded-xl border border-[var(--pearl-bush)] bg-gradient-to-br from-[#fffef9] to-[var(--linen-95)] shadow-sm"
-        >
-          <div className="mb-3 flex items-center gap-2 text-[var(--ochre-600)]">
-            <Receipt className="h-5 w-5" aria-hidden />
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-              Month to date
-            </span>
-          </div>
-          <Statistic
-            title="Revenue"
-            value={data.monthToDate.revenue}
-            formatter={(v) => formatInrFull(Number(v))}
-            styles={{
-              content: { color: "var(--bistre-800)", fontWeight: 700 },
-            }}
-          />
-          <Text type="secondary" className="mt-2 block text-sm">
-            {data.monthToDate.orderCount} orders this month
-          </Text>
-        </Card>
-
-        <Card
-          variant="borderless"
-          className="h-full rounded-xl border border-[var(--pearl-bush)] bg-gradient-to-br from-[#fffef9] to-[var(--linen-95)] shadow-sm"
-        >
-          <div className="mb-3 flex items-center gap-2 text-[var(--ochre-600)]">
-            <Package className="h-5 w-5" aria-hidden />
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-              Catalogue
-            </span>
-          </div>
-          <Statistic
-            title="Products"
-            value={data.catalog.productCount}
-            styles={{
-              content: { color: "var(--bistre-800)", fontWeight: 700 },
-            }}
-          />
-          <Text type="secondary" className="mt-2 block text-sm">
-            {data.catalog.variantCount} SKUs ·{" "}
-            <Link href="/inventory" className="text-[var(--ochre-600)] hover:underline">
-              Inventory
-            </Link>
-          </Text>
-        </Card>
-
-        <Card
-          variant="borderless"
-          className="h-full rounded-xl border border-[var(--pearl-bush)] bg-gradient-to-br from-[#fffef9] to-[var(--linen-95)] shadow-sm"
-        >
-          <div className="mb-3 flex items-center gap-2 text-amber-700">
-            <AlertTriangle className="h-5 w-5" aria-hidden />
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-              Stock alerts
-            </span>
-          </div>
-          <Statistic
-            title="Low or out of stock"
-            value={data.catalog.lowStockCount}
-            styles={{
-              content: {
-                color:
-                  data.catalog.lowStockCount > 0
-                    ? "#b45309"
-                    : "var(--bistre-800)",
-                fontWeight: 700,
-              },
-            }}
-          />
-          <Text type="secondary" className="mt-2 block text-sm">
-            Variants at or below minimum
-          </Text>
-        </Card>
-      </div>
+      {/* One metrics strip (hairline dividers) instead of four floating cards */}
+      <section
+        aria-label="Key figures"
+        className="grid shrink-0 grid-cols-1 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] sm:grid-cols-2 xl:grid-cols-4 [&>div]:border-[var(--border)] max-sm:[&>div+div]:border-t sm:max-xl:[&>div:nth-child(n+3)]:border-t sm:max-xl:[&>div:nth-child(even)]:border-l xl:[&>div+div]:border-l"
+      >
+        <Metric
+          label="Today's revenue"
+          value={formatInrFull(data.today.revenue)}
+          accent
+          note={`${data.today.orderCount} bill${data.today.orderCount === 1 ? "" : "s"}`}
+        />
+        <Metric
+          label="Month to date"
+          value={formatInrFull(data.monthToDate.revenue)}
+          note={`${data.monthToDate.orderCount} orders this month`}
+        />
+        <Metric
+          label="Products"
+          value={String(data.catalog.productCount)}
+          note={
+            <>
+              {data.catalog.variantCount} SKUs ·{" "}
+              <Link href="/inventory" className="text-[var(--ochre-600)] hover:underline">
+                Inventory
+              </Link>
+            </>
+          }
+        />
+        <Metric
+          label="Low or out of stock"
+          value={String(data.catalog.lowStockCount)}
+          tone={data.catalog.lowStockCount > 0 ? "warning" : undefined}
+          note="Variants at or below minimum"
+        />
+      </section>
 
       <RevenueExplorer />
 
@@ -310,7 +275,7 @@ export default function DashboardHome() {
                     <stop offset="100%" stopColor={chartStroke} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--pearl-bush)" />
+                <CartesianGrid vertical={false} stroke="var(--pearl-bush)" />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: "var(--bistre-500)" }}
@@ -325,7 +290,7 @@ export default function DashboardHome() {
                   contentStyle={{
                     borderRadius: 10,
                     borderColor: "var(--pearl-bush)",
-                    background: "#fffef9",
+                    background: "#ffffff",
                   }}
                   formatter={(value) => [
                     formatInrFull(Number(value ?? 0)),
@@ -365,10 +330,7 @@ export default function DashboardHome() {
                     key={item.paymentMethod}
                     className="flex w-full items-center justify-between gap-2"
                   >
-                    <Tag
-                      color={item.paymentMethod === "CASH" ? "green" : "purple"}
-                      className="m-0"
-                    >
+                    <Tag className="m-0">
                       {paymentLabel(item.paymentMethod)}
                     </Tag>
                     <div className="text-right text-sm">

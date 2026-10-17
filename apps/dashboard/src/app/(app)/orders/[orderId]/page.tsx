@@ -84,12 +84,14 @@ function formatWhen(iso: string) {
 function paymentLabel(raw: string) {
   if (raw === "CASH") return "Cash";
   if (raw === "UPI_CARD") return "UPI / Card";
+  if (raw === "ONLINE") return "Online";
   return raw || "-";
 }
 
 function paymentTagColor(raw: string): string {
   if (raw === "CASH") return "green";
   if (raw === "UPI_CARD") return "purple";
+  if (raw === "ONLINE") return "blue";
   return "default";
 }
 
@@ -377,7 +379,7 @@ export default function OrderBillDetailPage() {
                 </Title>
                 <Tag
                   color={statusTagColor(order.status)}
-                  className="m-0 shrink-0 uppercase"
+                  className="m-0 shrink-0"
                 >
                   {order.status}
                 </Tag>
@@ -438,7 +440,7 @@ export default function OrderBillDetailPage() {
               <Row gutter={[16, 16]}>
                 <Col xs={24} lg={13}>
                   <div className="flex flex-col rounded-lg border border-[var(--pearl-bush)] bg-[rgba(255,255,255,0.5)] px-4 py-3 shadow-sm backdrop-blur-md">
-                    <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[var(--bistre-400)]">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--bistre-400)]">
                       <UserRound className="h-3.5 w-3.5" aria-hidden />
                       Customer
                     </div>
@@ -467,10 +469,10 @@ export default function OrderBillDetailPage() {
                   </div>
                 </Col>
                 <Col xs={24} lg={11}>
-                  <div className="flex flex-col rounded-lg border border-[rgba(201,147,45,0.15)] bg-[var(--linen-50)] px-4 py-3 shadow-sm">
+                  <div className="flex flex-col rounded-lg border border-[rgba(126, 42, 51,0.15)] bg-[var(--linen-50)] px-4 py-3 shadow-sm">
                     <Text
                       type="secondary"
-                      className="mb-2 text-[9px] font-bold uppercase tracking-widest"
+                      className="mb-2 text-xs font-medium"
                     >
                       Summary
                     </Text>
@@ -502,7 +504,7 @@ export default function OrderBillDetailPage() {
                     </div>
                     <Divider className="my-2 border-[var(--pearl-bush)]/50" />
                     <div className="flex items-baseline justify-between gap-4 mt-1">
-                      <Text strong className="text-sm text-[var(--text-primary)] uppercase tracking-wider">
+                      <Text strong className="text-sm text-[var(--text-primary)]">
                         Payable total
                       </Text>
                       <Text

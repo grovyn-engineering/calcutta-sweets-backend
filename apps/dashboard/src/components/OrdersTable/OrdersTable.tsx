@@ -8,7 +8,7 @@ import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { orderIdToInvoiceRef } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
-import { Receipt, Search, Trash2 } from "lucide-react";
+import { Globe, Receipt, Search, Store, Trash2 } from "lucide-react";
 import styles from "./OrdersTable.module.css";
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -62,7 +62,12 @@ const baseColumns: AppTableColumn[] = [
       const raw = String(val ?? "POS");
       return (
         <span className={`orders-source-pill orders-source-pill--${raw.toLowerCase()}`}>
-          {raw === "WEBSITE" ? "💻 Website" : "🏪 POS"}
+          {raw === "WEBSITE" ? (
+            <Globe className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Store className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {raw === "WEBSITE" ? "Website" : "POS"}
         </span>
       );
     },
@@ -72,11 +77,19 @@ const baseColumns: AppTableColumn[] = [
     label: "Bill ref",
     field: "id",
     width: 120,
-    render: (val, row: any) => (
-      <span className="orders-bill-ref">
-        {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
-      </span>
-    ),
+    render: (val, row: any) => {
+      const cancelled = row.status === "CANCELLED";
+      return (
+        <span
+          className="orders-bill-ref"
+          style={cancelled ? { textDecoration: "line-through", opacity: 0.6 } : undefined}
+          title={cancelled ? "Cancelled" : undefined}
+        >
+          {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
+          {cancelled ? " (cancelled)" : ""}
+        </span>
+      );
+    },
   },
   {
     key: "paymentMethod",
@@ -89,6 +102,8 @@ const baseColumns: AppTableColumn[] = [
         return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
       if (raw === "UPI_CARD")
         return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
+      if (raw === "ONLINE")
+        return <span className="orders-pay-pill orders-pay-pill--upi">Online</span>;
       return <span className="orders-pay-pill">{raw || "-"}</span>;
     },
   },
@@ -130,7 +145,11 @@ const baseColumns: AppTableColumn[] = [
     field: "status",
     width: 90,
     render: (val) => (
-      <span className="orders-status-pill">{String(val ?? "")}</span>
+      <span
+        className={`orders-status-pill orders-status-pill--${String(val ?? "").toLowerCase()}`}
+      >
+        {String(val ?? "").charAt(0) + String(val ?? "").slice(1).toLowerCase()}
+      </span>
     ),
   },
 ];
@@ -155,14 +174,14 @@ export default function OrdersTable() {
     (row: OrderRow) => {
       const ref = row.billNo || (row.id ? orderIdToInvoiceRef(row.id) : "this order");
       modal.confirm({
-        title: "Delete this order?",
-        okText: "Delete order",
+        title: "Cancel this bill?",
+        okText: "Cancel bill",
         okButtonProps: { danger: true },
-        cancelText: "Cancel",
+        cancelText: "Keep bill",
         content: (
           <div>
             <p style={{ margin: 0 }}>
-              You are about to permanently delete bill{" "}
+              You are about to cancel bill{" "}
               <strong>{ref}</strong>
               {row.customerName?.trim() ? (
                 <>
@@ -173,8 +192,9 @@ export default function OrdersTable() {
               .
             </p>
             <p style={{ marginTop: 8, marginBottom: 0 }}>
-              This will remove the order and all of its line items from your
-              sales history. This action <strong>cannot be undone</strong>.
+              The items go back into stock and the bill is excluded from sales
+              reports. The bill number stays in your invoice series, marked as
+              cancelled. This <strong>cannot be undone</strong>.
             </p>
           </div>
         ),
@@ -187,11 +207,13 @@ export default function OrdersTable() {
             const msg =
               typeof payload?.message === "string"
                 ? payload.message
-                : "Could not delete the order. Please try again.";
+                : res.status === 403
+                  ? "Only a manager or admin can cancel bills."
+                  : "Could not cancel the bill. Please try again.";
             message.error(msg);
             throw new Error(msg);
           }
-          message.success("Order deleted");
+          message.success("Bill cancelled");
           setRefreshNonce((n) => n + 1);
         },
       });
@@ -209,12 +231,13 @@ export default function OrdersTable() {
         align: "center",
         render: (_, row) => {
           const r = row as OrderRow;
+          if (r.status === "CANCELLED") return null;
           return (
             <button
               type="button"
               className={styles.deleteBtn}
-              aria-label="Delete order"
-              title="Delete order"
+              aria-label="Cancel bill"
+              title="Cancel bill"
               onClick={(e) => {
                 e.stopPropagation();
                 confirmDelete(r);

@@ -65,19 +65,24 @@ export function ProductCatalogRow({ product, onProductDeleted }: Props) {
     }
   };
 
+  const categoryName = product.category?.name?.replace(/_/g, " ");
+
   return (
-    <div className={styles.row}>
+    <div className={`${styles.row} ${product.isActive ? "" : styles.rowInactive}`.trim()}>
+      <span className={styles.monogram} aria-hidden>
+        {product.name.trim().charAt(0).toUpperCase()}
+      </span>
+
       <div className={styles.main}>
         <div className={styles.nameLine}>
           <h3 className={styles.name}>{product.name}</h3>
-          <span
-            className={
-              product.isActive ? styles.statusOn : styles.statusOff
-            }
-          >
-            {product.isActive ? "Active" : "Inactive"}
-          </span>
+          {product.isActive ? null : <span className={styles.statusOff}>Inactive</span>}
         </div>
+        <p className={styles.meta}>
+          {categoryName ? <span className={styles.metaCategory}>{categoryName}</span> : "Uncategorised"}
+          <span aria-hidden> · </span>
+          {variants.length} {variants.length === 1 ? "variant" : "variants"}
+        </p>
         {variants.length > 0 ? (
           <ul className={styles.variantChips} aria-label="Variants">
             {variants.slice(0, 4).map((v) => (
@@ -90,57 +95,51 @@ export function ProductCatalogRow({ product, onProductDeleted }: Props) {
               </li>
             ))}
             {variants.length > 4 ? (
-              <li className={styles.chipMore}>
-                +{variants.length - 4} more
-              </li>
+              <li className={styles.chipMore}>+{variants.length - 4} more</li>
             ) : null}
           </ul>
-        ) : (
-          <p className={styles.noVariants}>No variants</p>
-        )}
+        ) : null}
       </div>
-      <div className={styles.stats}>
+
+      <dl className={styles.stats}>
         <div className={styles.statBlock}>
-          <span className={styles.statLabel}>Stock</span>
-          <span className={styles.statValue}>
+          <dt className={styles.statLabel}>Stock</dt>
+          <dd className={`${styles.statValue} ${totalStock <= 0 ? styles.statWarn : ""}`.trim()}>
             {totalStock.toLocaleString("en-IN")}
-          </span>
+          </dd>
         </div>
         <div className={styles.statBlock}>
-          <span className={styles.statLabel}>Price</span>
-          <span className={styles.statValue}>{priceLabel}</span>
+          <dt className={styles.statLabel}>Price</dt>
+          <dd className={styles.statValue}>{priceLabel}</dd>
         </div>
-        <div className={styles.actions}>
-          {firstVariant ? (
-            <Link
-              href={`/inventory/${firstVariant.id}`}
-              className={styles.manageLink}
-              scroll={false}
-            >
-              Inventory
-            </Link>
-          ) : (
-            <span className={styles.manageDisabled}>-</span>
-          )}
-          <Popconfirm
-            title="Delete this product?"
-            description="This removes the product and its variants. If it appears on past orders, deletion may be blocked."
-            onConfirm={() => void onDelete()}
-            okText="Delete"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true, loading: deleting }}
+      </dl>
+
+      <div className={styles.actions}>
+        {firstVariant ? (
+          <Link href={`/inventory/${firstVariant.id}`} className={styles.manageLink} scroll={false}>
+            Inventory
+          </Link>
+        ) : (
+          <span className={styles.manageDisabled}>No variants</span>
+        )}
+        <Popconfirm
+          title="Delete this product?"
+          description="This removes the product and its variants. If it appears on past orders, deletion may be blocked."
+          onConfirm={() => void onDelete()}
+          okText="Delete"
+          cancelText="Cancel"
+          okButtonProps={{ danger: true, loading: deleting }}
+        >
+          <button
+            type="button"
+            className={styles.removeBtn}
+            aria-label={`Delete ${product.name}`}
+            title="Delete product"
+            disabled={deleting}
           >
-            <button
-              type="button"
-              className={styles.removeBtn}
-              aria-label={`Delete ${product.name}`}
-              disabled={deleting}
-            >
-              <Trash2 size={15} strokeWidth={2} aria-hidden />
-              <span>Remove</span>
-            </button>
-          </Popconfirm>
-        </div>
+            <Trash2 size={15} strokeWidth={1.9} aria-hidden />
+          </button>
+        </Popconfirm>
       </div>
     </div>
   );

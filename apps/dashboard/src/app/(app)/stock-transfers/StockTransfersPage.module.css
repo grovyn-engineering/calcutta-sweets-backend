@@ -46,7 +46,7 @@
   background: linear-gradient(
     90deg,
     var(--ochre-500) 0%,
-    rgba(201, 147, 45, 0.35) 100%
+    rgba(126, 42, 51, 0.35) 100%
   );
 }
 
@@ -65,8 +65,7 @@
 .kicker {
   font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--ochre-600);
   margin: 0 0 0.375rem;
 }
@@ -130,8 +129,7 @@
 .filterLabel {
   font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--bistre-500);
   margin: 0 0 0.375rem;
   display: block;
@@ -163,7 +161,7 @@
 .statusSelect:global(.ant-select-focused) :global(.ant-select-selector),
 .statusSelect:global(.ant-select-open) :global(.ant-select-selector) {
   border-color: var(--ochre-400) !important;
-  box-shadow: 0 0 0 3px rgba(201, 147, 45, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(126, 42, 51, 0.15) !important;
 }
 
 .tableSlot {
@@ -177,7 +175,6 @@
   flex-direction: column;
 }
 
-/* Tabulator cell helpers (formatters set these class names on elements) */
 .tableSlot :global(.st-from-name),
 .tableSlot :global(.st-to-name) {
   font-weight: 600;
@@ -215,8 +212,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -232,7 +228,7 @@
     rgba(255, 255, 255, 0.75) 0%,
     rgba(255, 243, 214, 0.95) 100%
   );
-  border-color: rgba(201, 147, 45, 0.35);
+  border-color: rgba(126, 42, 51, 0.35);
 }
 
 .tableSlot :global(.st-status-approved) {
@@ -308,7 +304,7 @@
 }
 
 .tableSlot :global(.st-btn-danger) {
-  background: #fffef9;
+  background: #ffffff;
   border: 1px solid rgba(185, 80, 80, 0.45);
   color: #9f2d2d;
 }

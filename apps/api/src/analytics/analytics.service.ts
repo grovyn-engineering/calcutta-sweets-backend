@@ -1,47 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { OrderStatus } from '@calcutta/database';
+import { OrderStatus, Prisma } from '@calcutta/database';
 import { PrismaService } from '../prisma.service';
-
-function utcDayKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function utcDayStart(isoDate: string): Date {
-  return new Date(`${isoDate}T00:00:00.000Z`);
-}
-
-function addUtcDays(isoDate: string, delta: number): string {
-  const t = utcDayStart(isoDate);
-  t.setUTCDate(t.getUTCDate() + delta);
-  return utcDayKey(t);
-}
-
-function utcMonthKey(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
-}
-
-function monthToUtcStart(month: string): Date {
-  const m = month.match(/^(\d{4})-(\d{2})$/);
-  if (!m) throw new BadRequestException('month must be YYYY-MM');
-  const year = Number(m[1]);
-  const monthNum = Number(m[2]);
-  if (monthNum < 1 || monthNum > 12) {
-    throw new BadRequestException('month must be YYYY-MM');
-  }
-  return new Date(Date.UTC(year, monthNum - 1, 1));
-}
-
-function utcMonthStartFromDate(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-}
-
-function addUtcMonths(date: Date, delta: number): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1),
-  );
-}
+import { dec, money, num } from '../common/money';
+import {
+  addDays,
+  addMonths,
+  istDayKey,
+  istDayStart,
+  istMonthKey,
+  istMonthStart,
+} from '../common/ist';
 
 type ReportsSummaryQuery = {
   days: number;
@@ -51,48 +19,107 @@ type ReportsSummaryQuery = {
   bucket: 'day' | 'month';
 };
 
-function buildReportsRange(
-  now: Date,
-  query: ReportsSummaryQuery,
-): {
-  startKey: string;
-  endKey: string;
-  rangeStart: Date;
-  rangeEndExclusive: Date;
-} {
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^(\d{4})-(\d{2})$/;
+
+function assertMonth(month: string) {
+  const m = month.match(MONTH_RE);
+  if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) {
+    throw new BadRequestException('month must be YYYY-MM');
+  }
+}
+
+/**
+ * Single definition of "revenue" used by every screen: settled sales only.
+ * DRAFT (unpaid website orders), PENDING and CANCELLED bills are excluded.
+ */
+function revenueWhere(shopCode: string, from: Date, to?: Date) {
+  return {
+    shopCode,
+    status: OrderStatus.PAID,
+    createdAt: { gte: from, ...(to ? { lt: to } : {}) },
+  } satisfies Prisma.OrderWhereInput;
+}
+
+/** Day ranges are IST calendar days (`YYYY-MM-DD`), inclusive of both ends. */
+function buildReportsRange(now: Date, query: ReportsSummaryQuery) {
   if (query.month) {
-    const monthStart = monthToUtcStart(query.month);
-    const monthEndExclusive = addUtcMonths(monthStart, 1);
-    const endKey = addUtcDays(utcDayKey(monthEndExclusive), -1);
+    assertMonth(query.month);
+    const next = addMonths(query.month, 1);
     return {
-      startKey: utcDayKey(monthStart),
-      endKey,
-      rangeStart: monthStart,
-      rangeEndExclusive: monthEndExclusive,
+      startKey: `${query.month}-01`,
+      endKey: addDays(`${next}-01`, -1),
+      rangeStart: istMonthStart(query.month),
+      rangeEndExclusive: istMonthStart(next),
     };
   }
 
   if (query.start && query.end) {
-    const startD = utcDayStart(query.start);
-    const endD = utcDayStart(query.end);
-    if (endD < startD) {
+    if (!DAY_RE.test(query.start) || !DAY_RE.test(query.end)) {
+      throw new BadRequestException('start and end must be YYYY-MM-DD');
+    }
+    if (query.end < query.start) {
       throw new BadRequestException('end must be on or after start');
     }
     return {
-      startKey: utcDayKey(startD),
-      endKey: utcDayKey(endD),
-      rangeStart: startD,
-      rangeEndExclusive: utcDayStart(addUtcDays(utcDayKey(endD), 1)),
+      startKey: query.start,
+      endKey: query.end,
+      rangeStart: istDayStart(query.start),
+      rangeEndExclusive: istDayStart(addDays(query.end, 1)),
     };
   }
 
-  const todayKey = utcDayKey(now);
-  const startKey = addUtcDays(todayKey, -(query.days - 1));
+  const todayKey = istDayKey(now);
+  const startKey = addDays(todayKey, -(query.days - 1));
   return {
     startKey,
     endKey: todayKey,
-    rangeStart: utcDayStart(startKey),
-    rangeEndExclusive: utcDayStart(addUtcDays(todayKey, 1)),
+    rangeStart: istDayStart(startKey),
+    rangeEndExclusive: istDayStart(addDays(todayKey, 1)),
+  };
+}
+
+function dayCount(startKey: string, endKey: string) {
+  return (
+    Math.round(
+      (Date.parse(`${endKey}T00:00:00Z`) -
+        Date.parse(`${startKey}T00:00:00Z`)) /
+        86_400_000,
+    ) + 1
+  );
+}
+
+type Bucket = { revenue: Prisma.Decimal; orderCount: number };
+
+function emptyBuckets(keys: string[]) {
+  return new Map<string, Bucket>(
+    keys.map((k) => [k, { revenue: dec(0), orderCount: 0 }]),
+  );
+}
+
+function fill(
+  buckets: Map<string, Bucket>,
+  orders: { createdAt: Date; totalAmount: Prisma.Decimal }[],
+  keyOf: (d: Date) => string,
+) {
+  for (const o of orders) {
+    const b = buckets.get(keyOf(o.createdAt));
+    if (b) {
+      b.revenue = b.revenue.add(o.totalAmount);
+      b.orderCount += 1;
+    }
+  }
+  return [...buckets.entries()].map(([date, b]) => ({
+    date,
+    revenue: num(b.revenue),
+    orderCount: b.orderCount,
+  }));
+}
+
+function totalsOf(orders: { totalAmount: Prisma.Decimal }[]) {
+  return {
+    orderCount: orders.length,
+    revenue: num(orders.reduce((s, o) => s.add(o.totalAmount), dec(0))),
   };
 }
 
@@ -102,14 +129,12 @@ export class AnalyticsService {
 
   async getDashboard(shopCode: string) {
     const now = new Date();
-    const todayKey = utcDayKey(now);
-    const todayStart = utcDayStart(todayKey);
-    const tomorrowStart = utcDayStart(addUtcDays(todayKey, 1));
-    const monthStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-    );
-    const sevenStartKey = addUtcDays(todayKey, -6);
-    const sevenStart = utcDayStart(sevenStartKey);
+    const todayKey = istDayKey(now);
+    const todayStart = istDayStart(todayKey);
+    const tomorrowStart = istDayStart(addDays(todayKey, 1));
+    const monthStart = istMonthStart(istMonthKey(now));
+    const sevenStartKey = addDays(todayKey, -6);
+    const sevenStart = istDayStart(sevenStartKey);
 
     const [
       todayAgg,
@@ -122,34 +147,29 @@ export class AnalyticsService {
       paymentToday,
     ] = await Promise.all([
       this.prisma.order.aggregate({
-        where: {
-          shopCode,
-          createdAt: { gte: todayStart, lt: tomorrowStart },
-        },
+        where: revenueWhere(shopCode, todayStart, tomorrowStart),
         _count: { id: true },
         _sum: { totalAmount: true },
       }),
       this.prisma.order.aggregate({
-        where: { shopCode, createdAt: { gte: monthStart } },
+        where: revenueWhere(shopCode, monthStart),
         _count: { id: true },
         _sum: { totalAmount: true },
       }),
       this.prisma.order.findMany({
-        where: { shopCode, createdAt: { gte: sevenStart } },
+        where: revenueWhere(shopCode, sevenStart),
         select: { createdAt: true, totalAmount: true },
       }),
       this.prisma.order.findMany({
-        where: { shopCode },
+        where: { shopCode, status: { not: OrderStatus.DRAFT } },
         orderBy: { createdAt: 'desc' },
         take: 8,
         include: { _count: { select: { items: true } } },
       }),
       this.prisma.product.count({ where: { shopCode } }),
-      this.prisma.productVariant.count({
-        where: { product: { shopCode } },
-      }),
+      this.prisma.productVariant.count({ where: { shopCode } }),
       this.prisma.productVariant.findMany({
-        where: { product: { shopCode } },
+        where: { shopCode },
         select: {
           id: true,
           name: true,
@@ -160,44 +180,24 @@ export class AnalyticsService {
       }),
       this.prisma.order.groupBy({
         by: ['paymentMethod'],
-        where: {
-          shopCode,
-          createdAt: { gte: todayStart, lt: tomorrowStart },
-        },
+        where: revenueWhere(shopCode, todayStart, tomorrowStart),
         _count: { id: true },
         _sum: { totalAmount: true },
       }),
     ]);
 
-    const dayKeys: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      dayKeys.push(addUtcDays(sevenStartKey, i));
-    }
-
-    const byDay = new Map<string, { revenue: number; orderCount: number }>();
-    for (const k of dayKeys) {
-      byDay.set(k, { revenue: 0, orderCount: 0 });
-    }
-    for (const o of chartOrders) {
-      const k = utcDayKey(o.createdAt);
-      const b = byDay.get(k);
-      if (b) {
-        b.revenue += o.totalAmount;
-        b.orderCount += 1;
-      }
-    }
-
-    const last7Days = dayKeys.map((date) => {
-      const b = byDay.get(date)!;
-      return { date, revenue: b.revenue, orderCount: b.orderCount };
-    });
+    const dayKeys = Array.from({ length: 7 }, (_, i) =>
+      addDays(sevenStartKey, i),
+    );
+    const last7Days = fill(emptyBuckets(dayKeys), chartOrders, istDayKey);
 
     const lowStockAll = variantsForStock.filter(
       (v) =>
-        v.quantity <= 0 || (v.minStock != null && v.quantity <= v.minStock),
+        dec(v.quantity).lte(0) ||
+        (v.minStock != null && dec(v.quantity).lte(v.minStock)),
     );
     const lowStockVariants = lowStockAll
-      .sort((a, b) => a.quantity - b.quantity)
+      .sort((a, b) => num(a.quantity) - num(b.quantity))
       .slice(0, 10)
       .map((v) => ({
         id: v.id,
@@ -212,11 +212,11 @@ export class AnalyticsService {
       generatedAt: now.toISOString(),
       today: {
         orderCount: todayAgg._count.id,
-        revenue: todayAgg._sum.totalAmount ?? 0,
+        revenue: num(todayAgg._sum.totalAmount),
       },
       monthToDate: {
         orderCount: monthAgg._count.id,
-        revenue: monthAgg._sum.totalAmount ?? 0,
+        revenue: num(monthAgg._sum.totalAmount),
       },
       last7Days,
       catalog: {
@@ -227,10 +227,11 @@ export class AnalyticsService {
       paymentToday: paymentToday.map((p) => ({
         paymentMethod: p.paymentMethod,
         orderCount: p._count.id,
-        revenue: p._sum.totalAmount ?? 0,
+        revenue: num(p._sum.totalAmount),
       })),
       recentOrders: recentOrders.map((o) => ({
         id: o.id,
+        billNo: o.billNo,
         createdAt: o.createdAt.toISOString(),
         totalAmount: o.totalAmount,
         paymentMethod: o.paymentMethod,
@@ -244,11 +245,8 @@ export class AnalyticsService {
   }
 
   /**
-   * Revenue for an explicit calendar day, or an inclusive date range, plus a
-   * per-day breakdown. Powers the Overview "Revenue explorer" card so a single
-   * date (start === end) reads the same as the "Today" card: like getDashboard,
-   * this counts ALL orders regardless of status (no DRAFT exclusion), unlike
-   * getReportsSummary. All boundaries are UTC calendar days.
+   * Revenue for an IST calendar day or inclusive day range, plus a per-day breakdown.
+   * Uses the same PAID-only definition as the dashboard and reports.
    */
   async getRevenueBreakdown(
     shopCode: string,
@@ -256,66 +254,25 @@ export class AnalyticsService {
   ) {
     const now = new Date();
     const { startKey, endKey, rangeStart, rangeEndExclusive } =
-      buildReportsRange(now, {
-        days: query.days,
-        start: query.start,
-        end: query.end,
-        bucket: 'day',
-      });
-    const days =
-      Math.max(
-        1,
-        Math.round(
-          (rangeEndExclusive.getTime() - rangeStart.getTime()) /
-            (24 * 60 * 60 * 1000),
-        ),
-      ) || 1;
+      buildReportsRange(now, { ...query, bucket: 'day' });
+    const days = dayCount(startKey, endKey);
     if (days > 366) {
       throw new BadRequestException('date range cannot exceed 366 days');
     }
 
     const ordersInRange = await this.prisma.order.findMany({
-      where: {
-        shopCode,
-        createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-      },
+      where: revenueWhere(shopCode, rangeStart, rangeEndExclusive),
       select: { createdAt: true, totalAmount: true },
     });
 
-    const buckets = new Map<string, { revenue: number; orderCount: number }>();
-    for (let i = 0; i < days; i++) {
-      buckets.set(addUtcDays(startKey, i), { revenue: 0, orderCount: 0 });
-    }
-    for (const o of ordersInRange) {
-      const b = buckets.get(utcDayKey(o.createdAt));
-      if (b) {
-        b.revenue += o.totalAmount;
-        b.orderCount += 1;
-      }
-    }
-
-    const daily = [...buckets.entries()].map(([date, b]) => ({
-      date,
-      revenue: b.revenue,
-      orderCount: b.orderCount,
-    }));
-
-    const totals = ordersInRange.reduce(
-      (acc, o) => {
-        acc.orderCount += 1;
-        acc.revenue += o.totalAmount;
-        return acc;
-      },
-      { orderCount: 0, revenue: 0 },
-    );
-
+    const keys = Array.from({ length: days }, (_, i) => addDays(startKey, i));
     return {
       shopCode,
       days,
       range: { start: startKey, end: endKey },
       generatedAt: now.toISOString(),
-      totals,
-      daily,
+      totals: totalsOf(ordersInRange),
+      daily: fill(emptyBuckets(keys), ordersInRange, istDayKey),
     };
   }
 
@@ -323,110 +280,87 @@ export class AnalyticsService {
     const now = new Date();
     const { startKey, endKey, rangeStart, rangeEndExclusive } =
       buildReportsRange(now, query);
-    const days =
-      Math.max(
-        1,
-        Math.round(
-          (rangeEndExclusive.getTime() - rangeStart.getTime()) /
-            (24 * 60 * 60 * 1000),
-        ),
-      ) || 1;
+    const days = dayCount(startKey, endKey);
+    const where = revenueWhere(shopCode, rangeStart, rangeEndExclusive);
 
     const [ordersInRange, paymentMix, itemsInRange] = await Promise.all([
       this.prisma.order.findMany({
-        where: {
-          shopCode,
-          createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-          status: { not: OrderStatus.DRAFT },
-        },
+        where,
         select: { createdAt: true, totalAmount: true },
       }),
       this.prisma.order.groupBy({
         by: ['paymentMethod'],
-        where: {
-          shopCode,
-          createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-          status: { not: OrderStatus.DRAFT },
-        },
+        where,
         _count: { id: true },
         _sum: { totalAmount: true },
       }),
       this.prisma.orderItem.findMany({
-        where: {
-          order: {
-            shopCode,
-            createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-            status: { not: OrderStatus.DRAFT },
-          },
-        },
+        where: { order: where },
         select: {
           quantity: true,
           price: true,
           customName: true,
-          product: { select: { name: true } },
+          productName: true,
+          order: { select: { totalAmount: true, discount: true } },
         },
       }),
     ]);
 
-    const buckets = new Map<string, { revenue: number; orderCount: number }>();
+    let daily: { date: string; revenue: number; orderCount: number }[];
     if (query.bucket === 'month') {
-      let cur = utcMonthStartFromDate(rangeStart);
-      const endMonth = utcMonthStartFromDate(utcDayStart(endKey));
-      while (cur.getTime() <= endMonth.getTime()) {
-        buckets.set(`${utcMonthKey(cur)}-01`, { revenue: 0, orderCount: 0 });
-        cur = addUtcMonths(cur, 1);
+      const keys: string[] = [];
+      for (
+        let m = startKey.slice(0, 7);
+        m <= endKey.slice(0, 7);
+        m = addMonths(m, 1)
+      ) {
+        keys.push(`${m}-01`);
       }
-      for (const o of ordersInRange) {
-        const k = `${utcMonthKey(o.createdAt)}-01`;
-        const b = buckets.get(k);
-        if (b) {
-          b.revenue += o.totalAmount;
-          b.orderCount += 1;
-        }
-      }
+      daily = fill(
+        emptyBuckets(keys),
+        ordersInRange,
+        (d) => `${istMonthKey(d)}-01`,
+      );
     } else {
-      for (let i = 0; i < days; i++) {
-        buckets.set(addUtcDays(startKey, i), { revenue: 0, orderCount: 0 });
-      }
-      for (const o of ordersInRange) {
-        const k = utcDayKey(o.createdAt);
-        const b = buckets.get(k);
-        if (b) {
-          b.revenue += o.totalAmount;
-          b.orderCount += 1;
-        }
-      }
+      const keys = Array.from({ length: days }, (_, i) => addDays(startKey, i));
+      daily = fill(emptyBuckets(keys), ordersInRange, istDayKey);
     }
 
-    const daily = [...buckets.entries()].map(([date, b]) => ({
-      date,
-      revenue: b.revenue,
-      orderCount: b.orderCount,
-    }));
-
-    const totals = ordersInRange.reduce(
-      (acc, o) => {
-        acc.orderCount += 1;
-        acc.revenue += o.totalAmount;
-        return acc;
-      },
-      { orderCount: 0, revenue: 0 },
-    );
-
-    const productMap = new Map<string, { qtySold: number; revenue: number }>();
+    // `revenue` is net of each bill's discount (shared pro rata across its lines) so the
+    // product table adds up to the totals; `grossRevenue` is before discount.
+    const productMap = new Map<
+      string,
+      {
+        qtySold: Prisma.Decimal;
+        revenue: Prisma.Decimal;
+        gross: Prisma.Decimal;
+      }
+    >();
     for (const line of itemsInRange) {
-      const name = line.customName || line.product?.name || 'Manual Item';
-      const prev = productMap.get(name) ?? { qtySold: 0, revenue: 0 };
-      prev.qtySold += line.quantity;
-      prev.revenue += line.quantity * line.price;
-      productMap.set(name, prev);
+      const name = line.customName || line.productName || 'Manual Item';
+      const gross = dec(line.quantity).mul(line.price);
+      const orderGross = dec(line.order.totalAmount).add(line.order.discount);
+      const net = orderGross.isZero()
+        ? dec(0)
+        : gross.mul(line.order.totalAmount).div(orderGross);
+      const prev = productMap.get(name) ?? {
+        qtySold: dec(0),
+        revenue: dec(0),
+        gross: dec(0),
+      };
+      productMap.set(name, {
+        qtySold: prev.qtySold.add(line.quantity),
+        revenue: prev.revenue.add(net),
+        gross: prev.gross.add(gross),
+      });
     }
 
     const topProducts = [...productMap.entries()]
       .map(([productName, v]) => ({
         productName,
-        qtySold: v.qtySold,
-        revenue: v.revenue,
+        qtySold: num(v.qtySold),
+        revenue: num(money(v.revenue)),
+        grossRevenue: num(money(v.gross)),
       }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 20);
@@ -437,12 +371,12 @@ export class AnalyticsService {
       bucket: query.bucket,
       range: { start: startKey, end: endKey },
       generatedAt: now.toISOString(),
-      totals,
+      totals: totalsOf(ordersInRange),
       daily,
       paymentMix: paymentMix.map((p) => ({
         paymentMethod: p.paymentMethod,
         orderCount: p._count.id,
-        revenue: p._sum.totalAmount ?? 0,
+        revenue: num(p._sum.totalAmount),
       })),
       topProducts,
     };
@@ -450,31 +384,25 @@ export class AnalyticsService {
 
   async getReportsExportData(shopCode: string, query: ReportsSummaryQuery) {
     const summary = await this.getReportsSummary(shopCode, query);
-    const rangeStart = utcDayStart(summary.range.start);
-    const rangeEndExclusive = utcDayStart(addUtcDays(summary.range.end, 1));
+    const where = revenueWhere(
+      shopCode,
+      istDayStart(summary.range.start),
+      istDayStart(addDays(summary.range.end, 1)),
+    );
 
+    // The dashboard surfaces these caps to the user (reportsExport.ts).
     const ORDERS_CAP = 10_000;
     const LINES_CAP = 50_000;
 
     const [orders, lineRows] = await Promise.all([
       this.prisma.order.findMany({
-        where: {
-          shopCode,
-          status: { not: OrderStatus.DRAFT },
-          createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-        },
+        where,
         orderBy: { createdAt: 'desc' },
         take: ORDERS_CAP,
         include: { _count: { select: { items: true } } },
       }),
       this.prisma.orderItem.findMany({
-        where: {
-          order: {
-            shopCode,
-            status: { not: OrderStatus.DRAFT },
-            createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-          },
-        },
+        where: { order: where },
         orderBy: [{ orderId: 'asc' }, { id: 'asc' }],
         take: LINES_CAP,
         include: {
@@ -488,8 +416,6 @@ export class AnalyticsService {
               paymentMethod: true,
             },
           },
-          product: { select: { name: true } },
-          productVariant: { select: { name: true, barcode: true } },
         },
       }),
     ]);
@@ -499,9 +425,9 @@ export class AnalyticsService {
       billNo: o.billNo,
       createdAt: o.createdAt.toISOString(),
       paymentMethod: o.paymentMethod,
-      totalAmount: o.totalAmount,
-      discount: o.discount ?? 0,
-      tax: o.tax ?? 0,
+      totalAmount: num(o.totalAmount),
+      discount: num(o.discount),
+      tax: num(o.tax),
       status: o.status,
       customerName: o.customerName,
       customerPhone: o.customerPhone,
@@ -509,8 +435,7 @@ export class AnalyticsService {
     }));
 
     const lineItems = lineRows.map((row) => {
-      const qty = Number(row.quantity);
-      const price = Number(row.price);
+      const lineTotal = money(dec(row.quantity).mul(row.price));
       return {
         orderId: row.orderId,
         billNo: row.order.billNo,
@@ -518,12 +443,15 @@ export class AnalyticsService {
         customerName: row.order.customerName,
         customerPhone: row.order.customerPhone,
         paymentMethod: row.order.paymentMethod,
-        productName: row.customName || row.product?.name || 'Manual Item',
-        variantName: row.productVariant?.name ?? null,
-        barcode: row.productVariant?.barcode ?? null,
-        quantity: qty,
-        unitPrice: price,
-        lineTotal: qty * price,
+        productName: row.customName || row.productName || 'Manual Item',
+        variantName: row.variantName ?? null,
+        barcode: row.barcode ?? null,
+        hsnCode: row.hsnCode ?? null,
+        quantity: num(row.quantity),
+        unitPrice: num(row.price),
+        lineTotal: num(lineTotal),
+        taxRate: num(row.taxRate),
+        taxAmount: num(row.taxAmount),
       };
     });
 
@@ -539,22 +467,14 @@ export class AnalyticsService {
   }
 
   /**
-   * Monthly GST-style totals from POS orders. Uses shop CGST/SGST% and stored
-   * inclusive tax; IGST is not modeled (intra-state assumption).
+   * Monthly GST summary for an IST calendar month, from the tax stored on each bill line
+   * at sale time (so later rate changes never rewrite history). Intra-state: CGST/SGST
+   * split in the shop's ratio; IGST is not modelled.
    */
   async getGstMonthlySummary(shopCode: string, month: string) {
-    const m = month.match(/^(\d{4})-(\d{2})$/);
-    if (!m) {
-      throw new BadRequestException('month must be YYYY-MM');
-    }
-    const year = Number(m[1]);
-    const monthNum = Number(m[2]);
-    if (monthNum < 1 || monthNum > 12) {
-      throw new BadRequestException('month must be YYYY-MM');
-    }
-
-    const rangeStart = new Date(Date.UTC(year, monthNum - 1, 1));
-    const rangeEndExclusive = new Date(Date.UTC(year, monthNum, 1));
+    assertMonth(month);
+    const rangeStart = istMonthStart(month);
+    const rangeEndExclusive = istMonthStart(addMonths(month, 1));
 
     const shop = await this.prisma.shop.findUnique({
       where: { shopCode },
@@ -569,52 +489,31 @@ export class AnalyticsService {
       throw new BadRequestException('Shop not found');
     }
 
-    const cgstR = Number(shop.cgstRate ?? 0);
-    const sgstR = Number(shop.sgstRate ?? 0);
-    const combinedR = cgstR + sgstR;
-    const totalRateFraction = combinedR / 100;
+    const where = revenueWhere(shopCode, rangeStart, rangeEndExclusive);
+    const [agg, byRate] = await Promise.all([
+      this.prisma.order.aggregate({
+        where,
+        _count: { id: true },
+        _sum: { totalAmount: true, discount: true, tax: true },
+      }),
+      this.prisma.orderItem.groupBy({
+        by: ['taxRate'],
+        where: { order: where },
+        _sum: { taxAmount: true },
+      }),
+    ]);
 
-    const orders = await this.prisma.order.findMany({
-      where: {
-        shopCode,
-        status: { not: OrderStatus.DRAFT },
-        createdAt: { gte: rangeStart, lt: rangeEndExclusive },
-      },
-      select: {
-        totalAmount: true,
-        tax: true,
-        discount: true,
-      },
-    });
-
-    let grossInclusive = 0;
-    let sumStoredTax = 0;
-    let sumDiscount = 0;
-    for (const o of orders) {
-      grossInclusive += Number(o.totalAmount);
-      sumDiscount += Number(o.discount ?? 0);
-      sumStoredTax += Number(o.tax ?? 0);
-    }
-
-    let totalTax = sumStoredTax;
-    const taxInferred =
-      orders.length > 0 &&
-      sumStoredTax === 0 &&
-      combinedR > 0 &&
-      grossInclusive > 0;
-    if (taxInferred) {
-      totalTax = grossInclusive * (totalRateFraction / (1 + totalRateFraction));
-    }
-
-    const taxableValue = Math.max(0, grossInclusive - totalTax);
-    const denom = cgstR + sgstR;
-    const cgstPayable = denom > 0 ? totalTax * (cgstR / denom) : 0;
-    const sgstPayable = denom > 0 ? totalTax * (sgstR / denom) : 0;
-
-    const fmtMonth = `${year}-${String(monthNum).padStart(2, '0')}`;
+    const cgstR = dec(shop.cgstRate);
+    const sgstR = dec(shop.sgstRate);
+    const combined = cgstR.add(sgstR);
+    const grossInclusive = dec(agg._sum.totalAmount ?? 0);
+    const totalTax = dec(agg._sum.tax ?? 0);
+    const cgstPayable = combined.isZero()
+      ? dec(0)
+      : money(totalTax.mul(cgstR).div(combined));
 
     return {
-      month: fmtMonth,
+      month,
       range: {
         startUtc: rangeStart.toISOString(),
         endUtcExclusive: rangeEndExclusive.toISOString(),
@@ -622,18 +521,25 @@ export class AnalyticsService {
       shopCode,
       shopName: shop.name,
       gstNumber: shop.gstNumber,
-      cgstRate: cgstR,
-      sgstRate: sgstR,
-      combinedRatePercent: combinedR,
-      billCount: orders.length,
-      discountTotal: sumDiscount,
-      grossInclusive,
-      taxableValue,
-      totalTax,
-      cgstPayable,
-      sgstPayable,
+      cgstRate: num(cgstR),
+      sgstRate: num(sgstR),
+      combinedRatePercent: num(combined),
+      billCount: agg._count.id,
+      discountTotal: num(agg._sum.discount),
+      grossInclusive: num(grossInclusive),
+      taxableValue: num(grossInclusive.sub(totalTax)),
+      totalTax: num(totalTax),
+      cgstPayable: num(cgstPayable),
+      sgstPayable: num(totalTax.sub(cgstPayable)),
       igstPayable: 0,
-      taxInferred,
+      /** Kept for API compatibility; tax is always taken from stored bill lines now. */
+      taxInferred: false,
+      byRate: byRate
+        .map((r) => ({
+          ratePercent: num(r.taxRate),
+          tax: num(r._sum.taxAmount),
+        }))
+        .sort((a, b) => a.ratePercent - b.ratePercent),
     };
   }
 }

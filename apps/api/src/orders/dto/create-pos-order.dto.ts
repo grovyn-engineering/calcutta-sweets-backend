@@ -7,6 +7,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -27,12 +29,15 @@ export class PosOrderLineDto {
 
   @Type(() => Number)
   @IsNumber()
-  @Min(0.000001)
+  @Min(0.001)
+  @Max(100_000)
   quantity!: number;
 
+  /** For catalog lines this must match the current catalog price; the server prices the line. */
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(10_000_000)
   unitPrice!: number;
 
   @IsOptional()
@@ -74,6 +79,7 @@ export class CreatePosOrderDto {
   @IsString()
   customerGstin?: string;
 
+  /** Flat bill discount in rupees; must not exceed the bill amount (checked in the service). */
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -92,4 +98,11 @@ export class CreatePosOrderDto {
   @ValidateNested({ each: true })
   @Type(() => PosOrderLineDto)
   items!: PosOrderLineDto[];
+}
+
+export class CancelOrderDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }

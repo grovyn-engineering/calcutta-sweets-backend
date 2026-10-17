@@ -1,8 +1,11 @@
-import { Injectable, HttpException } from '@nestjs/common';
+import { Injectable, HttpException, Logger } from '@nestjs/common';
 import * as PaytmChecksum from 'paytmchecksum';
 import axios from 'axios';
 import { PrismaService } from '../prisma.service';
-import { OrderStatus } from '@calcutta/database';
+import { OrderSource, OrderStatus, PaymentMethod } from '@calcutta/database';
+import { dec } from '../common/money';
+import { applyStockChange, LONG_TX } from '../common/stock';
+import { OrdersService } from '../orders/orders.service';
 
 @Injectable()
 export class PaymentService {
@@ -11,8 +14,10 @@ export class PaymentService {
   private readonly website: string;
   private readonly appUrl: string;
   private readonly isProd: boolean;
+  private readonly logger = new Logger(PaymentService.name);
 
   constructor(private readonly prisma: PrismaService) {
+    // Presence/length is enforced in production by validateEnv; placeholders only for local dev.
     this.mid = process.env.PAYTM_MID || 'YOUR_MID';
     this.key = process.env.PAYTM_MERCHANT_KEY || '16CharsLongKeyXX';
     this.website = process.env.PAYTM_WEBSITE || 'WEBSTAGING';
@@ -34,8 +39,26 @@ export class PaymentService {
       : 'https://securegw-stage.paytm.in';
   }
 
-  // STEP A: Initiate - call before showing the payment modal
-  async initiatePayment(orderId: string, amount: number, custId: string) {
+  // STEP A: Initiate - call before showing the payment modal.
+  // The amount is always the stored order total, never a client-supplied value.
+  async initiatePayment(orderId: string, custId?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        status: true,
+        orderSource: true,
+        totalAmount: true,
+        customerPhone: true,
+      },
+    });
+    if (!order || order.orderSource !== OrderSource.WEBSITE) {
+      throw new HttpException('Order not found', 404);
+    }
+    if (order.status !== OrderStatus.DRAFT) {
+      throw new HttpException('Order is not awaiting payment', 400);
+    }
+    const amount = Number(order.totalAmount);
+    custId = custId || order.customerPhone || orderId;
     const body = {
       requestType: 'Payment',
       mid: this.mid,
@@ -129,42 +152,86 @@ export class PaymentService {
     return response.data.body;
   }
 
-  async completeOrder(orderId: string, paymentMethod: string) {
+  /**
+   * Confirms a website order after a successful callback. The paid amount must equal the
+   * stored total (checked against Paytm's status API, not just the callback), and the
+   * DRAFT → PAID flip is conditional so duplicate callbacks cannot double-deduct stock.
+   * Returns true when the order is (now or already) paid.
+   */
+  async completeOrder(
+    orderId: string,
+    callbackAmount: string,
+  ): Promise<boolean> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
     });
-
     if (!order) {
       throw new HttpException('Order not found', 404);
     }
-
-    // If already PAID, skip (prevents double processing)
-    if (order.status === OrderStatus.PAID) {
-      return;
+    if (order.status === OrderStatus.PAID) return true;
+    if (order.status !== OrderStatus.DRAFT) {
+      this.logger.error(
+        `Payment for ${orderId} received while order is ${order.status}`,
+      );
+      return false;
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      // 1. Finalize the order
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: OrderStatus.PAID,
-          paymentMethod,
-        },
-      });
+    let paidAmount = callbackAmount;
+    if (process.env.PAYTM_SKIP_STATUS_VERIFY !== '1') {
+      const status = await this.verifyPayment(orderId);
+      if (status?.resultInfo?.resultStatus !== 'TXN_SUCCESS') {
+        this.logger.error(`Paytm status for ${orderId} is not TXN_SUCCESS`);
+        return false;
+      }
+      paidAmount = status.txnAmount;
+    }
+    if (!dec(paidAmount || 0).eq(order.totalAmount)) {
+      this.logger.error(
+        `Amount mismatch for ${orderId}: paid ${paidAmount}, order total ${order.totalAmount.toString()}`,
+      );
+      return false;
+    }
 
-      // 2. Decrement inventory
-      for (const item of order.items) {
-        if (item.productVariantId) {
-          await tx.productVariant.update({
-            where: { id: item.productVariantId },
-            data: {
-              quantity: { decrement: item.quantity },
-            },
+    return this.prisma
+      .$transaction(async (tx) => {
+        const billNo = await OrdersService.allocateBillNo(
+          tx,
+          order.shopCode,
+          new Date(),
+        );
+        const flipped = await tx.order.updateMany({
+          where: { id: orderId, status: OrderStatus.DRAFT },
+          data: {
+            status: OrderStatus.PAID,
+            paymentMethod: PaymentMethod.ONLINE,
+            billNo,
+          },
+        });
+        if (flipped.count !== 1) {
+          // Another callback won the race; roll back the bill number we just took.
+          throw new AlreadyProcessed();
+        }
+        for (const item of order.items) {
+          if (!item.productVariantId) continue;
+          // The customer has already paid, so this may run the balance negative
+          // (shortage to fulfil) rather than fail.
+          await applyStockChange(tx, {
+            variantId: item.productVariantId,
+            shopCode: order.shopCode,
+            delta: dec(item.quantity).neg(),
+            reason: 'WEB_SALE',
+            refId: order.id,
+            allowNegative: true,
           });
         }
-      }
-    });
+        return true;
+      }, LONG_TX)
+      .catch((e: unknown) => {
+        if (e instanceof AlreadyProcessed) return true;
+        throw e;
+      });
   }
 }
+
+class AlreadyProcessed extends Error {}

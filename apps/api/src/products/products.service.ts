@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { Prisma, Unit } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { qty } from '../common/money';
+import { applyStockChange, nextSequence } from '../common/stock';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -12,32 +14,43 @@ import { UpdateProductDto } from './dto/update-product.dto';
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateBarcode(shopCode: string): Promise<string> {
-    const lastVariant = await this.prisma.productVariant.findFirst({
-      where: {
-        barcode: { startsWith: 'CS' },
-        product: { shopCode },
-      },
-      orderBy: { barcode: 'desc' },
-    });
-
-    let nextNumber = 1;
-    if (lastVariant?.barcode) {
-      const tail = lastVariant.barcode.replace(/^CS/, '');
-      const lastNumber = parseInt(tail, 10);
-      if (!Number.isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    return `CS${nextNumber.toString().padStart(6, '0')}`;
+  /** Next `CS000123`-style barcode from a per-shop counter (no read-max-then-add race). */
+  async generateBarcode(shopCode: string, tx?: Prisma.TransactionClient) {
+    const n = await nextSequence(tx ?? this.prisma, `BARCODE-${shopCode}`);
+    return `CS${n.toString().padStart(6, '0')}`;
   }
 
   async create(createProductDto: CreateProductDto, shopCode: string) {
-    const barcode =
-      createProductDto.barcode ?? (await this.generateBarcode(shopCode));
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const barcode =
+          createProductDto.barcode?.trim() ||
+          (await this.generateBarcode(shopCode, tx));
+        return this.createWithBarcode(tx, createProductDto, shopCode, barcode);
+      });
+    } catch (e) {
+      throw this.mapBarcodeConflict(e);
+    }
+  }
 
-    return this.prisma.product.create({
+  private mapBarcodeConflict(e: unknown) {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === 'P2002'
+    ) {
+      return new ConflictException('That barcode is already used in this shop');
+    }
+    return e;
+  }
+
+  private async createWithBarcode(
+    tx: Prisma.TransactionClient,
+    createProductDto: CreateProductDto,
+    shopCode: string,
+    barcode: string,
+  ) {
+    const quantity = qty(createProductDto.quantity ?? 0);
+    const product = await tx.product.create({
       data: {
         name: createProductDto.name,
         description: createProductDto.description,
@@ -48,10 +61,11 @@ export class ProductsService {
           : {}),
         variants: {
           create: {
+            shopCode,
             name: createProductDto.variantName?.trim() || 'Regular',
             price: createProductDto.price,
             barcode,
-            quantity: createProductDto.quantity ?? 0,
+            quantity: 0,
             unit: createProductDto.unit ?? Unit.PC,
             ...(createProductDto.costPrice !== undefined
               ? { costPrice: createProductDto.costPrice }
@@ -66,6 +80,19 @@ export class ProductsService {
           },
         },
       },
+      include: { variants: true, category: true },
+    });
+    if (quantity.gt(0)) {
+      await applyStockChange(tx, {
+        variantId: product.variants[0].id,
+        shopCode,
+        delta: quantity,
+        reason: 'ADJUSTMENT',
+        note: 'Opening stock',
+      });
+    }
+    return tx.product.findUniqueOrThrow({
+      where: { id: product.id },
       include: { variants: true, category: true },
     });
   }
@@ -219,11 +246,7 @@ export class ProductsService {
           if (barcode !== undefined) {
             const next = barcode.trim();
             const taken = await tx.productVariant.findFirst({
-              where: {
-                barcode: next,
-                NOT: { id: variant.id },
-                product: { shopCode },
-              },
+              where: { barcode: next, NOT: { id: variant.id }, shopCode },
             });
             if (taken) {
               throw new ConflictException(
@@ -248,6 +271,10 @@ export class ProductsService {
     });
   }
 
+  /**
+   * Deletes the product with its variants and images (FK cascade). Past order lines keep
+   * their name/price snapshot; their product/variant links become NULL.
+   */
   async remove(id: string, shopCode: string) {
     await this.findOneForShop(id, shopCode);
     return this.prisma.product.delete({

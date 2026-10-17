@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Body,
   Controller,
   Delete,
@@ -67,6 +68,14 @@ export class UsersController {
         'You can only create users for your assigned shop',
       );
     }
+    if (
+      actor.role !== UserRole.SUPER_ADMIN &&
+      (dto.role === UserRole.ADMIN || dto.role === UserRole.SUPER_ADMIN)
+    ) {
+      throw new ForbiddenException(
+        'Only a super admin can create ADMIN or SUPER_ADMIN users',
+      );
+    }
     return this.usersService.create({
       ...dto,
       shopCode,
@@ -81,7 +90,11 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.usersService.update(id, dto, req.effectiveShopCode!);
+    const actor = req.user as User;
+    return this.usersService.update(id, dto, req.effectiveShopCode!, {
+      id: actor.id,
+      role: actor.role,
+    });
   }
 
   @Delete(':id')

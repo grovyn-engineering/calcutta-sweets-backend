@@ -17,7 +17,7 @@ import { Printer } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { CategoryProductsTabulator } from "@/components/CategoryProductsTabulator/CategoryProductsTabulator";
+import { CategoryProductsTable } from "@/components/CategoryProductsTable/CategoryProductsTable";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
@@ -453,7 +453,7 @@ export default function CategoryDetailPage() {
         aria-label="Products in category"
       >
         <p className={styles.sectionLabel}>Products in this shop</p>
-        <CategoryProductsTabulator
+        <CategoryProductsTable
           categoryId={categoryId}
           refreshKey={detailVersion}
           onOpenVariant={onOpenVariant}

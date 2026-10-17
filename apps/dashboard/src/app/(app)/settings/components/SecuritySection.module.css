@@ -16,14 +16,10 @@
   align-items: flex-start;
   margin: 0 0 1.25rem;
   padding: 0.9rem 1rem;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--ochre-200);
-  background: linear-gradient(
-    180deg,
-    var(--ochre-10) 0%,
-    rgba(255, 254, 249, 0.92) 100%
-  );
-  box-shadow: 0 1px 2px rgba(44, 24, 16, 0.04);
+  background: var(--surface-subtle);
+  box-shadow: none;
 }
 
 .ledeIcon {
@@ -35,7 +31,7 @@
   height: 2.25rem;
   margin-top: 1px;
   border-radius: 10px;
-  background: rgba(201, 147, 45, 0.18);
+  background: rgba(126, 42, 51, 0.18);
   color: var(--ochre-700);
 }
 
@@ -83,10 +79,10 @@
 }
 
 .form :global(.ant-input-affix-wrapper) {
-  border-radius: 12px;
+  border-radius: 10px;
   border-color: var(--pearl-bush);
-  background: #fffef9 !important;
-  box-shadow: 0 1px 2px rgba(44, 24, 16, 0.04);
+  background: #ffffff !important;
+  box-shadow: none;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -98,7 +94,7 @@
 
 .form :global(.ant-input-affix-wrapper-focused) {
   border-color: var(--ochre-400) !important;
-  box-shadow: 0 0 0 3px var(--ochre-10) !important;
+  box-shadow: var(--ring) !important;
 }
 
 .form :global(.ant-input-affix-wrapper .ant-input) {
@@ -119,17 +115,12 @@
 .submit {
   position: relative;
   margin-top: 0.5rem;
-  width: 100%;
-  max-width: 22rem;
-  height: 46px !important;
-  border-radius: 12px !important;
-  font-weight: 600 !important;
 }
 
 @media (min-width: 768px) {
   .submit {
     width: auto;
-    min-width: 16rem;
+    min-width: 12rem;
   }
 }
 
@@ -146,14 +137,10 @@
   gap: 0.5rem;
   padding: 1.25rem 1rem;
   margin-bottom: 1.25rem;
-  border-radius: 14px;
+  border-radius: 10px;
   border: 1px solid var(--pearl-bush);
-  background: linear-gradient(
-    180deg,
-    var(--linen-95) 0%,
-    rgba(255, 254, 249, 0.98) 100%
-  );
-  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.05);
+  background: var(--surface-subtle);
+  box-shadow: none;
 }
 
 .emailIcon {
@@ -191,7 +178,7 @@
 .step2Actions :global(.ant-btn) {
   flex: 1;
   height: 44px !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   font-weight: 600 !important;
 }
 
@@ -241,7 +228,7 @@
   margin-top: 0.25rem;
   min-width: 10rem;
   height: 44px !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   font-weight: 600 !important;
   background: var(--ochre-600) !important;
   border-color: var(--ochre-600) !important;

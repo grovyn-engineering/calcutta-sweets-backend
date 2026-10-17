@@ -259,6 +259,7 @@ function BillingPosManualSectionInner({
         label: 'Stock',
         field: 'quantity',
         width: 100,
+        align: 'right',
         render: (_, row) => {
           const r = row as ApiVariantRow;
           return `${r.quantity ?? 0} ${r.unit ?? 'PC'}`;
@@ -269,6 +270,7 @@ function BillingPosManualSectionInner({
         label: 'Price',
         field: 'price',
         width: 90,
+        align: 'right',
         render: (val) => inr.format(Number(val) || 0),
       },
       {
@@ -382,7 +384,7 @@ function BillingPosManualSectionInner({
       </div>
 
       <div className={styles.wrap}>
-        <div className={styles.tabulatorInner}>
+        <div className={styles.tableSlot}>
           <DataTable
             key={`${shopCode}-${hideBarcodeColumn ? 'i' : 's'}`}
             columns={columns}

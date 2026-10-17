@@ -144,7 +144,7 @@ export function ProductCard({ product, badge, onAdd }: PosProps) {
   return (
     <div className="relative flex w-full min-w-0 flex-col self-start rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] shadow-sm transition-colors hover:border-[var(--ochre-200)] [height:fit-content] max-h-none">
       {badge === "SEASONAL" && (
-        <span className="absolute right-2 top-2 z-10 rounded-full border border-[var(--ochre-200)] bg-[var(--ochre-100)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--ochre-600)]">
+        <span className="absolute right-2 top-2 z-10 rounded-full border border-[var(--ochre-200)] bg-[var(--ochre-100)] px-2 py-0.5 text-xs font-medium text-[var(--ochre-600)]">
           Seasonal
         </span>
       )}

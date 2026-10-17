@@ -17,12 +17,14 @@ import { SettingsModule } from './settings/settings.module';
 import { PublicModule } from './public/public.module';
 import { PaymentModule } from './payment/payment.module';
 import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
+import { validateEnv } from './common/env.validation';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnv,
     }),
     PrismaModule,
     ShopsModule,

@@ -122,7 +122,7 @@ export function ActivityNotificationsBell() {
           aria-label="Activity notifications"
         >
           <Badge count={loading ? 0 : count} size="small" offset={[-2, 2]}>
-            <Bell className={styles.bellIcon} strokeWidth={1.75} size={20} />
+            <Bell className={styles.bellIcon} strokeWidth={1.8} size={18} />
           </Badge>
         </button>
       </Dropdown>

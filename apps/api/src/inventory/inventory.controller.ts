@@ -29,6 +29,10 @@ import { InventoryService } from './inventory.service';
 import { BulkDeleteVariantsDto } from './dto/bulk-delete-variants.dto';
 import { CloneCatalogDto } from './dto/clone-catalog.dto';
 import { UpdateVariantDto } from './dto/update-variant.dto';
+import { PurgeShopCatalogDto } from './dto/purge-shop-catalog.dto';
+import { UserRole } from '@calcutta/database';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
@@ -48,9 +52,15 @@ export class InventoryController {
     );
   }
 
+  /** Wipes the shop's catalog only. Super admin, with the shop code typed back as confirmation. */
   @Post('purge-shop-catalog')
   @RequirePermission('canAccessInventory')
-  purgeShopCatalog(@Req() req: Request) {
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  purgeShopCatalog(@Req() req: Request, @Body() body: PurgeShopCatalogDto) {
+    if (body.confirmShopCode !== req.effectiveShopCode) {
+      throw new BadRequestException('Type the shop code to confirm the purge');
+    }
     return this.shopCatalogPurgeService.purgeCurrentShop(
       req.effectiveShopCode!,
     );
@@ -126,7 +136,12 @@ export class InventoryController {
     @Param('id') id: string,
     @Body() dto: UpdateVariantDto,
   ) {
-    return this.inventoryService.updateVariant(id, dto, req.effectiveShopCode!);
+    return this.inventoryService.updateVariant(
+      id,
+      dto,
+      req.effectiveShopCode!,
+      req.user?.id,
+    );
   }
 
   @Post('upload')

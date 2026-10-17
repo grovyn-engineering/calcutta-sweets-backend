@@ -27,7 +27,7 @@
   border: 1px solid var(--ochre-200);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 4px 14px rgba(166, 124, 35, 0.12);
+    0 4px 14px rgba(102, 33, 42, 0.12);
 }
 
 .heroIconSvg {
@@ -43,8 +43,7 @@
 .eyebrow {
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--ochre-600);
   margin: 0 0 0.35rem;
 }

@@ -47,7 +47,7 @@ export function TaxSettings() {
         }
     }, [currentShop, form]);
 
-    const onFinish = async (values: any) => {
+    const onFinish = async (values: { cgstRate: number; sgstRate: number }) => {
         if (!currentShop) return;
         setLoading(true);
         try {
@@ -62,8 +62,8 @@ export function TaxSettings() {
             setTimeout(() => {
               window.location.reload();
             }, 1000);
-        } catch (e: any) {
-            message.error(e.message || "An error occurred");
+        } catch (e: unknown) {
+            message.error(e instanceof Error ? e.message : "An error occurred");
         } finally {
             setLoading(false);
         }
@@ -166,10 +166,6 @@ export function TaxSettings() {
                       loading={loading}
                       size="large"
                       className={styles.submit}
-                      style={{
-                        backgroundColor: "var(--ochre-600)",
-                        borderColor: "var(--ochre-600)",
-                      }}
                     >
                       Save configuration
                     </Button>

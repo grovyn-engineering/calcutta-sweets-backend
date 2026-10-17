@@ -64,8 +64,7 @@
 .searchLabel {
   font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--bistre-500);
   margin: 0;
   line-height: 1.2;
@@ -108,7 +107,7 @@
 
 .toolbarBtn:global(.ant-btn) {
   border-color: rgba(44, 24, 16, 0.12) !important;
-  background: linear-gradient(180deg, #fffef9 0%, var(--linen-100) 100%) !important;
+  background: linear-gradient(180deg, #ffffff 0%, var(--linen-100) 100%) !important;
   color: var(--bistre-800) !important;
 }
 
@@ -151,8 +150,8 @@
   border-color: var(--ochre-400) !important;
   background: #ffffff !important;
   box-shadow:
-    0 4px 12px rgba(201, 147, 45, 0.05),
-    0 0 0 4px rgba(201, 147, 45, 0.15) !important;
+    0 4px 12px rgba(126, 42, 51, 0.05),
+    0 0 0 4px rgba(126, 42, 51, 0.15) !important;
 }
 
 .searchInput :global(.ant-input) {
@@ -195,8 +194,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--bistre-700);
   background: linear-gradient(
     180deg,
@@ -241,7 +239,7 @@
   border-radius: 50%;
   background: var(--ochre-500);
   vertical-align: 0.1em;
-  box-shadow: 0 0 0 2px rgba(201, 147, 45, 0.25);
+  box-shadow: 0 0 0 2px rgba(126, 42, 51, 0.25);
 }
 
 :global(.inventory-min-stock) {

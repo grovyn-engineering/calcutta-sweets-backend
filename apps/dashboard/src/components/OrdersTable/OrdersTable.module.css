@@ -14,13 +14,11 @@
 }
 
 :global(.ant-input-affix-wrapper).searchInput {
-  min-height: 48px;
-  border-radius: 12px;
-  border-color: rgba(44, 24, 16, 0.08);
+  min-height: 40px;
+  border-radius: 8px;
+  border-color: var(--border-strong);
   background: #ffffff !important;
-  box-shadow: 
-    0 2px 4px rgba(44, 24, 16, 0.02),
-    0 1px 2px rgba(44, 24, 16, 0.04);
+  box-shadow: none;
   padding-left: 16px;
   padding-right: 16px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -30,9 +28,7 @@
 :global(.ant-input-affix-wrapper:focus-within).searchInput {
   border-color: var(--ochre-400) !important;
   background: #ffffff !important;
-  box-shadow: 
-    0 4px 12px rgba(201, 147, 45, 0.05),
-    0 0 0 4px rgba(201, 147, 45, 0.15) !important;
+  box-shadow: var(--ring) !important;
 }
 
 .searchInput :global(.ant-input) {
@@ -53,140 +49,61 @@
   min-width: 0;
 }
 
-.tableSlot :global(.tabulator) {
-  font-size: 13px;
-  line-height: 1.45;
-  border-radius: 12px;
-  border: 1px solid var(--pearl-bush);
-  background: rgba(255, 254, 249, 0.45);
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
-  color: var(--text-primary);
-}
-
-.tableSlot :global(.tabulator .tabulator-header) {
-  position: relative;
-  z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 244, 214, 0.92) 0%,
-    rgba(250, 235, 205, 0.75) 42%,
-    rgba(245, 228, 190, 0.55) 100%
-  );
-  border-bottom: 2px solid rgba(166, 124, 35, 0.35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
-  font-weight: 700;
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--bistre-800);
-}
-
-.tableSlot :global(.tabulator .tabulator-header .tabulator-col) {
-  background: transparent !important;
-  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
-}
-
-.tableSlot :global(.tabulator .tabulator-header .tabulator-col:last-child) {
-  box-shadow: none;
-}
-
-.tableSlot :global(.tabulator .tabulator-header .tabulator-col .tabulator-col-content) {
-  padding: 14px 10px;
-}
-
-.tableSlot :global(.tabulator .tabulator-col .tabulator-col-content) {
-  padding: 11px 10px;
-}
-
-.tableSlot :global(.tabulator .tabulator-row) {
-  border-bottom: 1px solid rgba(232, 226, 217, 0.65);
-  cursor: pointer;
-}
-
-.tableSlot :global(.tabulator .tabulator-row:hover) {
-  filter: brightness(0.98);
-}
-
-.tableSlot :global(.tabulator .tabulator-row.tabulator-row-even) {
-  background: #fffef9;
-}
-
-.tableSlot :global(.tabulator .tabulator-row.tabulator-row-odd) {
-  background: var(--linen-100);
-}
-
-.tableSlot :global(.tabulator .tabulator-row .tabulator-cell) {
-  border-right: 1px solid rgba(232, 226, 217, 0.35);
-  padding: 11px 10px;
-  vertical-align: middle;
-}
-
-.tableSlot :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
-  border-right: none;
-}
-
-.tableSlot :global(.tabulator .tabulator-footer) {
-  background: linear-gradient(180deg, var(--parchment) 0%, var(--linen-95) 100%);
-  border-top: 1px solid var(--pearl-bush);
-  padding: 10px 12px;
-}
-
-.tableSlot :global(.tabulator .tabulator-footer .tabulator-page) {
-  border-radius: 10px;
-  border: 1px solid var(--pearl-bush);
-  background: #fffef9;
-  color: var(--bistre-600);
-  padding: 5px 10px;
-  margin: 0 2px;
-  font-weight: 600;
-  min-width: 2rem;
-}
-
-.tableSlot :global(.tabulator .tabulator-footer .tabulator-page.active) {
-  background: linear-gradient(180deg, var(--ochre-400) 0%, var(--ochre-500) 100%);
-  border-color: var(--ochre-500);
-  color: #fff;
-}
-
-.tableSlot :global(.tabulator .tabulator-footer select) {
-  border-radius: 10px;
-  border: 1px solid var(--pearl-bush);
-  padding: 5px 8px;
-}
-
-.tableSlot :global(.tabulator .tabulator-placeholder) {
-  padding: 2rem 1rem;
-  color: var(--text-muted);
-}
-
 .tableSlot :global(.orders-pay-pill) {
   display: inline-flex;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
 .tableSlot :global(.orders-pay-pill--cash) {
-  color: #3d5538;
-  background: rgba(80, 140, 90, 0.16);
-  border: 1px solid rgba(80, 140, 90, 0.35);
+  color: var(--bistre-700);
+  background: var(--linen-90);
+  border: 0;
 }
 
 .tableSlot :global(.orders-pay-pill--upi) {
-  color: #4a3d8c;
-  background: rgba(100, 80, 180, 0.12);
-  border: 1px solid rgba(100, 80, 180, 0.28);
+  color: var(--bistre-700);
+  background: var(--linen-90);
+  border: 0;
+}
+
+.tableSlot :global(.orders-source-pill) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bistre-700);
+  font-weight: 500;
+}
+
+.tableSlot :global(.orders-source-pill svg) {
+  color: var(--bistre-400);
 }
 
 .tableSlot :global(.orders-status-pill) {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--bistre-600);
+  background: var(--linen-90);
+}
+
+.tableSlot :global(.orders-status-pill--paid) {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.tableSlot :global(.orders-status-pill--cancelled) {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.tableSlot :global(.orders-status-pill--pending) {
+  color: var(--warning);
+  background: var(--warning-bg);
 }
 
 .tableSlot :global(.orders-bill-ref) {

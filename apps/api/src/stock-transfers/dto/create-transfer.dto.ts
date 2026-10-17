@@ -3,8 +3,11 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
-  IsInt,
+  IsNumber,
+  Max,
   Min,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -18,8 +21,10 @@ export class TransferItemDto {
   @IsString()
   variantName: string;
 
-  @IsInt()
-  @Min(1)
+  /** Inventory units; fractional for KG items (e.g. 0.5). */
+  @IsNumber()
+  @Min(0.001)
+  @Max(100_000)
   quantity: number;
 }
 
@@ -29,6 +34,8 @@ export class CreateTransferDto {
   note?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
   @ValidateNested({ each: true })
   @Type(() => TransferItemDto)
   items: TransferItemDto[];

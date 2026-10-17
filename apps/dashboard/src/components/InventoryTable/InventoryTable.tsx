@@ -27,6 +27,7 @@ import {
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShop } from "@/contexts/ShopContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Copy,
   Pencil,
@@ -83,6 +84,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const [refillModalOpen, setRefillModalOpen] = useState(false);
   const [cloneCatalogBusy, setCloneCatalogBusy] = useState(false);
   const [purgeCatalogBusy, setPurgeCatalogBusy] = useState(false);
+  const { user: authUser } = useAuth();
   const [deleteSelectedBusy, setDeleteSelectedBusy] = useState(false);
 
   const selectionRef = useRef<Set<string>>(new Set());
@@ -380,15 +382,23 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     Modal.confirm({
       title: "Delete all products for this shop?",
       content:
-        "This permanently removes every product, variant, and stock record for the shop you have selected in the header, and deletes all POS orders for that location. Shared categories used by other shops stay; categories that become empty are removed. This cannot be undone.",
+        "This permanently removes every product, variant, and stock record for the shop you have selected in the header. Orders and bills are kept (they are tax records), and shared categories stay. This cannot be undone.",
       okText: "Delete everything",
       okType: "danger",
       cancelText: "Cancel",
       width: 520,
       onOk: async () => {
+        const typed = window.prompt(`Type the shop code "${shopKey}" to confirm`);
+        if (typed?.trim() !== shopKey) {
+          message.warning("Shop code did not match. Nothing was deleted.");
+          return;
+        }
         setPurgeCatalogBusy(true);
         try {
-          const res = await apiFetch("/inventory/purge-shop-catalog", { method: "POST" });
+          const res = await apiFetch("/inventory/purge-shop-catalog", {
+            method: "POST",
+            body: JSON.stringify({ confirmShopCode: shopKey }),
+          });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
             message.error(typeof data?.message === "string" ? data.message : "Could not delete catalog.");
@@ -495,7 +505,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         <div className="flex flex-1 items-center justify-end gap-2 min-w-[300px] flex-wrap">
           <Input
             id="inventory-search"
-            size="large"
+           
             className="max-w-[260px] rounded-lg"
             allowClear
             placeholder="Search…"
@@ -506,8 +516,8 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           {!shopsLoading && !isFactory && (
             <Button
               type="primary"
-              size="large"
-              className="rounded-lg font-semibold"
+             
+              className="font-medium"
               style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
               icon={<PackagePlus size={16} />}
               onClick={() => setRefillModalOpen(true)}
@@ -518,7 +528,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           {!shopsLoading && !isFactory && (
             <Button
               type="default"
-              size="large"
+             
               className="rounded-lg"
               icon={<Copy size={16} />}
               loading={cloneCatalogBusy}
@@ -527,12 +537,11 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
               Copy Factory
             </Button>
           )}
-          {!shopsLoading && !isFactory && (
+          {!shopsLoading && !isFactory && authUser?.role === "SUPER_ADMIN" && (
             <Button
               danger
-              type="primary"
-              size="large"
-              className="rounded-lg font-semibold shadow-sm"
+             
+              className="font-medium"
               icon={<Trash2 size={16} />}
               loading={purgeCatalogBusy}
               onClick={() => handlePurgeShopCatalog()}
@@ -544,8 +553,8 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
             <Button
               danger
               type="primary"
-              size="large"
-              className="rounded-lg font-semibold shadow-sm"
+             
+              className="font-medium"
               icon={<Trash2 size={16} />}
               loading={deleteSelectedBusy}
               disabled={selectionRef.current.size === 0}
@@ -556,7 +565,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           )}
           <Button
             type="default"
-            size="large"
+           
             className="rounded-lg"
             icon={<Printer size={16} />}
             onClick={handlePrintAllFiltered}
