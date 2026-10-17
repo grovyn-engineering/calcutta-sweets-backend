@@ -90,7 +90,7 @@ function buildLineRowsReceipt(data: PrintInvoiceInput): string {
           : '';
       const qtyStr = Number.isInteger(line.quantity)
         ? `${line.quantity}`
-        : line.quantity.toFixed(1);
+        : `${parseFloat(line.quantity.toFixed(4))}`;
       return `<tr class="item-block">
       <td class="item-name-cell">${esc(line.name)}${variant}</td>
       <td class="num qty-cell">${qtyStr} ${esc(line.unit)}</td>

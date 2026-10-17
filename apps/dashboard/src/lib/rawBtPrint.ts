@@ -324,7 +324,7 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   };
 
   for (const it of bill.items) {
-    const qty = Number.isInteger(it.qty) ? `${it.qty}` : it.qty.toFixed(1);
+    const qty = Number.isInteger(it.qty) ? `${it.qty}` : `${parseFloat(it.qty.toFixed(4))}`;
     pushItemRows(it.name.trim(), qty, it.rate, it.amount);
   }
   lines.push(rule);
