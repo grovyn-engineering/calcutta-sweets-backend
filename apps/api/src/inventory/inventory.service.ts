@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
+import { assertManagerForChanges } from '../auth/manager-roles';
 import { PrismaService } from '../prisma.service';
 import {
   assertProductNameAvailable,
@@ -134,8 +135,23 @@ export class InventoryService {
     dto: UpdateVariantDto,
     shopCode: string,
     userId?: string,
+    actorRole?: UserRole,
   ) {
     const existing = await this.findVariantById(id, shopCode);
+    const differs = (
+      next: number | null | undefined,
+      current: Prisma.Decimal | number | null,
+    ) =>
+      next !== undefined &&
+      (next === null
+        ? current !== null
+        : current === null || !dec(current).eq(next));
+    assertManagerForChanges(actorRole, {
+      price: differs(dto.price, existing.price),
+      'cost price': differs(dto.costPrice, existing.costPrice),
+      stock: differs(dto.quantity, existing.quantity),
+      'low-stock alert': differs(dto.minStock, existing.minStock),
+    });
 
     if (dto.barcode !== undefined) {
       const next = dto.barcode.trim();

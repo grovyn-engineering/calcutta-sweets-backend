@@ -283,6 +283,78 @@ export function BillingBillPanel({
   /** Cash handed over (Cash mode, or the cash leg of a split). null = exact. */
   const [cashReceived, setCashReceived] = useState<number | null>(null);
   const [splitRows, setSplitRows] = useState<SplitRow[]>(DEFAULT_SPLIT_ROWS);
+
+  // Discount and payment choice survive leaving the POS page and the sidebar/drawer swap,
+  // alongside the cart draft (same key prefix, so logout clears them together).
+  const checkoutDraftKey = `calcutta_pos_draft:${effectiveShopCode}:checkout`;
+  const [checkoutDraftShop, setCheckoutDraftShop] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!effectiveShopCode || checkoutDraftShop === effectiveShopCode) return;
+    try {
+      const raw = sessionStorage.getItem(checkoutDraftKey);
+      const draft = raw
+        ? (JSON.parse(raw) as {
+            discount?: number;
+            paymentMethod?: PosPaymentMethod | null;
+            cashReceived?: number | null;
+            splitRows?: SplitRow[];
+          })
+        : null;
+      if (typeof draft?.discount === 'number') setDiscount(draft.discount);
+      if (draft?.paymentMethod) setPaymentMethod(draft.paymentMethod);
+      if (typeof draft?.cashReceived === 'number') setCashReceived(draft.cashReceived);
+      if (Array.isArray(draft?.splitRows) && draft.splitRows.length > 0) {
+        setSplitRows(draft.splitRows);
+      }
+    } catch {
+      // Storage blocked or draft unreadable: start from the defaults.
+    }
+    setCheckoutDraftShop(effectiveShopCode);
+  }, [effectiveShopCode, checkoutDraftKey, checkoutDraftShop]);
+
+  useEffect(() => {
+    if (!effectiveShopCode || checkoutDraftShop !== effectiveShopCode) return;
+    try {
+      const untouched =
+        discount === 0 &&
+        paymentMethod == null &&
+        cashReceived == null &&
+        splitRows === DEFAULT_SPLIT_ROWS;
+      if (untouched) sessionStorage.removeItem(checkoutDraftKey);
+      else {
+        sessionStorage.setItem(
+          checkoutDraftKey,
+          JSON.stringify({ discount, paymentMethod, cashReceived, splitRows }),
+        );
+      }
+    } catch {
+      // Storage full or blocked: checkout still works, it just won't survive navigation.
+    }
+  }, [
+    effectiveShopCode,
+    checkoutDraftKey,
+    checkoutDraftShop,
+    discount,
+    paymentMethod,
+    cashReceived,
+    splitRows,
+  ]);
+
+  // Emptying the cart by hand ends that sale, so its discount and payment choice go too;
+  // otherwise the next sale would silently start with them. Only the drop from some lines
+  // to none counts, so the first render (before a saved cart is restored) is left alone.
+  const prevItemCountRef = useRef(items.length);
+  useEffect(() => {
+    if (prevItemCountRef.current > 0 && items.length === 0) {
+      setDiscount(0);
+      setPaymentMethod(null);
+      setCashReceived(null);
+      setSplitRows(DEFAULT_SPLIT_ROWS);
+    }
+    prevItemCountRef.current = items.length;
+  }, [items.length]);
+
   const payment = useMemo(
     () =>
       planCheckoutPayment(paymentMethod, roundRupees(total), cashReceived, splitRows),

@@ -145,6 +145,7 @@ export class InventoryController {
       dto,
       req.effectiveShopCode!,
       req.user?.id,
+      req.user?.role,
     );
   }
 

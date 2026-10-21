@@ -19,6 +19,8 @@ export type SelectedCatalogItem = {
   catalogPrice: number;
   barcode: string;
   imageUrl: string | null;
+  /** Stock on hand (inventory unit) when picked; lets the cart warn before checkout. */
+  stock?: number;
 };
 
 export type RawBillFormValues = {
@@ -83,6 +85,7 @@ type ApiVariantResultRow = {
   barcode?: string;
   unit?: string;
   price?: number;
+  quantity?: number | string;
   imageUrl?: string | null;
   image_url?: string | null;
 };
@@ -168,6 +171,7 @@ function BillingPosRawSectionInner({
               catalogPrice: price,
               barcode: String(r.barcode ?? ''),
               imageUrl: (r.imageUrl ?? r.image_url ?? null) as string | null,
+              stock: r.quantity != null ? Number(r.quantity) : undefined,
             },
           };
         });

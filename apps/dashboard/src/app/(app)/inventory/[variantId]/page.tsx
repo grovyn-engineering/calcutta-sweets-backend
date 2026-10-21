@@ -15,7 +15,9 @@ import {
 } from "antd";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { BarcodePrintModal } from "@/components/BarcodePrintModal/BarcodePrintModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 import { uploadImageToCloudinary } from "@/lib/cloudinaryUpload";
 import styles from "./page.module.css";
 import {
@@ -114,6 +116,10 @@ function InventoryVariantEditor({
   onOpenPrint,
 }: InventoryVariantEditorProps) {
   const { message } = App.useApp();
+  const { user } = useAuth();
+  // The API only lets a manager or above change prices and stock (other fields stay editable).
+  const canEditPricing = isAtLeastManager(user?.role);
+  const managerOnlyNote = canEditPricing ? undefined : "Only a manager can change this.";
   const router = useRouter();
   const [form] = Form.useForm<VariantFormValues>();
   const [saving, setSaving] = useState(false);
@@ -371,11 +377,22 @@ function InventoryVariantEditor({
                 name="price"
                 label="Selling price"
                 rules={sellingPriceRules}
+                extra={managerOnlyNote}
               >
-                <InputNumber className={styles.fullWidth} {...priceInputProps} prefix={"\u20B9"} />
+                <InputNumber
+                  className={styles.fullWidth}
+                  {...priceInputProps}
+                  prefix={"\u20B9"}
+                  disabled={!canEditPricing}
+                />
               </Form.Item>
               <Form.Item name="costPrice" label="Cost price">
-                <InputNumber className={styles.fullWidth} {...costPriceInputProps} prefix={"\u20B9"} />
+                <InputNumber
+                  className={styles.fullWidth}
+                  {...costPriceInputProps}
+                  prefix={"\u20B9"}
+                  disabled={!canEditPricing}
+                />
               </Form.Item>
             </div>
             <p className={styles.readout}>
@@ -400,11 +417,17 @@ function InventoryVariantEditor({
                 name="quantity"
                 label="Quantity on hand"
                 rules={[{ required: true, type: "number", min: 0 }]}
+                extra={managerOnlyNote}
               >
-                <InputNumber className={styles.fullWidth} min={0} />
+                <InputNumber className={styles.fullWidth} min={0} disabled={!canEditPricing} />
               </Form.Item>
               <Form.Item name="minStock" label="Low-stock alert at">
-                <InputNumber className={styles.fullWidth} min={0} placeholder="Off" />
+                <InputNumber
+                  className={styles.fullWidth}
+                  min={0}
+                  placeholder="Off"
+                  disabled={!canEditPricing}
+                />
               </Form.Item>
               <Form.Item
                 name="unit"

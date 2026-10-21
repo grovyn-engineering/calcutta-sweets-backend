@@ -29,6 +29,9 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
+  // A new product sets a price and an opening stock, which only a manager or above may do.
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   create(@Req() req: Request, @Body() createProductDto: CreateProductDto) {
     return this.productsService.create(
       createProductDto,
@@ -79,6 +82,7 @@ export class ProductsController {
       id,
       updateProductDto,
       req.effectiveShopCode!,
+      req.user?.role,
     );
   }
 

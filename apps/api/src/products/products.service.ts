@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Unit } from '@prisma/client';
+import { Prisma, Unit, UserRole } from '@prisma/client';
+import { assertManagerForChanges } from '../auth/manager-roles';
 import { PrismaService } from '../prisma.service';
 import {
   assertProductNameAvailable,
@@ -229,6 +230,7 @@ export class ProductsService {
     id: string,
     updateProductDto: UpdateProductDto,
     shopCode: string,
+    actorRole?: UserRole,
   ) {
     const existing = await this.findOneForShop(id, shopCode);
 
@@ -260,6 +262,11 @@ export class ProductsService {
           orderBy: { createdAt: 'asc' },
         });
         if (variant) {
+          assertManagerForChanges(actorRole, {
+            price:
+              price !== undefined &&
+              !new Prisma.Decimal(variant.price).eq(price),
+          });
           if (barcode !== undefined) {
             const next = barcode.trim();
             const taken = await tx.productVariant.findFirst({

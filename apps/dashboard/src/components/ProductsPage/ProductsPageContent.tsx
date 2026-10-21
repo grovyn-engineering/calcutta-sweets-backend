@@ -19,6 +19,8 @@ import { PackageSearch, Inbox } from "lucide-react";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import styles from "./ProductsPageContent.module.css";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 
 const PAGE_SIZE = 40;
 
@@ -51,6 +53,9 @@ export function ProductsPageContent({
   onRefresh,
 }: Props) {
   const { message } = App.useApp();
+  const { user } = useAuth();
+  // Creating a product sets its price and opening stock: manager or above only (API agrees).
+  const canAddProduct = isAtLeastManager(user?.role);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 500);
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -250,9 +255,11 @@ export function ProductsPageContent({
             value={status}
             onChange={setStatus}
           />
-          <Button type="primary" icon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
-            New product
-          </Button>
+          {canAddProduct && (
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
+              New product
+            </Button>
+          )}
         </div>
       </header>
 

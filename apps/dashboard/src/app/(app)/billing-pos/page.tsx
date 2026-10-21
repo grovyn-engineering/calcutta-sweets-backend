@@ -37,6 +37,7 @@ import {
   sizeLabel,
 } from "@/lib/billingInstantPricing";
 import { isLikelyAndroidForRawBt } from "@/lib/rawBtPrint";
+import { apiFetch } from "@/lib/api";
 import { useShop } from "@/contexts/ShopContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { CUSTOMER_PHONE_EDIT_ROLES } from "@/lib/customerFields";
@@ -93,6 +94,31 @@ export default function BillingPOSPage() {
     null
   );
 
+  // A restored cart's stock figures date from when each line was added; fetch the
+  // current on-hand amount so the low-stock warning reflects stock as it is now.
+  const refreshLineStock = useCallback((lines: BillItem[]) => {
+    const ids = [
+      ...new Set(lines.filter((l) => !l.isRaw && l.availableStock != null).map((l) => l.variantId)),
+    ];
+    if (ids.length === 0) return;
+    void Promise.all(
+      ids.map((id) =>
+        apiFetch(`/inventory/variants/${id}`)
+          .then((r) => (r.ok ? (r.json() as Promise<{ quantity?: number | string }>) : null))
+          .then((v) => (v?.quantity != null ? ([id, Number(v.quantity)] as const) : null))
+          .catch(() => null),
+      ),
+    ).then((rows) => {
+      const fresh = new Map(rows.filter((r) => r != null));
+      if (fresh.size === 0) return;
+      setBillItems((prev) =>
+        prev.map((l) =>
+          fresh.has(l.variantId) ? { ...l, availableStock: fresh.get(l.variantId) } : l,
+        ),
+      );
+    });
+  }, []);
+
   // Keep the sale in progress if the cashier leaves the POS page or reloads (per tab and
   // shop; sessionStorage, so a stale cart never shows up in another tab or on another day).
   const draftKey = `${POS_DRAFT_KEY_PREFIX}${shopCode}`;
@@ -105,14 +131,17 @@ export default function BillingPOSPage() {
       const draft = raw
         ? (JSON.parse(raw) as { items?: BillItem[]; customer?: CustomerFormValues | null })
         : null;
-      if (Array.isArray(draft?.items) && draft.items.length > 0) setBillItems(draft.items);
+      if (Array.isArray(draft?.items) && draft.items.length > 0) {
+        setBillItems(draft.items);
+        refreshLineStock(draft.items);
+      }
       if (draft?.customer) setCustomer(draft.customer);
     } catch {
       // Storage blocked or draft unreadable: start with an empty sale.
     }
     // Saving starts on the next render, once the restored lines are in state.
     setDraftShop(shopCode);
-  }, [shopCode, draftKey, draftShop]);
+  }, [shopCode, draftKey, draftShop, refreshLineStock]);
 
   useEffect(() => {
     if (!shopCode || draftShop !== shopCode) return;
@@ -228,6 +257,7 @@ export default function BillingPOSPage() {
           catalogPrice,
           barcode,
           imageUrl,
+          stock: availableStock,
         } = pick.selectedCatalogItem;
         const stock = computeInstantStockDeduction(
           sizeLabel(variantName, productName),
@@ -249,6 +279,7 @@ export default function BillingPOSPage() {
           inventoryUnit,
           imageUrl: imageUrl ?? null,
           isInstant: true,
+          availableStock,
         });
       } else {
         mergeLine({
