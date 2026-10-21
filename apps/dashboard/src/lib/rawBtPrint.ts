@@ -293,7 +293,8 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   }
   lines.push(rule);
 
-  const qtyW = 4;
+  /** Fits weights printed in KG to the gram ("0.125") without pushing SP/Amt off the line. */
+  const qtyW = 5;
   const spW = 7;
   const amtW = 7;
   const nameW = w - qtyW - spW - amtW - 3;
@@ -323,9 +324,17 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
     }
   };
 
+  /** Up to 3 decimals (grams in KG), dropping precision only if the column would overflow. */
+  const fmtQty = (q: number) => {
+    for (const dp of [3, 2, 1, 0]) {
+      const s = `${parseFloat(q.toFixed(dp))}`;
+      if (s.length <= qtyW) return s;
+    }
+    return `${Math.round(q)}`;
+  };
+
   for (const it of bill.items) {
-    const qty = Number.isInteger(it.qty) ? `${it.qty}` : `${parseFloat(it.qty.toFixed(4))}`;
-    pushItemRows(it.name.trim(), qty, it.rate, it.amount);
+    pushItemRows(it.name.trim(), fmtQty(it.qty), it.rate, it.amount);
   }
   lines.push(rule);
 

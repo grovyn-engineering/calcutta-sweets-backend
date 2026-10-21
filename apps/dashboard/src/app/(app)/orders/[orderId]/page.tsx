@@ -27,6 +27,7 @@ import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
+import { billPrintQuantity } from "@/lib/billingInstantPricing";
 import {
   buildPrintReceiptHtml,
   billRefOf,
@@ -277,14 +278,22 @@ export default function OrderBillDetailPage() {
       invoiceNo: billRefOf(order),
       issuedAt: order.createdAt,
       customer,
-      lines: order.items.map((i) => ({
-        name: i.productName,
-        variantLabel: i.variantLabel,
-        barcode: i.barcode,
-        quantity: i.quantity,
-        unit: i.unit ?? "PC",
-        unitPrice: i.unitPrice,
-      })),
+      // Same KG/LTR normalisation as the POS receipt, so an instant line reprints as
+      // "0.25 KG @ ₹520" rather than "250 GM @ ₹2.08".
+      lines: order.items.map((i) => {
+        const printed = billPrintQuantity(i.quantity, i.unit ?? "PC");
+        return {
+          name: i.productName,
+          variantLabel: i.variantLabel,
+          barcode: i.barcode,
+          quantity: printed.quantity,
+          unit: printed.unit,
+          unitPrice:
+            printed.quantity > 0
+              ? (i.quantity * i.unitPrice) / printed.quantity
+              : i.unitPrice,
+        };
+      }),
       subtotal: taxableBase,
       gstRate: totalTaxRate,
       gstAmount: taxAmt,
