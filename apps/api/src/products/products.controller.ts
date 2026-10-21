@@ -10,10 +10,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermission } from '../auth/permissions.decorator';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -80,6 +83,9 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  // Deleting a product is not a counter task; cashiers and staff can edit but not remove.
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   remove(@Req() req: Request, @Param('id') id: string) {
     return this.productsService.remove(id, req.effectiveShopCode!);
   }

@@ -4,8 +4,16 @@ const inrFull = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+const istDayFormat = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" });
+
+/** IST calendar day (`YYYY-MM-DD`) `delta` days from today; the API buckets sales by IST day. */
+export function istDayOffset(delta = 0): string {
+  // IST has no daylight saving, so whole-day steps are exact.
+  return istDayFormat.format(new Date(Date.now() + delta * 86_400_000));
+}
+
 /**
- * Turns a UTC calendar day (`YYYY-MM-DD`) into a short label for chart axes.
+ * Turns a calendar day (`YYYY-MM-DD`) into a short label for chart axes.
  */
 export function chartDayLabel(isoDay: string): string {
   const d = new Date(`${isoDay}T12:00:00.000Z`);

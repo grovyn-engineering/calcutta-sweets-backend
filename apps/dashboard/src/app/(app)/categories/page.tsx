@@ -9,7 +9,9 @@ import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 
 import styles from "./page.module.css";
 
@@ -50,6 +52,7 @@ function isCategoryList(data: unknown): data is CategorySummary[] {
 export default function CategoriesPage() {
   const { message } = App.useApp();
   const { effectiveShopCode } = useShop();
+  const { user } = useAuth();
   const shopCode =
     effectiveShopCode ||
     process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ||
@@ -135,13 +138,15 @@ export default function CategoriesPage() {
               aria-label="Search categories"
             />
           ) : null}
-          <Button
-            type="primary"
-            icon={<Plus size={16} strokeWidth={2.25} />}
-            onClick={() => setCreateOpen(true)}
-          >
-            New category
-          </Button>
+          {isAtLeastManager(user?.role) && (
+            <Button
+              type="primary"
+              icon={<Plus size={16} strokeWidth={2.25} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              New category
+            </Button>
+          )}
         </div>
       </header>
 

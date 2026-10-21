@@ -97,6 +97,8 @@ export interface BillItem {
   instantEdited?: boolean;
   /** Manual line: not tied to catalog; checkout prints only (no order / stock). */
   isRaw?: boolean;
+  /** Stock on hand (inventory unit) when the line was added; used to warn before checkout. */
+  availableStock?: number;
 }
 
 export type ManualSaleCustomer = {
@@ -200,7 +202,24 @@ export function BillingBillPanel({
       sum + billLineSubtotal(i.stockUnitsToDeduct, i.catalogUnitPrice),
     0,
   );
-  
+
+  // Stock on hand for each variant whose lines together ask for more than that. The API
+  // still decides at checkout; this only warns the cashier before they take payment.
+  const shortStock = new Map<string, number>();
+  {
+    const wanted = new Map<string, number>();
+    for (const i of items) {
+      if (i.isRaw || i.availableStock == null) continue;
+      wanted.set(i.variantId, (wanted.get(i.variantId) ?? 0) + i.stockUnitsToDeduct);
+    }
+    for (const i of items) {
+      const w = wanted.get(i.variantId);
+      if (w != null && i.availableStock != null && w > i.availableStock) {
+        shortStock.set(i.variantId, i.availableStock);
+      }
+    }
+  }
+
   const [discount, setDiscount] = useState(0);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [tempDiscount, setTempDiscount] = useState(0);
@@ -837,6 +856,14 @@ export function BillingBillPanel({
                           ).toFixed(2)}
                         </span>
                       </p>
+                      {shortStock.has(item.variantId) ? (
+                        <p
+                          role="status"
+                          className="mt-0.5 text-[11px] font-medium leading-snug text-[var(--danger)]"
+                        >
+                          Only {shortStock.get(item.variantId)} {item.inventoryUnit} in stock
+                        </p>
+                      ) : null}
                     </div>
                     <p className="shrink-0 text-sm font-semibold tabular-nums text-[var(--text-primary)] sm:text-[0.9375rem]">
                       ₹

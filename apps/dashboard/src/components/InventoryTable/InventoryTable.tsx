@@ -28,6 +28,7 @@ import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShop } from "@/contexts/ShopContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 import {
   Copy,
   Download,
@@ -648,7 +649,7 @@ export default function InventoryTable({
             prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
           />
         </div>
-        {!shopsLoading && !isFactory && selectionRef.current.size > 0 && (
+        {!shopsLoading && !isFactory && isAtLeastManager(authUser?.role) && selectionRef.current.size > 0 && (
           <Button
             danger
             type="primary"

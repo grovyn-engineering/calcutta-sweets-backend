@@ -14,9 +14,11 @@ import {
   Min,
   ValidateIf,
   ValidateNested,
+  Matches,
 } from 'class-validator';
 import { CUSTOMER_NAME_MAX_LENGTH } from '../../common/customer';
 import { BILL_TOTAL_MAX, PRICE_MAX, PRICE_MIN } from '../../common/money';
+import { GSTIN_MESSAGE, GSTIN_OR_EMPTY } from '../../common/gstin';
 
 export enum PaymentMethodEnum {
   CASH = 'CASH',
@@ -140,6 +142,7 @@ export class CreatePosOrderDto {
 
   @IsOptional()
   @IsString()
+  @Matches(GSTIN_OR_EMPTY, { message: GSTIN_MESSAGE })
   customerGstin?: string;
 
   /** Flat bill discount in rupees; must not exceed the bill amount (checked in the service). */

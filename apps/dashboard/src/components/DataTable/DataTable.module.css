@@ -91,6 +91,9 @@
   vertical-align: middle;
   line-height: 1.4;
   color: var(--text-primary);
+  /* A long unbroken value (e.g. a name typed without spaces) wraps instead of pushing
+     the other columns off screen. */
+  overflow-wrap: anywhere;
 }
 
 .alignRight {

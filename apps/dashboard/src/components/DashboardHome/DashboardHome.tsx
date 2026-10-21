@@ -204,7 +204,7 @@ export default function DashboardHome() {
         </Title>
         <Text className="text-[var(--text-secondary)] text-xs sm:text-sm">
           Snapshot of sales, catalogue, and stock for your active shop. Amounts
-          and &ldquo;today&rdquo; use UTC calendar days.
+          and &ldquo;today&rdquo; use IST calendar days.
         </Text>
       </div>
 

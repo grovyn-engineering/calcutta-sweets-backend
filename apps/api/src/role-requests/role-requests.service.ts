@@ -160,10 +160,13 @@ export class RoleRequestsService {
         });
       });
       invalidateJwtUserCache(request.userId);
-      await this.emailService.sendRoleRequestEmail(
+      await this.notify(
         request.user.email,
-        request.requestedRole,
-        'APPROVED',
+        this.emailService.sendRoleRequestEmail(
+          request.user.email,
+          request.requestedRole,
+          'APPROVED',
+        ),
       );
       return { message: 'Approved successfully' };
     }
@@ -215,10 +218,13 @@ export class RoleRequestsService {
           .trim(),
       )
       .join(', ');
-    await this.emailService.sendPermissionRequestEmail(
+    await this.notify(
       request.user.email,
-      summary,
-      'APPROVED',
+      this.emailService.sendPermissionRequestEmail(
+        request.user.email,
+        summary,
+        'APPROVED',
+      ),
     );
     return { message: 'Approved successfully' };
   }
@@ -238,10 +244,13 @@ export class RoleRequestsService {
     );
 
     if (request.kind === RoleRequestKind.ROLE_CHANGE && request.requestedRole) {
-      await this.emailService.sendRoleRequestEmail(
+      await this.notify(
         request.user.email,
-        request.requestedRole,
-        'REJECTED',
+        this.emailService.sendRoleRequestEmail(
+          request.user.email,
+          request.requestedRole,
+          'REJECTED',
+        ),
       );
     } else {
       const patch =
@@ -263,13 +272,23 @@ export class RoleRequestsService {
               )
               .join(', ')
           : 'additional access';
-      await this.emailService.sendPermissionRequestEmail(
+      await this.notify(
         request.user.email,
-        summary,
-        'REJECTED',
+        this.emailService.sendPermissionRequestEmail(
+          request.user.email,
+          summary,
+          'REJECTED',
+        ),
       );
     }
     return { message: 'Rejected successfully' };
+  }
+
+  /** The decision is already saved, so a failed email is logged rather than returned as an error. */
+  private async notify(email: string, send: Promise<unknown>) {
+    await send.catch((err) => {
+      console.error(`Failed to send role request email to ${email}:`, err);
+    });
   }
 
   /** PENDING → status exactly once, even if two admins act at the same time. */

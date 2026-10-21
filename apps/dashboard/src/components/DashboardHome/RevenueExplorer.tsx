@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
-import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
+import { chartDayLabel, formatInrFull, istDayOffset } from "@/lib/chartFormat";
 
 const { Text } = Typography;
 
@@ -16,13 +16,6 @@ type RevenuePayload = {
   daily: { date: string; revenue: number; orderCount: number }[];
 };
 
-/** UTC calendar day (YYYY-MM-DD) offset from today; matches the backend day math. */
-function utcDayOffset(delta: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
 type Preset = "today" | "yesterday" | "last7" | "custom";
 
 export default function RevenueExplorer() {
@@ -30,7 +23,7 @@ export default function RevenueExplorer() {
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
   const shopKey = effectiveShopCode || defaultShop;
 
-  const today = useMemo(() => utcDayOffset(0), []);
+  const today = useMemo(() => istDayOffset(0), []);
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
   const [preset, setPreset] = useState<Preset>("today");
@@ -41,14 +34,14 @@ export default function RevenueExplorer() {
   const applyPreset = useCallback((p: Exclude<Preset, "custom">) => {
     setPreset(p);
     if (p === "today") {
-      setStart(utcDayOffset(0));
-      setEnd(utcDayOffset(0));
+      setStart(istDayOffset(0));
+      setEnd(istDayOffset(0));
     } else if (p === "yesterday") {
-      setStart(utcDayOffset(-1));
-      setEnd(utcDayOffset(-1));
+      setStart(istDayOffset(-1));
+      setEnd(istDayOffset(-1));
     } else {
-      setStart(utcDayOffset(-6));
-      setEnd(utcDayOffset(0));
+      setStart(istDayOffset(-6));
+      setEnd(istDayOffset(0));
     }
   }, []);
 
@@ -90,7 +83,7 @@ export default function RevenueExplorer() {
       }
       extra={
         <Text type="secondary" className="text-xs">
-          UTC calendar days
+          IST calendar days
         </Text>
       }
     >

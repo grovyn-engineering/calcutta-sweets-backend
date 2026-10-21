@@ -1,5 +1,12 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { CUSTOMER_NAME_MAX_LENGTH } from '../../common/customer';
+import { GSTIN_MESSAGE, GSTIN_OR_EMPTY } from '../../common/gstin';
 
 /** New saved customer for the active shop; phone is the per-shop identity key. */
 export class CreateCustomerDto {
@@ -32,5 +39,6 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   @MaxLength(15)
+  @Matches(GSTIN_OR_EMPTY, { message: GSTIN_MESSAGE })
   gstin?: string;
 }

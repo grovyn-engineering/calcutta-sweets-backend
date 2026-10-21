@@ -98,7 +98,7 @@ export async function downloadReportsExcel(
   const meta: [string, string][] = [
     ["Shop", shopName],
     ["Shop code", shopCode],
-    ["Period (UTC)", `${p.range.start} → ${p.range.end}`],
+    ["Period (IST)", `${p.range.start} → ${p.range.end}`],
     ["Rolling window (days)", String(p.days)],
     ["Generated", formatIsoLocal(p.generatedAt)],
     [
@@ -133,7 +133,7 @@ export async function downloadReportsExcel(
   wsTotals.getColumn(2).width = 16;
 
   const wsDaily = wb.addWorksheet("Daily");
-  wsDaily.addRow(["Date (UTC)", "Revenue", "Order count"]);
+  wsDaily.addRow(["Date (IST)", "Revenue", "Order count"]);
   for (const d of p.daily) {
     wsDaily.addRow([d.date, d.revenue, d.orderCount]);
   }
@@ -262,7 +262,7 @@ export async function downloadReportsPdf(
   doc.text(`${shopName} (${shopCode})`, margin, y);
   y += 5;
   doc.text(
-    `UTC range ${p.range.start} → ${p.range.end} · last ${p.days} days · generated ${formatIsoLocal(p.generatedAt)}`,
+    `IST range ${p.range.start} → ${p.range.end} · last ${p.days} days · generated ${formatIsoLocal(p.generatedAt)}`,
     margin,
     y,
   );

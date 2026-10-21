@@ -4,7 +4,7 @@ import autoTable from "jspdf-autotable";
 
 import type { GstSummaryPayload } from "@/components/GstSummaryPanel/GstSummaryPanel";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
-import { formatInrForPdf } from "@/lib/chartFormat";
+import { formatInrForPdf, istDayOffset } from "@/lib/chartFormat";
 import { paymentLabel } from "@/lib/payments";
 import { billRefOf } from "@/lib/printInvoice";
 import { safeFileSegment, triggerDownload } from "@/lib/reportsExport";
@@ -45,7 +45,7 @@ export async function fetchAllPages<T>(
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return istDayOffset(0);
 }
 
 /** Bold, frozen header row and column widths for a simple one-sheet export. */

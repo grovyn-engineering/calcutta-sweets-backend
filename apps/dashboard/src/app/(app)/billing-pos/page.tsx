@@ -42,6 +42,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CUSTOMER_PHONE_EDIT_ROLES } from "@/lib/customerFields";
 import styles from "./page.module.css";
 
+const POS_DRAFT_KEY_PREFIX = "calcutta_pos_draft:";
+
 const inrCompact = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -64,6 +66,7 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
     inventoryUnit: inv,
     imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
     isInstant: false,
+    availableStock: row.stock,
   };
 }
 
@@ -89,6 +92,37 @@ export default function BillingPOSPage() {
   const [checkoutApi, setCheckoutApi] = useState<BillingPosCheckoutApi | null>(
     null
   );
+
+  // Keep the sale in progress if the cashier leaves the POS page or reloads (per tab and
+  // shop; sessionStorage, so a stale cart never shows up in another tab or on another day).
+  const draftKey = `${POS_DRAFT_KEY_PREFIX}${shopCode}`;
+  const [draftShop, setDraftShop] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!shopCode || draftShop === shopCode) return;
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      const draft = raw
+        ? (JSON.parse(raw) as { items?: BillItem[]; customer?: CustomerFormValues | null })
+        : null;
+      if (Array.isArray(draft?.items) && draft.items.length > 0) setBillItems(draft.items);
+      if (draft?.customer) setCustomer(draft.customer);
+    } catch {
+      // Storage blocked or draft unreadable: start with an empty sale.
+    }
+    // Saving starts on the next render, once the restored lines are in state.
+    setDraftShop(shopCode);
+  }, [shopCode, draftKey, draftShop]);
+
+  useEffect(() => {
+    if (!shopCode || draftShop !== shopCode) return;
+    try {
+      if (billItems.length === 0 && !customer) sessionStorage.removeItem(draftKey);
+      else sessionStorage.setItem(draftKey, JSON.stringify({ items: billItems, customer }));
+    } catch {
+      // Storage full or blocked: the sale still works, it just won't survive navigation.
+    }
+  }, [shopCode, draftKey, draftShop, billItems, customer]);
 
   useLayoutEffect(() => {
     const el = billingShellRef.current;
@@ -265,6 +299,7 @@ export default function BillingPOSPage() {
         inventoryUnit: inv,
         imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
         isInstant: true,
+        availableStock: row.stock,
       });
     },
     [mergeLine]

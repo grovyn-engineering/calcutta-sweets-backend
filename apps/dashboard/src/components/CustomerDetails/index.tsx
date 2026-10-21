@@ -10,6 +10,7 @@ import {
 } from '@/lib/mobileNumber';
 import { apiFetch } from '@/lib/api';
 import { CUSTOMER_NAME_MAX_LENGTH } from '@/lib/customerFields';
+import { gstinOptionalRules, normalizeGstinFormValue } from '@/lib/gstin';
 
 export type CustomerFormValues = {
   /** Set when the customer was picked from (or saved to) the shop's customer list. */
@@ -234,22 +235,8 @@ function CustomerDetailsForm({
         <Form.Item
           label={<span className={styles.fieldLabel}>GSTIN (optional)</span>}
           name="gstin"
-          normalize={(v) =>
-            String(v ?? '')
-              .toUpperCase()
-              .replace(/[^A-Z0-9]/g, '')
-              .slice(0, 15)
-          }
-          rules={[
-            {
-              validator(_rule, value) {
-                const raw = String(value ?? '').trim();
-                if (!raw) return Promise.resolve();
-                if (/^[0-9A-Z]{15}$/.test(raw)) return Promise.resolve();
-                return Promise.reject(new Error('GSTIN must be 15 letters or digits'));
-              },
-            },
-          ]}
+          normalize={normalizeGstinFormValue}
+          rules={gstinOptionalRules}
         >
           <Input
             placeholder="15-character GSTIN"

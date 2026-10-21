@@ -19,6 +19,7 @@ import {
   indianMobileRequiredRules,
   normalizeMobileFormValue,
 } from "@/lib/mobileNumber";
+import { gstinOptionalRules, normalizeGstinFormValue } from "@/lib/gstin";
 
 type CustomerRow = {
   id: string;
@@ -203,7 +204,7 @@ export default function CustomersManager() {
           const r = row as CustomerRow;
           return (
             <div className="min-w-0">
-              <div className="truncate font-medium text-[var(--text-primary)]" title={r.name}>
+              <div className="max-w-[22rem] truncate font-medium text-[var(--text-primary)]" title={r.name}>
                 {r.name}
               </div>
               {r.gstin ? (
@@ -460,7 +461,7 @@ export default function CustomersManager() {
             <Form.Item name="email" label="Email" rules={[{ type: "email", message: "Enter a valid email" }]}>
               <Input maxLength={254} />
             </Form.Item>
-            <Form.Item name="gstin" label="GSTIN" normalize={(v: string) => v?.toUpperCase()}>
+            <Form.Item name="gstin" label="GSTIN" normalize={normalizeGstinFormValue} rules={gstinOptionalRules}>
               <Input maxLength={15} className="font-mono" placeholder="Optional" />
             </Form.Item>
           </div>

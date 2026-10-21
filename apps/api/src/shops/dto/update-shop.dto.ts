@@ -7,7 +7,13 @@ import {
   IsString,
   MaxLength,
   Min,
+  Matches,
 } from 'class-validator';
+import {
+  GSTIN_MESSAGE,
+  GSTIN_OR_EMPTY,
+  PINCODE_OR_EMPTY,
+} from '../../common/gstin';
 
 /** Patch payload for Shop. Super admins may set all fields; other roles may only update CGST/SGST. */
 export class UpdateShopDto {
@@ -46,10 +52,12 @@ export class UpdateShopDto {
 
   @IsOptional()
   @IsString()
+  @Matches(PINCODE_OR_EMPTY, { message: 'PIN code must be 6 digits' })
   pincode?: string;
 
   @IsOptional()
   @IsString()
+  @Matches(GSTIN_OR_EMPTY, { message: GSTIN_MESSAGE })
   gstNumber?: string;
 
   @IsOptional()

@@ -92,12 +92,13 @@ export function BarcodeScannerInput({
         imageUrl: v.imageUrl ?? null,
         images: v.images ?? [],
       });
-
-      setValue('');
     } catch (err) {
       console.error('Barcode lookup error:', err);
       message.error('Failed to look up barcode.');
     } finally {
+      // Clear on every outcome: a scanner types the next code straight after the last one,
+      // so a leftover unknown code would be glued onto it. The toast still names the code.
+      setValue('');
       setBusy(false);
       requestAnimationFrame(tryFocus);
     }

@@ -15,6 +15,13 @@ import { Prisma } from '@calcutta/database';
 import { qty } from '../common/money';
 import { applyStockChange, LONG_TX, nextSequence } from '../common/stock';
 
+/** Matches the dashboard's Tax configuration section (settings/page.tsx `isAtLeastManager`). */
+const TAX_EDITOR_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+];
+
 @Injectable()
 export class ShopsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -170,6 +177,12 @@ export class ShopsService {
 
     if (actor.role !== UserRole.SUPER_ADMIN && Object.keys(data).length === 0) {
       return this.prisma.shop.findUnique({ where: { id } });
+    }
+    // GST rates change every bill, so they are limited to the roles that see Tax configuration.
+    if (!TAX_EDITOR_ROLES.includes(actor.role)) {
+      throw new ForbiddenException(
+        'Only a manager or admin can change GST rates',
+      );
     }
 
     return this.prisma.shop.update({

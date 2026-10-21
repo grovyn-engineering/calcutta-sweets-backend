@@ -68,6 +68,9 @@ export class CategoryController {
 
   @Post()
   @RequirePermission('canAccessCategories')
+  // Categories are shared by every shop, so creating one needs at least a manager.
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoryService.create(createCategoryDto);
   }

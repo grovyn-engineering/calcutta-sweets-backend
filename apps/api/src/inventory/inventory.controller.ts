@@ -81,6 +81,8 @@ export class InventoryController {
 
   @Post('variants/bulk-delete')
   @RequirePermission('canAccessInventory')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   bulkDeleteVariants(@Req() req: Request, @Body() dto: BulkDeleteVariantsDto) {
     return this.inventoryService.deleteVariantsByIds(
       req.effectiveShopCode!,

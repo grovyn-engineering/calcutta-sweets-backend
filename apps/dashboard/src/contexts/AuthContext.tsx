@@ -97,6 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    // The next person to sign in on this tab must not inherit an unfinished sale.
+    try {
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.startsWith("calcutta_pos_draft:")) sessionStorage.removeItem(key);
+      }
+    } catch {
+      // Storage blocked: nothing was saved.
+    }
     setState({
       token: null,
       user: null,

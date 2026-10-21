@@ -102,6 +102,16 @@ function statusTagColor(status: string): string {
   return "processing";
 }
 
+/**
+ * Splits the bill's stored tax the way the API's bill summary does: CGST rounded to paise,
+ * SGST the remainder, so the two always add up to the tax on the original receipt.
+ */
+function splitGst(tax: number, cgstRate: number, sgstRate: number) {
+  const rate = cgstRate + sgstRate;
+  const cgst = rate > 0 ? Math.round((tax * cgstRate * 100) / rate) / 100 : 0;
+  return { cgst, sgst: Math.round((tax - cgst) * 100) / 100 };
+}
+
 export default function OrderBillDetailPage() {
   const { message } = App.useApp();
   const params = useParams();
@@ -249,6 +259,12 @@ export default function OrderBillDetailPage() {
     [],
   );
 
+  const taxSplit = splitGst(
+    order?.tax ?? 0,
+    currentShop?.cgstRate ?? 2.5,
+    currentShop?.sgstRate ?? 2.5,
+  );
+
   const handlePrint = (format: InvoicePrintFormat) => {
     if (!order) return;
     const customer =
@@ -264,8 +280,7 @@ export default function OrderBillDetailPage() {
     const cg = currentShop?.cgstRate ?? 2.5;
     const sg = currentShop?.sgstRate ?? 2.5;
     const taxAmt = order.tax ?? 0;
-    const cgstSplit = taxAmt * (cg / (cg + sg));
-    const sgstSplit = taxAmt * (sg / (cg + sg));
+    const { cgst: cgstSplit, sgst: sgstSplit } = splitGst(taxAmt, cg, sg);
     const taxableBase = order.totalAmount - taxAmt;
 
     const invoiceData = {
@@ -491,13 +506,13 @@ export default function OrderBillDetailPage() {
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
                         <span>CGST</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
-                          {inr.format(order.tax / 2)}
+                          {inr.format(taxSplit.cgst)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
                         <span>SGST</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
-                          {inr.format(order.tax / 2)}
+                          {inr.format(taxSplit.sgst)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">

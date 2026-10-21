@@ -280,7 +280,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
           <Text className="text-[var(--text-secondary)] text-xs sm:text-sm">
             {embedded
               ? "Deep-dive analytics: payment behavior, top products, and searchable order history."
-              : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use UTC dates."}
+              : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use IST dates."}
           </Text>
           <Text
             className="mt-2 block text-xs text-[var(--bistre-600)]"

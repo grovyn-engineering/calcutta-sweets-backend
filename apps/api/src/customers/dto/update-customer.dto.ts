@@ -1,5 +1,12 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  Matches,
+} from 'class-validator';
 import { CUSTOMER_NAME_MAX_LENGTH } from '../../common/customer';
+import { GSTIN_MESSAGE, GSTIN_OR_EMPTY } from '../../common/gstin';
 
 /** Editable customer fields. Empty strings clear optional fields; `phone` is role-gated in the service. */
 export class UpdateCustomerDto {
@@ -33,5 +40,6 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsString()
   @MaxLength(15)
+  @Matches(GSTIN_OR_EMPTY, { message: GSTIN_MESSAGE })
   gstin?: string;
 }

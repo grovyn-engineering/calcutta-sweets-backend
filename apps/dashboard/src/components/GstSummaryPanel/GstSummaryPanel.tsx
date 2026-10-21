@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetchLong, isRequestTimeout, REQUEST_TIMEOUT_MESSAGE } from "@/lib/api";
-import { formatInrFull } from "@/lib/chartFormat";
+import { formatInrFull, istDayOffset } from "@/lib/chartFormat";
 
 const { Text, Title } = Typography;
 
@@ -30,11 +30,9 @@ export type GstSummaryPayload = {
   taxInferred: boolean;
 };
 
-function utcMonthNow(): string {
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
+/** Current IST month (`YYYY-MM`); GST months are IST calendar months on the API. */
+function istMonthNow(): string {
+  return istDayOffset(0).slice(0, 7);
 }
 
 function fmt(n: number): string {
@@ -61,7 +59,7 @@ export default function GstSummaryPanel({
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
   const shopKey = effectiveShopCode || defaultShop;
 
-  const [month, setMonth] = useState(utcMonthNow);
+  const [month, setMonth] = useState(istMonthNow);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<GstSummaryPayload | null>(null);
 

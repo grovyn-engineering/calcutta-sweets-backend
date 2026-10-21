@@ -236,7 +236,8 @@ export default function UsersManagement() {
                 type="text"
                 size="small"
                 className="text-[var(--bistre-600)] hover:text-[var(--ochre-600)] hover:bg-[var(--ochre-50)]"
-                icon={<Pencil size={16} />}
+                aria-label={`Edit ${r.email}`}
+                icon={<Pencil size={16} aria-hidden />}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -250,7 +251,8 @@ export default function UsersManagement() {
                   type="text"
                   danger
                   size="small"
-                  icon={<Trash2 size={16} />}
+                  aria-label={`Delete ${r.email}`}
+                  icon={<Trash2 size={16} aria-hidden />}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

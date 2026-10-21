@@ -1,7 +1,10 @@
 import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { Roles } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 import { VerifyOtpDto } from './dto/verify-dto.dto';
 
 @Controller('auth')
@@ -13,6 +16,9 @@ export class AuthController {
     return this.authService.signIn(loginDto.email, loginDto.password);
   }
 
+  // Both set an arbitrary user's password and role, so only a signed-in super admin may call them.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   @Post('update')
   update(
     @Body()
@@ -32,6 +38,9 @@ export class AuthController {
       updateDto.name,
     );
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   @Post('register')
   register(
     @Body()

@@ -13,6 +13,7 @@ import {
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import styles from "./TaxSettings.module.css";
+import { gstinOptionalRules, normalizeGstinFormValue, pincodeOptionalRules } from "@/lib/gstin";
 
 type ShopProfileForm = {
   name: string;
@@ -150,7 +151,7 @@ export function ShopProfileSettings() {
           <Form.Item label="Country" name="country">
             <Input placeholder="India" />
           </Form.Item>
-          <Form.Item label="PIN code" name="pincode">
+          <Form.Item label="PIN code" name="pincode" rules={pincodeOptionalRules}>
             <Input placeholder="492099" />
           </Form.Item>
         </div>
@@ -171,7 +172,12 @@ export function ShopProfileSettings() {
           Tax &amp; compliance
         </Typography.Title>
         <div className={styles.grid}>
-          <Form.Item label="GSTIN" name="gstNumber">
+          <Form.Item
+            label="GSTIN"
+            name="gstNumber"
+            normalize={normalizeGstinFormValue}
+            rules={gstinOptionalRules}
+          >
             <Input placeholder="22AAAAA0000A1Z5" />
           </Form.Item>
           <Form.Item label="FSSAI no." name="fssaiNumber">

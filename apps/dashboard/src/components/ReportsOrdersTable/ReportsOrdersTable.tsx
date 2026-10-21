@@ -24,6 +24,8 @@ type OrderRow = {
 
 const PAGE_SIZE = 20;
 
+const CANCELLED_STYLE = { textDecoration: "line-through", opacity: 0.6 } as const;
+
 const columns: AppTableColumn[] = [
   {
     key: "createdAt",
@@ -48,11 +50,20 @@ const columns: AppTableColumn[] = [
     label: "Bill ref",
     field: "id",
     width: 108,
-    render: (val, row: any) => (
-      <span className="orders-bill-ref">
-        {val ? billRefOf({ ...row, id: String(val) }) : "-"}
-      </span>
-    ),
+    render: (val, row: any) => {
+      // Same marking as the Orders list, so a cancelled bill isn't read as a sale.
+      const cancelled = row.status === "CANCELLED";
+      return (
+        <span
+          className="orders-bill-ref"
+          style={cancelled ? CANCELLED_STYLE : undefined}
+          title={cancelled ? "Cancelled" : undefined}
+        >
+          {val ? billRefOf({ ...row, id: String(val) }) : "-"}
+          {cancelled ? " (cancelled)" : ""}
+        </span>
+      );
+    },
   },
   {
     key: "paymentMethod",
@@ -81,7 +92,13 @@ const columns: AppTableColumn[] = [
       const r = row as OrderRow;
       return (
         <div>
-          <div className="orders-cust-name">{r.customerName?.trim() || "Walk-in"}</div>
+          {/* `orders-cust-name` is styled only inside OrdersTable, so truncate here too. */}
+          <div
+            className="orders-cust-name max-w-[200px] truncate"
+            title={r.customerName?.trim() || undefined}
+          >
+            {r.customerName?.trim() || "Walk-in"}
+          </div>
           {r.customerPhone ? (
             <div className="orders-cust-phone">{r.customerPhone}</div>
           ) : null}
@@ -102,7 +119,11 @@ const columns: AppTableColumn[] = [
     field: "totalAmount",
     width: 100,
     align: "right",
-    render: (val) => formatInrFull(Number(val) || 0),
+    render: (val, row) => (
+      <span style={(row as OrderRow).status === "CANCELLED" ? CANCELLED_STYLE : undefined}>
+        {formatInrFull(Number(val) || 0)}
+      </span>
+    ),
   },
 ];
 

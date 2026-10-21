@@ -8,7 +8,9 @@ import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { billRefOf } from "@/lib/printInvoice";
+import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 import { Download, Globe, Receipt, Search, Store, Trash2 } from "lucide-react";
 import styles from "./OrdersTable.module.css";
 
@@ -120,7 +122,9 @@ const baseColumns: AppTableColumn[] = [
       const r = row as OrderRow;
       return (
         <div>
-          <div className="orders-cust-name">{r.customerName?.trim() || "Walk-in"}</div>
+          <div className="orders-cust-name" title={r.customerName?.trim() || undefined}>
+            {r.customerName?.trim() || "Walk-in"}
+          </div>
           {r.customerPhone ? (
             <div className="orders-cust-phone">{r.customerPhone}</div>
           ) : null}
@@ -166,6 +170,9 @@ export default function OrdersTable({
 }) {
   const router = useRouter();
   const { modal, message } = App.useApp();
+  const { user } = useAuth();
+  // The API only lets a manager or above cancel a bill.
+  const canCancel = isAtLeastManager(user?.role);
   const { effectiveShopCode } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
@@ -262,7 +269,7 @@ export default function OrdersTable({
         align: "center",
         render: (_, row) => {
           const r = row as OrderRow;
-          if (r.status === "CANCELLED") return null;
+          if (r.status === "CANCELLED" || !canCancel) return null;
           return (
             <button
               type="button"
@@ -280,7 +287,7 @@ export default function OrdersTable({
         },
       },
     ],
-    [confirmDelete],
+    [confirmDelete, canCancel],
   );
 
   const fetchFn = useMemo(() => {

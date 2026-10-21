@@ -6,7 +6,9 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import type { ProductWithRelations } from "@/components/ProductCard/ProductCard";
+import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 
 import styles from "./ProductCatalogRow.module.css";
 
@@ -26,6 +28,7 @@ type Props = {
 
 export function ProductCatalogRow({ product, onProductDeleted }: Props) {
   const { message } = App.useApp();
+  const { user } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const variants = product.variants ?? [];
   const totalStock = variants.reduce((s, v) => s + v.quantity, 0);
@@ -122,6 +125,7 @@ export function ProductCatalogRow({ product, onProductDeleted }: Props) {
         ) : (
           <span className={styles.manageDisabled}>No variants</span>
         )}
+        {isAtLeastManager(user?.role) && (
         <Popconfirm
           title="Delete this product?"
           description="This removes the product and its variants. If it appears on past orders, deletion may be blocked."
@@ -140,6 +144,7 @@ export function ProductCatalogRow({ product, onProductDeleted }: Props) {
             <Trash2 size={15} strokeWidth={1.9} aria-hidden />
           </button>
         </Popconfirm>
+        )}
       </div>
     </div>
   );
