@@ -10,7 +10,10 @@
 
 .toolbar {
   flex-shrink: 0;
-  max-width: min(100%, 420px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(100%, 540px);
 }
 
 :global(.ant-input-affix-wrapper).searchInput {

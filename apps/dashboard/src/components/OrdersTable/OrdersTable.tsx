@@ -1,7 +1,7 @@
 "use client";
 
 import { paymentLabel } from "@/lib/payments";
-import { App, Input } from "antd";
+import { App, Button, Input } from "antd";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
@@ -9,7 +9,7 @@ import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { billRefOf } from "@/lib/printInvoice";
 import { useShop } from "@/contexts/ShopContext";
-import { Globe, Receipt, Search, Store, Trash2 } from "lucide-react";
+import { Download, Globe, Receipt, Search, Store, Trash2 } from "lucide-react";
 import styles from "./OrdersTable.module.css";
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -174,6 +174,28 @@ export default function OrdersTable() {
   const shopKey = effectiveShopCode || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}|${refreshNonce}`;
 
+  const [exporting, setExporting] = useState(false);
+  /** Exports every order matching the current search (not just the visible page). */
+  const exportOrders = useCallback(async () => {
+    if (!shopKey) return;
+    setExporting(true);
+    try {
+      const { fetchAllPages, downloadOrdersExcel } = await import("@/lib/listExports");
+      const q = searchRef.current.trim();
+      const { rows, capped } = await fetchAllPages<OrderRow>("/orders", { q });
+      if (rows.length === 0) {
+        message.info("No orders to export.");
+        return;
+      }
+      await downloadOrdersExcel(rows, shopKey, q);
+      if (capped) message.warning(`Export limited to the first ${rows.length} orders.`);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Could not export orders.");
+    } finally {
+      setExporting(false);
+    }
+  }, [shopKey, message]);
+
   const confirmDelete = useCallback(
     (row: OrderRow) => {
       const ref = row.id ? billRefOf(row) : "this order";
@@ -295,6 +317,14 @@ export default function OrdersTable() {
           prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" aria-hidden />}
           aria-label="Search orders"
         />
+        <Button
+          icon={<Download className="h-4 w-4" aria-hidden />}
+          loading={exporting}
+          onClick={() => void exportOrders()}
+          className="shrink-0"
+        >
+          Export
+        </Button>
       </div>
       <div className={styles.tableSlot}>
         <DataTable

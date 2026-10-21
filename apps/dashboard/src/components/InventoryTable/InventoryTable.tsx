@@ -30,6 +30,7 @@ import { useShop } from "@/contexts/ShopContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Copy,
+  Download,
   Pencil,
   Printer,
   PackagePlus,
@@ -119,6 +120,32 @@ export default function InventoryTable({
 
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}|${stockFilter}`;
+
+  const [exporting, setExporting] = useState(false);
+  /** Exports every SKU matching the current search and All / Low stock filter. */
+  const handleExport = useCallback(async () => {
+    if (!shopKey) return;
+    setExporting(true);
+    try {
+      const { fetchAllPages, downloadInventoryExcel } = await import("@/lib/listExports");
+      const lowStock = stockFilterRef.current === "low";
+      const { rows, capped } = await fetchAllPages<InventoryRow>("/inventory/variants", {
+        q: searchRef.current.trim(),
+        lowStock: lowStock ? "1" : undefined,
+        shopCode: shopKey,
+      });
+      if (rows.length === 0) {
+        message.info(lowStock ? "Nothing is low on stock." : "No SKUs to export.");
+        return;
+      }
+      await downloadInventoryExcel(rows, shopKey, lowStock);
+      if (capped) message.warning(`Export limited to the first ${rows.length} SKUs.`);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Could not export inventory.");
+    } finally {
+      setExporting(false);
+    }
+  }, [shopKey, message]);
 
   const handlePrintSingle = useCallback((item: BarcodePrintItem) => {
     setPrintItems([item]);
@@ -609,6 +636,14 @@ export default function InventoryTable({
             loading={isPrintingAll}
           >
             Print Barcodes
+          </Button>
+          <Button
+            className="rounded-lg"
+            icon={<Download size={16} />}
+            onClick={() => void handleExport()}
+            loading={exporting}
+          >
+            {stockFilter === "low" ? "Export low stock" : "Export"}
           </Button>
         </div>
       </div>

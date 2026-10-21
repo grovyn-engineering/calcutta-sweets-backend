@@ -1,6 +1,7 @@
 "use client";
 
-import { App, Button, Card, Col, Row, Spin, Typography } from "antd";
+import { App, Button, Card, Col, Dropdown, Row, Spin, Typography } from "antd";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useShop } from "@/contexts/ShopContext";
@@ -96,6 +97,22 @@ export default function GstSummaryPanel({
     }
   }, [shopKey, month, message, loading]);
 
+  const [exporting, setExporting] = useState(false);
+  const exportReport = async (format: "xlsx" | "pdf") => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      // Loaded on demand so exceljs/jspdf stay out of the page bundle.
+      const { downloadGstExcel, downloadGstPdf } = await import("@/lib/listExports");
+      if (format === "xlsx") await downloadGstExcel(data);
+      else downloadGstPdf(data);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Could not export GST summary.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useEffect(() => {
     if (shopKey) {
       void load();
@@ -146,6 +163,20 @@ export default function GstSummaryPanel({
           <Button type="primary" onClick={() => void load()} loading={loading}>
             Get report
           </Button>
+          <Dropdown
+            disabled={!data || loading}
+            menu={{
+              items: [
+                { key: "xlsx", label: "Excel (.xlsx)" },
+                { key: "pdf", label: "PDF" },
+              ],
+              onClick: ({ key }) => void exportReport(key as "xlsx" | "pdf"),
+            }}
+          >
+            <Button icon={<Download size={16} />} loading={exporting}>
+              Export
+            </Button>
+          </Dropdown>
         </div>
       </div>
 

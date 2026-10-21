@@ -62,11 +62,11 @@ function paymentLabel(raw: string) {
   return sharedPaymentLabel(raw, "Other");
 }
 
-function safeFileSegment(s: string) {
+export function safeFileSegment(s: string) {
   return s.replace(/[^\w\-]+/g, "_").slice(0, 64) || "report";
 }
 
-function triggerDownload(blob: Blob, filename: string) {
+export function triggerDownload(blob: Blob, filename: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
