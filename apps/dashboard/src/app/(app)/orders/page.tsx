@@ -1,6 +1,11 @@
 import OrdersTable from "@/components/OrdersTable/OrdersTable";
 
-export default function OrdersPage() {
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const { q } = await searchParams;
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
       <div className="shrink-0">
@@ -13,7 +18,7 @@ export default function OrdersPage() {
         </p>
       </div>
       <div className="min-h-0 flex-1">
-        <OrdersTable />
+        <OrdersTable initialSearch={typeof q === "string" ? q : ""} />
       </div>
     </div>
   );

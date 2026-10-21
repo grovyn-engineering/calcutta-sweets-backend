@@ -148,7 +148,8 @@ export default function GstSummaryPanel({
             use this shop&apos;s CGST/SGST. Interstate IGST is not modeled.
           </Text>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
+        {/* Month, Get report and Export stay on one row; the block never shrinks to wrap. */}
+        <div className="flex shrink-0 flex-wrap items-end gap-2 sm:flex-nowrap">
           <div>
             <Text className="mb-1 block text-xs text-[var(--text-secondary)]">
               Month

@@ -31,6 +31,7 @@ import {
 } from '@/lib/printInvoice';
 import {
   allowedInstantDisplayUnits,
+  sizeLabel,
   billDisplayUnitPrice,
   billLineSubtotal,
   billPrintQuantity,
@@ -874,7 +875,7 @@ export function BillingBillPanel({
                           aria-label={`Unit for ${item.name}`}
                           value={item.displayUnit}
                           options={allowedInstantDisplayUnits(
-                            item.variantLabel,
+                            sizeLabel(item.variantLabel, item.name),
                             item.inventoryUnit,
                           ).map((u) => ({
                             value: u,

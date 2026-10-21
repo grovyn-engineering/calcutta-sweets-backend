@@ -1,11 +1,11 @@
 'use client';
 
-import { App, AutoComplete, Button, Checkbox, Form, Input, InputNumber, Select, Tooltip } from 'antd';
+import { App, AutoComplete, Button, Form, Input, InputNumber, Select, Tooltip } from 'antd';
 import { Bluetooth, FileText, Printer, Receipt, X } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { BillingPosCheckoutApi } from '@/components/BillingBillPanel/BillingBillPanel';
 import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
-import { allowedInstantDisplayUnits } from '@/lib/billingInstantPricing';
+import { allowedInstantDisplayUnits, sizeLabel } from '@/lib/billingInstantPricing';
 import { CUSTOMER_NAME_MAX_LENGTH } from '@/lib/customerFields';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import styles from './BillingPosRawSection.module.css';
@@ -235,7 +235,10 @@ function BillingPosRawSectionInner({
   const COMMON_UNITS = ['PC', 'KG', 'gm', 'ml', 'L', 'BOX', 'PKT', 'PLATE'];
   const unitOptions = isCatalogSelected
     ? allowedInstantDisplayUnits(
-        formValues.selectedCatalogItem!.variantName,
+        sizeLabel(
+          formValues.selectedCatalogItem!.variantName,
+          formValues.selectedCatalogItem!.productName,
+        ),
         formValues.selectedCatalogItem!.inventoryUnit,
       ).map((u) => ({ value: u, label: u }))
     : COMMON_UNITS.map((u) => ({ value: u, label: u }));
@@ -370,34 +373,25 @@ function BillingPosRawSectionInner({
             showCount
           />
         </Form.Item>
-        <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2">
-          <Checkbox
-            rootClassName={styles.gstinCheckboxRoot}
-            checked={formValues.includeCustomerGstin}
-            onChange={(e) => patch({ includeCustomerGstin: e.target.checked })}
-            className="text-sm text-[var(--text-secondary)]"
-          >
-            Include customer GSTIN
-          </Checkbox>
-          {formValues.includeCustomerGstin && (
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="15-character GSTIN"
-                value={formValues.customerGstin}
-                onChange={(e) =>
-                  patch({
-                    customerGstin: e.target.value
-                      .toUpperCase()
-                      .replace(/[^A-Z0-9]/g, '')
-                      .slice(0, 15),
-                  })
-                }
-                maxLength={15}
-                className="font-mono text-sm"
-              />
-            </div>
-          )}
-        </div>
+        {/* Always open and optional: printed on the bill only when something is typed. */}
+        <Form.Item label={<span className={styles.label}>Customer GSTIN</span>}>
+          <Input
+            placeholder="Optional, printed on the bill if entered"
+            value={formValues.customerGstin}
+            onChange={(e) => {
+              const customerGstin = e.target.value
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '')
+                .slice(0, 15);
+              patch({
+                customerGstin,
+                includeCustomerGstin: customerGstin.length > 0,
+              });
+            }}
+            maxLength={15}
+            className="font-mono text-sm"
+          />
+        </Form.Item>
 
         <Button
           type="primary"

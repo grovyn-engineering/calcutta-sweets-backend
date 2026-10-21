@@ -5,13 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, UserRole } from '@calcutta/database';
+import { OrderStatus, Prisma, UserRole } from '@calcutta/database';
 import { PrismaService } from '../prisma.service';
 import { customerSearchWhere } from '../common/customer-search';
 import {
   assertIndianMobile10,
   normalizeIndianMobile,
 } from '../common/indian-mobile';
+import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 /** Roles allowed to change a saved customer's phone (it is the per-shop identity key). */
@@ -44,6 +45,91 @@ export class CustomersService {
       take: Math.min(SEARCH_LIMIT_MAX, Math.max(1, limit)),
       select: customerSelect,
     });
+  }
+
+  /**
+   * One page of the shop's customers for the Customers screen, with each customer's paid
+   * bill count, total spent and last visit. Orders keep a customer snapshot (no FK), so
+   * they are matched by shop + phone.
+   */
+  async findPage(
+    shopCode: string,
+    page: number,
+    size: number,
+    q: string | undefined,
+  ) {
+    const where = customerSearchWhere(shopCode, q);
+    const [total, rows] = await Promise.all([
+      this.prisma.customer.count({ where }),
+      this.prisma.customer.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * size,
+        take: size,
+        select: { ...customerSelect, createdAt: true },
+      }),
+    ]);
+    const stats = rows.length
+      ? await this.prisma.order.groupBy({
+          by: ['customerPhone'],
+          where: {
+            shopCode,
+            status: OrderStatus.PAID,
+            customerPhone: { in: rows.map((r) => r.phone) },
+          },
+          _count: { id: true },
+          _sum: { totalAmount: true },
+          _max: { createdAt: true },
+        })
+      : [];
+    const byPhone = new Map(stats.map((s) => [s.customerPhone, s]));
+    const last_page = Math.max(1, Math.ceil(total / size));
+    return {
+      data: rows.map((r) => {
+        const s = byPhone.get(r.phone);
+        return {
+          ...r,
+          orderCount: s?._count.id ?? 0,
+          totalSpent: s?._sum.totalAmount ?? 0,
+          lastOrderAt: s?._max.createdAt ?? null,
+        };
+      }),
+      page,
+      size,
+      total,
+      last_page,
+      hasMore: page < last_page,
+    };
+  }
+
+  async create(shopCode: string, dto: CreateCustomerDto) {
+    const phone = normalizeIndianMobile(dto.phone);
+    assertIndianMobile10(phone);
+    const optional = (v: string | undefined) => v?.trim() || null;
+    try {
+      return await this.prisma.customer.create({
+        data: {
+          shopCode,
+          name: dto.name.trim(),
+          phone,
+          email: optional(dto.email),
+          address: optional(dto.address),
+          notes: optional(dto.notes),
+          gstin: optional(dto.gstin)?.toUpperCase() ?? null,
+        },
+        select: customerSelect,
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'A customer with this phone number already exists in this shop',
+        );
+      }
+      throw e;
+    }
   }
 
   async update(

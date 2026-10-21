@@ -2,10 +2,15 @@
   padding: 20px 24px 8px !important;
 }
 
+/* Sticky so Cancel / Save stay visible while the drawer body scrolls. */
 .modalFooter {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   margin-top: 20px;
-  padding-top: 16px;
+  padding: 16px 0;
   border-top: 1px solid var(--pearl-bush);
+  background: var(--surface, #ffffff);
 }
 
 .titleRow {

@@ -34,6 +34,7 @@ import {
   billLineSubtotal,
   computeInstantStockDeduction,
   defaultInstantDisplay,
+  sizeLabel,
 } from "@/lib/billingInstantPricing";
 import { isLikelyAndroidForRawBt } from "@/lib/rawBtPrint";
 import { useShop } from "@/contexts/ShopContext";
@@ -141,7 +142,7 @@ export default function BillingPOSPage() {
                   ...i,
                   displayQuantity: q,
                   stockUnitsToDeduct: computeInstantStockDeduction(
-                    i.variantLabel,
+                    sizeLabel(i.variantLabel, i.name),
                     i.inventoryUnit,
                     q,
                     i.displayUnit
@@ -195,7 +196,7 @@ export default function BillingPOSPage() {
           imageUrl,
         } = pick.selectedCatalogItem;
         const stock = computeInstantStockDeduction(
-          variantName,
+          sizeLabel(variantName, productName),
           inventoryUnit,
           pick.quantity,
           pick.unit
@@ -239,12 +240,13 @@ export default function BillingPOSPage() {
   const addInstantLine = useCallback(
     (row: BillingVariantRow) => {
       const inv = row.unit ?? "PC";
+      const label = sizeLabel(row.variantName, row.productName);
       const { displayQuantity, displayUnit } = defaultInstantDisplay(
-        row.variantName,
+        label,
         inv
       );
       const stock = computeInstantStockDeduction(
-        row.variantName,
+        label,
         inv,
         displayQuantity,
         displayUnit
@@ -284,7 +286,7 @@ export default function BillingPOSPage() {
         prev.map((i) => {
           if (i.lineId !== lineId || !i.isInstant) return i;
           const stock = computeInstantStockDeduction(
-            i.variantLabel,
+            sizeLabel(i.variantLabel, i.name),
             i.inventoryUnit,
             q,
             u

@@ -1,6 +1,6 @@
 "use client";
 
-import { App, Button, Input, Segmented } from "antd";
+import { App, Button, Dropdown, Input, Segmented } from "antd";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -31,6 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Copy,
   Download,
+  MoreHorizontal,
   Pencil,
   Printer,
   PackagePlus,
@@ -552,12 +553,80 @@ export default function InventoryTable({
 
   return (
     <div className={styles.root}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Inventory</h1>
-        </div>
+      {/* Row 1: title + everyday actions; rare/destructive shop actions live under "More". */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="m-0 text-2xl font-bold leading-none text-[var(--bistre-950)]">Inventory</h1>
 
-        <div className="flex flex-1 items-center justify-end gap-2 min-w-[300px] flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            className="rounded-lg"
+            icon={<Download size={16} />}
+            onClick={() => void handleExport()}
+            loading={exporting}
+          >
+            {stockFilter === "low" ? "Export low stock" : "Export"}
+          </Button>
+          <Button
+            className="rounded-lg"
+            icon={<Printer size={16} />}
+            onClick={handlePrintAllFiltered}
+            loading={isPrintingAll}
+          >
+            Print Barcodes
+          </Button>
+          {!shopsLoading && !isFactory && (
+            <>
+              <Button
+                type="primary"
+                className="font-medium"
+                icon={<PackagePlus size={16} />}
+                onClick={() => setRefillModalOpen(true)}
+              >
+                Request Refill
+              </Button>
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: [
+                    {
+                      key: "copy",
+                      icon: <Copy size={16} />,
+                      label: "Copy factory catalog",
+                      disabled: cloneCatalogBusy,
+                    },
+                    ...(authUser?.role === "SUPER_ADMIN"
+                      ? [
+                          { type: "divider" as const },
+                          {
+                            key: "purge",
+                            icon: <Trash2 size={16} />,
+                            label: "Delete all products",
+                            danger: true,
+                            disabled: purgeCatalogBusy,
+                          },
+                        ]
+                      : []),
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === "copy") handleCloneCatalogFromFactory();
+                    if (key === "purge") handlePurgeShopCatalog();
+                  },
+                }}
+              >
+                <Button
+                  aria-label="More inventory actions"
+                  icon={<MoreHorizontal size={16} />}
+                  loading={cloneCatalogBusy || purgeCatalogBusy}
+                />
+              </Dropdown>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: filters on the left; bulk delete appears only once rows are selected. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--pearl-bush)] pb-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Segmented<StockFilter>
             aria-label="Stock filter"
             options={[
@@ -569,83 +638,28 @@ export default function InventoryTable({
           />
           <Input
             id="inventory-search"
-           
-            className="max-w-[260px] rounded-lg"
+            // Fixed width (inline: antd's wrapper ignored the responsive class and went full width).
+            style={{ width: 320, maxWidth: "100%" }}
+            className="rounded-lg"
             allowClear
-            placeholder="Search…"
+            placeholder="Search product, variant or barcode"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
           />
-          {!shopsLoading && !isFactory && (
-            <Button
-              type="primary"
-             
-              className="font-medium"
-              style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
-              icon={<PackagePlus size={16} />}
-              onClick={() => setRefillModalOpen(true)}
-            >
-              Request Refill
-            </Button>
-          )}
-          {!shopsLoading && !isFactory && (
-            <Button
-              type="default"
-             
-              className="rounded-lg"
-              icon={<Copy size={16} />}
-              loading={cloneCatalogBusy}
-              onClick={() => handleCloneCatalogFromFactory()}
-            >
-              Copy Factory
-            </Button>
-          )}
-          {!shopsLoading && !isFactory && authUser?.role === "SUPER_ADMIN" && (
-            <Button
-              danger
-             
-              className="font-medium"
-              icon={<Trash2 size={16} />}
-              loading={purgeCatalogBusy}
-              onClick={() => handlePurgeShopCatalog()}
-            >
-              Delete All
-            </Button>
-          )}
-          {!shopsLoading && !isFactory && (
-            <Button
-              danger
-              type="primary"
-             
-              className="font-medium"
-              icon={<Trash2 size={16} />}
-              loading={deleteSelectedBusy}
-              disabled={selectionRef.current.size === 0}
-              onClick={() => void handleDeleteSelected()}
-            >
-              Delete {selectionRef.current.size > 0 ? `(${selectionRef.current.size})` : ""}
-            </Button>
-          )}
-          <Button
-            type="default"
-           
-            className="rounded-lg"
-            icon={<Printer size={16} />}
-            onClick={handlePrintAllFiltered}
-            loading={isPrintingAll}
-          >
-            Print Barcodes
-          </Button>
-          <Button
-            className="rounded-lg"
-            icon={<Download size={16} />}
-            onClick={() => void handleExport()}
-            loading={exporting}
-          >
-            {stockFilter === "low" ? "Export low stock" : "Export"}
-          </Button>
         </div>
+        {!shopsLoading && !isFactory && selectionRef.current.size > 0 && (
+          <Button
+            danger
+            type="primary"
+            className="font-medium"
+            icon={<Trash2 size={16} />}
+            loading={deleteSelectedBusy}
+            onClick={() => void handleDeleteSelected()}
+          >
+            Delete selected ({selectionRef.current.size})
+          </Button>
+        )}
       </div>
 
       <div className={styles.tableSlot}>

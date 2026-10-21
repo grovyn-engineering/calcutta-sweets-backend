@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Button, Form, Input, Modal } from 'antd';
+import { App, Button, Drawer, Form, Input } from 'antd';
 import { UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import styles from './styles.module.css';
@@ -301,21 +301,18 @@ export default function CustomerDetails({
   canEditPhone = false,
 }: CustomerDetailsProps) {
   return (
-    <Modal
+    <Drawer
       open={open}
-      onCancel={onCancel}
-      width={520}
-      centered
+      onClose={onCancel}
+      placement="right"
+      size={480}
       destroyOnHidden
-      footer={null}
       classNames={{
         body: styles.modalBodyRoot,
       }}
       styles={{
         header: {
           borderBottom: '1px solid var(--pearl-bush)',
-          marginBottom: 0,
-          paddingBottom: 16,
         },
       }}
       title={
@@ -343,6 +340,6 @@ export default function CustomerDetails({
         customerId={customerId}
         canEditPhone={canEditPhone}
       />
-    </Modal>
+    </Drawer>
   );
 }

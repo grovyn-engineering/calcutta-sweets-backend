@@ -31,6 +31,21 @@ export function contentPerStockUnit(
   return null;
 }
 
+/**
+ * Label to read a pack size from: the variant name ("250g") when it has one, else the
+ * product name. Some catalog rows carry the size only in the product name, e.g. product
+ * "AKHROT 250g" with variant "Gm"; without this they could only be sold as PC.
+ */
+export function sizeLabel(
+  variantName: string | null | undefined,
+  productName: string | null | undefined,
+): string {
+  const v = variantName ?? '';
+  if (contentPerStockUnit(v, 'PC')) return v;
+  const p = productName ?? '';
+  return contentPerStockUnit(p, 'PC') ? p : v;
+}
+
 function inventoryBasePerStockUnit(
   variantLabel: string,
   inventoryUnit: string | null | undefined,

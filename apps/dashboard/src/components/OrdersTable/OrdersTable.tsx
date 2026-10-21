@@ -158,13 +158,18 @@ const baseColumns: AppTableColumn[] = [
   },
 ];
 
-export default function OrdersTable() {
+export default function OrdersTable({
+  initialSearch = "",
+}: {
+  /** Pre-filled search, e.g. a customer's phone from the Customers screen. */
+  initialSearch?: string;
+}) {
   const router = useRouter();
   const { modal, message } = App.useApp();
   const { effectiveShopCode } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
