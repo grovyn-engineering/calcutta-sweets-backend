@@ -10,6 +10,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { UsersModule } from './users/users.module';
 import { CategoryModule } from './category/category.module';
 import { OrdersModule } from './orders/orders.module';
+import { CustomersModule } from './customers/customers.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RoleRequestsModule } from './role-requests/role-requests.module';
@@ -34,6 +35,7 @@ import { validateEnv } from './common/env.validation';
     UsersModule,
     CategoryModule,
     OrdersModule,
+    CustomersModule,
     NotificationsModule,
     AnalyticsModule,
     RoleRequestsModule,

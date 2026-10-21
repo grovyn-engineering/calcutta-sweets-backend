@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { BillingPosCheckoutApi } from '@/components/BillingBillPanel/BillingBillPanel';
 import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
 import { allowedInstantDisplayUnits } from '@/lib/billingInstantPricing';
+import { CUSTOMER_NAME_MAX_LENGTH } from '@/lib/customerFields';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import styles from './BillingPosRawSection.module.css';
 
@@ -365,7 +366,8 @@ function BillingPosRawSectionInner({
             placeholder="Shown on printed bill (optional)"
             value={formValues.customerName}
             onChange={(e) => patch({ customerName: e.target.value })}
-            maxLength={120}
+            maxLength={CUSTOMER_NAME_MAX_LENGTH}
+            showCount
           />
         </Form.Item>
         <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2">

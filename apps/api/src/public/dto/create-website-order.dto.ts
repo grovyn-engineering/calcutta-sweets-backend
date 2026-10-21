@@ -14,6 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { CUSTOMER_NAME_MAX_LENGTH } from '../../common/customer';
 
 export class WebsiteOrderLineDto {
   /** Ignored by the server (the variant determines the product); kept for existing clients. */
@@ -37,7 +38,7 @@ export class CreateWebsiteOrderDto {
   shopCode!: string;
 
   @IsString()
-  @MaxLength(120)
+  @MaxLength(CUSTOMER_NAME_MAX_LENGTH)
   customerName!: string;
 
   @IsString()

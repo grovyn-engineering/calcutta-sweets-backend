@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsDateString,
   IsEnum,
@@ -10,13 +12,39 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { PRICE_MAX, PRICE_MIN } from '../../common/money';
+import { CUSTOMER_NAME_MAX_LENGTH } from '../../common/customer';
+import { BILL_TOTAL_MAX, PRICE_MAX, PRICE_MIN } from '../../common/money';
 
 export enum PaymentMethodEnum {
   CASH = 'CASH',
+  UPI = 'UPI',
+  CARD = 'CARD',
+  SPLIT = 'SPLIT',
+  /** Legacy combined mode; still accepted from older POS clients. */
   UPI_CARD = 'UPI_CARD',
+}
+
+export enum PaymentLegMethodEnum {
+  CASH = 'CASH',
+  UPI = 'UPI',
+  CARD = 'CARD',
+}
+
+export class PosPaymentLegDto {
+  @IsEnum(PaymentLegMethodEnum)
+  method!: PaymentLegMethodEnum;
+
+  @Type(() => Number)
+  @IsNumber(
+    { maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false },
+    { message: 'payment amount must have at most 2 decimal places' },
+  )
+  @Min(0.01, { message: 'payment amount must be at least ₹0.01' })
+  @Max(BILL_TOTAL_MAX)
+  amount!: number;
 }
 
 export class PosOrderLineDto {
@@ -59,11 +87,39 @@ export class PosOrderLineDto {
 }
 
 export class CreatePosOrderDto {
+  /**
+   * Single-mode payment for the full bill. Ignored when `payments` is sent (the stored
+   * method is then derived from the legs: one leg's method, or SPLIT).
+   */
+  @ValidateIf((o: CreatePosOrderDto) => o.payments == null)
   @IsEnum(PaymentMethodEnum)
-  paymentMethod!: PaymentMethodEnum;
+  paymentMethod?: PaymentMethodEnum;
+
+  /** Payment legs (1-3, one per method). Must reconcile with the server-priced total. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(3)
+  @ArrayUnique((l: PosPaymentLegDto) => l?.method, {
+    message: 'each payment method may appear once',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => PosPaymentLegDto)
+  payments?: PosPaymentLegDto[];
+
+  /** Cash handed over by the customer; must be >= the cash leg. Change = tendered - cash leg. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false })
+  @Min(0.01)
+  @Max(BILL_TOTAL_MAX)
+  cashTendered?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(CUSTOMER_NAME_MAX_LENGTH, {
+    message: `customerName must be at most ${CUSTOMER_NAME_MAX_LENGTH} characters`,
+  })
   customerName?: string;
 
   @IsOptional()

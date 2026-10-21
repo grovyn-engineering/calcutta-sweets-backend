@@ -1,3 +1,4 @@
+import { paymentLabel as sharedPaymentLabel } from "@/lib/payments";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -58,10 +59,7 @@ export type ReportsExportPayload = {
 };
 
 function paymentLabel(raw: string) {
-  if (raw === "CASH") return "Cash";
-  if (raw === "UPI_CARD") return "UPI / Card";
-  if (raw === "ONLINE") return "Online";
-  return raw || "Other";
+  return sharedPaymentLabel(raw, "Other");
 }
 
 function safeFileSegment(s: string) {

@@ -5,8 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreatePosOrderDto } from './dto/create-pos-order.dto';
-import { OrderStatus, Prisma } from '@calcutta/database';
+import {
+  CreatePosOrderDto,
+  PaymentMethodEnum,
+} from './dto/create-pos-order.dto';
+import { OrderStatus, PaymentLegMethod, Prisma } from '@calcutta/database';
+import { reconcilePayments, type ReconciledPayments } from './payments';
 import {
   normalizeIndianMobile,
   optionalIndianMobileOrNull,
@@ -20,6 +24,7 @@ import {
   qty,
 } from '../common/money';
 import { applyStockChange, LONG_TX, nextSequence } from '../common/stock';
+import { orderSearchOr } from '../common/customer-search';
 
 type Tx = Prisma.TransactionClient;
 
@@ -196,6 +201,7 @@ export class OrdersService {
     });
 
     const bill = computeBill(lines, dto.discount ?? 0);
+    const payment = this.reconcilePosPayment(dto, bill.total);
 
     let backdatedAt: Date | undefined;
     if (dto.createdAt) {
@@ -249,13 +255,23 @@ export class OrdersService {
           discount: bill.discount,
           tax: bill.tax,
           status: OrderStatus.PAID,
-          paymentMethod: dto.paymentMethod,
+          paymentMethod: payment.paymentMethod,
+          cashTendered: payment.cashTendered,
+          changeDue: payment.changeDue,
           createdById: userId ?? null,
           customerName,
           customerPhone,
           customerEmail,
           ...(backdatedAt ? { createdAt: backdatedAt } : {}),
         },
+      });
+
+      await tx.orderPayment.createMany({
+        data: payment.legs.map((l) => ({
+          orderId: o.id,
+          method: l.method,
+          amount: l.amount,
+        })),
       });
 
       await tx.orderItem.createMany({
@@ -304,7 +320,45 @@ export class OrdersService {
       return o;
     }, LONG_TX);
 
-    return this.billSummary(order, shop);
+    return {
+      ...this.billSummary(order, shop),
+      payments: payment.legs,
+      cashTendered: payment.cashTendered,
+      changeDue: payment.changeDue,
+    };
+  }
+
+  /**
+   * Payment legs for a POS sale, checked against the server-priced total. Clients that
+   * send only paymentMethod (no legs) pay the full bill in that one mode; the legacy
+   * UPI_CARD mode has no leg method and is stored without legs, as before.
+   */
+  private reconcilePosPayment(dto: CreatePosOrderDto, total: Prisma.Decimal) {
+    if (dto.payments?.length) {
+      return reconcilePayments(total, dto.payments, dto.cashTendered);
+    }
+    const method = dto.paymentMethod;
+    if (!method || method === PaymentMethodEnum.SPLIT) {
+      throw new BadRequestException('Add the payment split for a SPLIT bill');
+    }
+    if (method === PaymentMethodEnum.UPI_CARD) {
+      if (dto.cashTendered != null) {
+        throw new BadRequestException(
+          'Cash tendered was given but no cash payment is on the bill',
+        );
+      }
+      return {
+        legs: [] as ReconciledPayments['legs'],
+        paymentMethod: method,
+        cashTendered: null,
+        changeDue: null,
+      };
+    }
+    return reconcilePayments(
+      total,
+      [{ method: PaymentLegMethod[method], amount: total }],
+      dto.cashTendered,
+    );
   }
 
   private billSummary(
@@ -343,17 +397,7 @@ export class OrdersService {
     const where: Prisma.OrderWhereInput = {
       shopCode,
       status: { not: OrderStatus.DRAFT },
-      ...(qt
-        ? {
-            OR: [
-              { customerName: { contains: qt, mode: 'insensitive' as const } },
-              { customerPhone: { contains: qt, mode: 'insensitive' as const } },
-              { billNo: { contains: qt, mode: 'insensitive' as const } },
-              { legacyBillRef: { contains: qt, mode: 'insensitive' as const } },
-              { id: { equals: qt } },
-            ],
-          }
-        : {}),
+      ...(qt ? { OR: orderSearchOr(qt) } : {}),
     };
 
     const total = await this.prisma.order.count({ where });
@@ -462,11 +506,20 @@ export class OrdersService {
             productVariant: { select: { unit: true } },
           },
         },
+        payments: {
+          orderBy: { createdAt: 'asc' },
+          select: { method: true, amount: true },
+        },
       },
     });
     if (!order) {
       throw new NotFoundException('Order not found');
     }
+    // Orders from before split payments have no legs: one leg of paymentMethod.
+    const payments: { method: string; amount: Prisma.Decimal }[] =
+      order.payments.length > 0
+        ? order.payments
+        : [{ method: order.paymentMethod, amount: order.totalAmount }];
     const subtotal = money(
       order.items.reduce((s, i) => s.add(dec(i.quantity).mul(i.price)), dec(0)),
     );
@@ -485,6 +538,9 @@ export class OrdersService {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       customerEmail: order.customerEmail,
+      payments,
+      cashTendered: order.cashTendered,
+      changeDue: order.changeDue,
       subtotal,
       items: order.items.map((i) => {
         const stockQty = num(i.quantity);

@@ -351,14 +351,24 @@ function buildThermalReceiptBody(bill: NativeAndroidBillPayload): string {
   lines.push(row('Net Amount:', bill.total.toFixed(2)));
   lines.push(rule);
 
-  const mode = bill.paymentMode.trim();
-  const payLabel =
-    mode.toLowerCase() === 'cash'
-      ? 'Cash Paid:'
-      : mode
-        ? `${cutStr(mode, 18)} Paid:`
-        : 'Paid:';
-  lines.push(row(payLabel, bill.amountPaid.toFixed(2)));
+  if (bill.payments && bill.payments.length > 0) {
+    for (const p of bill.payments) {
+      lines.push(row(`${cutStr(p.mode, 18)} Paid:`, p.amount.toFixed(2)));
+    }
+  } else {
+    const mode = bill.paymentMode.trim();
+    const payLabel =
+      mode.toLowerCase() === 'cash'
+        ? 'Cash Paid:'
+        : mode
+          ? `${cutStr(mode, 18)} Paid:`
+          : 'Paid:';
+    lines.push(row(payLabel, bill.amountPaid.toFixed(2)));
+  }
+  if ((bill.changeDue ?? 0) > 0.005 && bill.cashTendered != null) {
+    lines.push(row('Tendered:', bill.cashTendered.toFixed(2)));
+    lines.push(row('Change:', (bill.changeDue ?? 0).toFixed(2)));
+  }
 
   lines.push('');
   lines.push('');

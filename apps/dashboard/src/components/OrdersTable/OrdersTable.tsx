@@ -1,5 +1,6 @@
 "use client";
 
+import { paymentLabel } from "@/lib/payments";
 import { App, Input } from "antd";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -101,11 +102,13 @@ const baseColumns: AppTableColumn[] = [
       const raw = String(val ?? "");
       if (raw === "CASH")
         return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
-      if (raw === "UPI_CARD")
-        return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
-      if (raw === "ONLINE")
-        return <span className="orders-pay-pill orders-pay-pill--upi">Online</span>;
-      return <span className="orders-pay-pill">{raw || "-"}</span>;
+      if (raw)
+        return (
+          <span className="orders-pay-pill orders-pay-pill--upi">
+            {paymentLabel(raw)}
+          </span>
+        );
+      return <span className="orders-pay-pill">-</span>;
     },
   },
   {
@@ -286,7 +289,7 @@ export default function OrdersTable() {
         <Input
           className={styles.searchInput}
           allowClear
-          placeholder="Search customer name, phone, or order id…"
+          placeholder="Search customer name, phone, or bill no…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" aria-hidden />}

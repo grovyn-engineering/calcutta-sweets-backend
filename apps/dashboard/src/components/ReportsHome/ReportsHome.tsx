@@ -1,5 +1,6 @@
 "use client";
 
+import { paymentLabel as sharedPaymentLabel } from "@/lib/payments";
 import {
   App,
   Button,
@@ -68,10 +69,7 @@ type ReportsPayload = {
 };
 
 function paymentLabel(raw: string) {
-  if (raw === "CASH") return "Cash";
-  if (raw === "UPI_CARD") return "UPI / Card";
-  if (raw === "ONLINE") return "Online";
-  return raw || "Other";
+  return sharedPaymentLabel(raw, "Other");
 }
 
 /* Copper (brand), teal, blue, mustard, slate - distinct hues, readable on white */

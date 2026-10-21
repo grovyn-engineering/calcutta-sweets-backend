@@ -37,6 +37,8 @@ import {
 } from "@/lib/billingInstantPricing";
 import { isLikelyAndroidForRawBt } from "@/lib/rawBtPrint";
 import { useShop } from "@/contexts/ShopContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { CUSTOMER_PHONE_EDIT_ROLES } from "@/lib/customerFields";
 import styles from "./page.module.css";
 
 const inrCompact = new Intl.NumberFormat("en-IN", {
@@ -99,6 +101,9 @@ export default function BillingPOSPage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const { user } = useAuth();
+  const canEditCustomerPhone = CUSTOMER_PHONE_EDIT_ROLES.includes(user?.role ?? "");
 
   const customerBinding: BillingCustomerBinding = {
     customer,
@@ -380,6 +385,8 @@ export default function BillingPOSPage() {
     onInstantLineUpdate: updateInstantLine,
     onSaleComplete: () => {
       clearSale();
+      // Next bill starts as walk-in so the previous customer is never carried over.
+      setCustomer(null);
       setRawBillForm(RAW_BILL_FORM_INITIAL);
       setBillingStockRefreshKey((k) => k + 1);
       setBillDrawerOpen(false);
@@ -562,6 +569,8 @@ export default function BillingPOSPage() {
         open={customerDetailsOpen}
         onCancel={() => setCustomerDetailsOpen(false)}
         initialValues={customer ?? undefined}
+        customerId={customer?.id}
+        canEditPhone={canEditCustomerPhone}
         onSave={(values) => setCustomer(values)}
       />
     </div>

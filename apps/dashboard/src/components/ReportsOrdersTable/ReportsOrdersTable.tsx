@@ -1,5 +1,6 @@
 "use client";
 
+import { paymentLabel } from "@/lib/payments";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { Receipt } from "lucide-react";
@@ -62,11 +63,13 @@ const columns: AppTableColumn[] = [
       const raw = String(val ?? "");
       if (raw === "CASH")
         return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
-      if (raw === "UPI_CARD")
-        return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
-      if (raw === "ONLINE")
-        return <span className="orders-pay-pill orders-pay-pill--upi">Online</span>;
-      return <span className="orders-pay-pill">{raw || "-"}</span>;
+      if (raw)
+        return (
+          <span className="orders-pay-pill orders-pay-pill--upi">
+            {paymentLabel(raw)}
+          </span>
+        );
+      return <span className="orders-pay-pill">-</span>;
     },
   },
   {

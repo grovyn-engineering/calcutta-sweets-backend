@@ -127,6 +127,48 @@ function totalsOf(orders: { totalAmount: Prisma.Decimal }[]) {
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Revenue per payment mode. Split bills count under each mode they used, with only
+   * that leg's amount, so revenue across modes still adds up to total revenue. Orders
+   * without leg rows (before split payments, website orders) count under paymentMethod.
+   */
+  private async paymentBreakdown(where: Prisma.OrderWhereInput) {
+    const [legacy, legs] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['paymentMethod'],
+        where: { ...where, payments: { none: {} } },
+        _count: { id: true },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.orderPayment.groupBy({
+        by: ['method'],
+        where: { order: where },
+        _count: { id: true },
+        _sum: { amount: true },
+      }),
+    ]);
+    const byMethod = new Map<
+      string,
+      { orderCount: number; revenue: Prisma.Decimal }
+    >();
+    const add = (method: string, count: number, amount: Prisma.Decimal) => {
+      const prev = byMethod.get(method);
+      byMethod.set(method, {
+        orderCount: (prev?.orderCount ?? 0) + count,
+        revenue: (prev?.revenue ?? dec(0)).add(amount),
+      });
+    };
+    for (const g of legacy) {
+      add(g.paymentMethod, g._count.id, dec(g._sum.totalAmount));
+    }
+    for (const g of legs) add(g.method, g._count.id, dec(g._sum.amount));
+    return [...byMethod].map(([paymentMethod, v]) => ({
+      paymentMethod,
+      orderCount: v.orderCount,
+      revenue: num(money(v.revenue)),
+    }));
+  }
+
   async getDashboard(shopCode: string) {
     const now = new Date();
     const todayKey = istDayKey(now);
@@ -178,12 +220,7 @@ export class AnalyticsService {
           product: { select: { name: true } },
         },
       }),
-      this.prisma.order.groupBy({
-        by: ['paymentMethod'],
-        where: revenueWhere(shopCode, todayStart, tomorrowStart),
-        _count: { id: true },
-        _sum: { totalAmount: true },
-      }),
+      this.paymentBreakdown(revenueWhere(shopCode, todayStart, tomorrowStart)),
     ]);
 
     const dayKeys = Array.from({ length: 7 }, (_, i) =>
@@ -224,11 +261,7 @@ export class AnalyticsService {
         variantCount,
         lowStockCount: lowStockAll.length,
       },
-      paymentToday: paymentToday.map((p) => ({
-        paymentMethod: p.paymentMethod,
-        orderCount: p._count.id,
-        revenue: num(p._sum.totalAmount),
-      })),
+      paymentToday,
       recentOrders: recentOrders.map((o) => ({
         id: o.id,
         billNo: o.billNo,
@@ -289,12 +322,7 @@ export class AnalyticsService {
         where,
         select: { createdAt: true, totalAmount: true },
       }),
-      this.prisma.order.groupBy({
-        by: ['paymentMethod'],
-        where,
-        _count: { id: true },
-        _sum: { totalAmount: true },
-      }),
+      this.paymentBreakdown(where),
       this.prisma.orderItem.findMany({
         where: { order: where },
         select: {
@@ -374,11 +402,7 @@ export class AnalyticsService {
       generatedAt: now.toISOString(),
       totals: totalsOf(ordersInRange),
       daily,
-      paymentMix: paymentMix.map((p) => ({
-        paymentMethod: p.paymentMethod,
-        orderCount: p._count.id,
-        revenue: num(p._sum.totalAmount),
-      })),
+      paymentMix,
       topProducts,
     };
   }

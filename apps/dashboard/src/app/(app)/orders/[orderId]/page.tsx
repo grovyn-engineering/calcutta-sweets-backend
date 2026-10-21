@@ -18,6 +18,11 @@ import {
   Typography,
 } from "antd";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
+import {
+  paymentLabel,
+  receiptPaymentRows,
+  type PaymentLeg,
+} from "@/lib/payments";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
@@ -67,6 +72,10 @@ type OrderDetail = {
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
+  /** Payment legs; older orders come back as one leg of paymentMethod. */
+  payments?: PaymentLeg[];
+  cashTendered?: number | null;
+  changeDue?: number | null;
   subtotal: number;
   items: OrderDetailItem[];
 };
@@ -82,12 +91,6 @@ function formatWhen(iso: string) {
   }
 }
 
-function paymentLabel(raw: string) {
-  if (raw === "CASH") return "Cash";
-  if (raw === "UPI_CARD") return "UPI / Card";
-  if (raw === "ONLINE") return "Online";
-  return raw || "-";
-}
 
 
 function statusTagColor(status: string): string {
@@ -297,7 +300,10 @@ export default function OrderBillDetailPage() {
           : null,
       bankAccountNumber: currentShop?.bankAccountNumber ?? null,
       bankIfsc: currentShop?.bankIfsc ?? null,
-      paymentMode: order.paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
+      paymentMode: paymentLabel(order.paymentMethod, 'Cash'),
+      payments: order.payments ?? null,
+      cashTendered: order.cashTendered ?? null,
+      changeDue: order.changeDue ?? null,
     };
 
     if (format === 'receipt') {
@@ -502,6 +508,21 @@ export default function OrderBillDetailPage() {
                       >
                         {inr.format(order.totalAmount)}
                       </Text>
+                    </div>
+                    <div className="mt-2 space-y-1 text-sm">
+                      {receiptPaymentRows(order, order.totalAmount, order.paymentMethod).map(
+                        (r) => (
+                          <div
+                            key={r.label}
+                            className="flex justify-between gap-4 text-[var(--text-secondary)]"
+                          >
+                            <span>{r.label}</span>
+                            <span className="tabular-nums font-medium text-[var(--text-primary)]">
+                              {inr.format(r.amount)}
+                            </span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
                 </Col>
