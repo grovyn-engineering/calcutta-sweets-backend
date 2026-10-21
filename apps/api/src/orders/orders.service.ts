@@ -11,7 +11,14 @@ import {
   normalizeIndianMobile,
   optionalIndianMobileOrNull,
 } from '../common/indian-mobile';
-import { dec, inclusiveTax, money, num, qty } from '../common/money';
+import {
+  BILL_TOTAL_MAX,
+  dec,
+  inclusiveTax,
+  money,
+  num,
+  qty,
+} from '../common/money';
 import { applyStockChange, LONG_TX, nextSequence } from '../common/stock';
 
 type Tx = Prisma.TransactionClient;
@@ -46,6 +53,11 @@ export function computeBill(
   const gross = money(
     lines.reduce((s, l) => s.add(l.quantity.mul(l.price)), dec(0)),
   );
+  if (gross.gt(BILL_TOTAL_MAX)) {
+    throw new BadRequestException(
+      `Bill amount ₹${gross.toFixed(2)} exceeds the ₹${BILL_TOTAL_MAX.toLocaleString('en-IN')} limit for one sale. Check prices and quantities.`,
+    );
+  }
   const discount = money(discountIn);
   if (discount.gt(gross)) {
     throw new BadRequestException(

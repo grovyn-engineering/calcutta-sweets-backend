@@ -7,6 +7,10 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import {
+  assertProductNameAvailable,
+  assertSkuAvailable,
+} from '../common/catalog-uniqueness';
 import { dec, qty } from '../common/money';
 import { applyStockChange } from '../common/stock';
 import { UpdateVariantDto } from './dto/update-variant.dto';
@@ -21,6 +25,8 @@ export type VariantListFilters = {
   search?: string;
   category?: string;
   activeOnly?: boolean;
+  /** Out of stock, or at/below `minStock` (same rule as the dashboard's low-stock count). */
+  lowStock?: boolean;
 };
 
 @Injectable()
@@ -172,7 +178,18 @@ export class InventoryService {
       throw new BadRequestException('Category not found');
     }
 
+    const sku = dto.sku === undefined ? undefined : dto.sku?.trim() || null;
+
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (productName !== undefined) {
+        await assertProductNameAvailable(
+          tx,
+          shopCode,
+          productName,
+          existing.productId,
+        );
+      }
+      await assertSkuAvailable(tx, shopCode, sku, id);
       if (dto.quantity !== undefined) {
         // Stock is adjusted as a delta through the ledger. If the client sends the
         // quantity it was looking at, reject when a sale changed it in the meantime
@@ -204,7 +221,7 @@ export class InventoryService {
           ...(dto.minStock !== undefined ? { minStock: dto.minStock } : {}),
           ...(dto.price !== undefined ? { price: dto.price } : {}),
           ...(dto.costPrice !== undefined ? { costPrice: dto.costPrice } : {}),
-          ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
+          ...(sku !== undefined ? { sku } : {}),
           ...(dto.unit !== undefined ? { unit: dto.unit } : {}),
           ...(dto.hsnCode !== undefined ? { hsnCode: dto.hsnCode } : {}),
           ...(dto.taxRate !== undefined ? { taxRate: dto.taxRate } : {}),
@@ -264,6 +281,22 @@ export class InventoryService {
 
     const where: Prisma.ProductVariantWhereInput = {
       product: productWhere,
+      ...(filters.lowStock
+        ? {
+            AND: [
+              {
+                OR: [
+                  { quantity: { lte: 0 } },
+                  {
+                    quantity: {
+                      lte: this.prisma.productVariant.fields.minStock,
+                    },
+                  },
+                ],
+              },
+            ],
+          }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -300,7 +333,9 @@ export class InventoryService {
         where,
         skip,
         take: size,
-        orderBy: [{ product: { name: 'asc' } }, { name: 'asc' }],
+        orderBy: filters.lowStock
+          ? [{ quantity: 'asc' }, { product: { name: 'asc' } }]
+          : [{ product: { name: 'asc' } }, { name: 'asc' }],
         include: {
           product: {
             include: {

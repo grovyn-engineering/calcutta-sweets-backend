@@ -4,6 +4,11 @@ import { App, Button, Drawer, Form, Input, InputNumber, Segmented, Select } from
 import { Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import {
+  priceInputProps,
+  sellingPriceRules,
+  UNIT_OPTIONS,
+} from "@/lib/catalogFields";
 
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -65,6 +70,7 @@ export function ProductsPageContent({
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+  const createUnit = Form.useWatch("unit", form) as string | undefined;
   const [categoryOptions, setCategoryOptions] = useState<
     { label: string; value: string }[]
   >([]);
@@ -195,7 +201,9 @@ export function ProductsPageContent({
         message.error(
           typeof payload?.message === "string"
             ? payload.message
-            : "Could not create product",
+            : Array.isArray(payload?.message)
+              ? payload.message.join(", ")
+              : "Could not create product",
         );
         return;
       }
@@ -321,11 +329,24 @@ export function ProductsPageContent({
             <Input placeholder="e.g., Kaju Katli" />
           </Form.Item>
 
-          <Form.Item name="price" label="Price (₹)" rules={[{ required: true }]}>
+          <Form.Item
+            name="unit"
+            label="Sold by"
+            rules={[{ required: true, message: "Choose how this product is sold" }]}
+            extra="Use KG for sweets sold by weight, PC for pieces or packs. Billing uses this unit."
+          >
+            <Select placeholder="Select unit" options={UNIT_OPTIONS} />
+          </Form.Item>
+
+          <Form.Item
+            name="price"
+            label={`Price (₹)${createUnit ? ` per ${createUnit}` : ""}`}
+            rules={sellingPriceRules}
+          >
             <InputNumber
               className="w-full"
               style={{ width: "100%" }}
-              min={0}
+              {...priceInputProps}
               placeholder="e.g., 200"
             />
           </Form.Item>
@@ -342,13 +363,27 @@ export function ProductsPageContent({
             <Input placeholder="e.g. Regular, 500g (optional)" />
           </Form.Item>
 
-          <Form.Item name="quantity" label="Initial Stock">
+          <Form.Item name="quantity" label={`Initial Stock${createUnit ? ` (${createUnit})` : ""}`}>
             <InputNumber
               className="w-full"
               style={{ width: "100%" }}
               min={0}
+              max={1_000_000}
+              precision={3}
               placeholder="e.g., 100"
             />
+          </Form.Item>
+
+          <Form.Item name="sku" label="SKU" extra="Optional. Must be unique in this shop.">
+            <Input placeholder="e.g. SWT-RAGI-1KG" />
+          </Form.Item>
+
+          <Form.Item
+            name="barcode"
+            label="Barcode"
+            extra="Leave blank to auto-generate. Must be unique in this shop."
+          >
+            <Input placeholder="Auto-generated" />
           </Form.Item>
         </Form>
       </Drawer>

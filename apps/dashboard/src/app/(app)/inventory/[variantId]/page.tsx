@@ -27,14 +27,13 @@ import {
   Trash2,
   Upload as UploadIcon,
 } from "lucide-react";
+import {
+  costPriceInputProps,
+  priceInputProps,
+  sellingPriceRules,
+  UNIT_OPTIONS,
+} from "@/lib/catalogFields";
 
-const UNIT_OPTIONS = [
-  { value: "KG", label: "KG" },
-  { value: "GM", label: "GM" },
-  { value: "LTR", label: "LTR" },
-  { value: "ML", label: "ML" },
-  { value: "PC", label: "PC" },
-];
 
 type VariantDetail = {
   id: string;
@@ -371,12 +370,12 @@ function InventoryVariantEditor({
               <Form.Item
                 name="price"
                 label="Selling price"
-                rules={[{ required: true, type: "number", min: 0 }]}
+                rules={sellingPriceRules}
               >
-                <InputNumber className={styles.fullWidth} min={0} step={1} prefix={"\u20B9"} />
+                <InputNumber className={styles.fullWidth} {...priceInputProps} prefix={"\u20B9"} />
               </Form.Item>
               <Form.Item name="costPrice" label="Cost price">
-                <InputNumber className={styles.fullWidth} min={0} step={1} prefix={"\u20B9"} />
+                <InputNumber className={styles.fullWidth} {...costPriceInputProps} prefix={"\u20B9"} />
               </Form.Item>
             </div>
             <p className={styles.readout}>

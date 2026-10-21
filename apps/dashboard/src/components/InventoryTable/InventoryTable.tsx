@@ -1,8 +1,8 @@
 "use client";
 
-import { App, Button, Input } from "antd";
+import { App, Button, Input, Segmented } from "antd";
 import { Search } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useMemo,
@@ -61,9 +61,19 @@ const inr = new Intl.NumberFormat("en-IN", {
 const PAGE_SIZE = 40;
 const PAGE_SIZE_OPTIONS = [10, 25, 40, 50];
 
-export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?: string }) {
+type StockFilter = "all" | "low";
+
+export default function InventoryTable({
+  shopCodeOverride,
+  initialLowStock = false,
+}: {
+  shopCodeOverride?: string;
+  /** Start on the low-stock list (e.g. from the dashboard's "Low or out of stock" tile). */
+  initialLowStock?: boolean;
+}) {
   const { message, modal } = App.useApp();
   const router = useRouter();
+  const pathname = usePathname();
   const { effectiveShopCode, shops, shopsLoading } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
@@ -77,6 +87,22 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
+  const [stockFilter, setStockFilter] = useState<StockFilter>(
+    initialLowStock ? "low" : "all",
+  );
+  const stockFilterRef = useRef(stockFilter);
+  stockFilterRef.current = stockFilter;
+
+  const changeStockFilter = useCallback(
+    (next: StockFilter) => {
+      setStockFilter(next);
+      // Keep the URL shareable / back-button friendly without a full navigation.
+      router.replace(next === "low" ? `${pathname}?filter=low-stock` : pathname, {
+        scroll: false,
+      });
+    },
+    [router, pathname],
+  );
 
   const [printItems, setPrintItems] = useState<BarcodePrintItem[]>([]);
   const [printModalOpen, setPrintModalOpen] = useState(false);
@@ -92,7 +118,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const pageRowsRef = useRef<InventoryRow[]>([]);
 
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
-  const filterKey = `${shopKey}|${debouncedSearch}`;
+  const filterKey = `${shopKey}|${debouncedSearch}|${stockFilter}`;
 
   const handlePrintSingle = useCallback((item: BarcodePrintItem) => {
     setPrintItems([item]);
@@ -310,6 +336,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
       u.searchParams.set("size", String(pageSize));
       const q = searchRef.current.trim();
       if (q) u.searchParams.set("q", q);
+      if (stockFilterRef.current === "low") u.searchParams.set("lowStock", "1");
       if (shopKey) u.searchParams.set("shopCode", shopKey);
       return fetch(u.toString(), {
         headers: { ...getAuthHeaders(), Accept: "application/json" },
@@ -504,6 +531,15 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2 min-w-[300px] flex-wrap">
+          <Segmented<StockFilter>
+            aria-label="Stock filter"
+            options={[
+              { label: "All SKUs", value: "all" },
+              { label: "Low stock", value: "low" },
+            ]}
+            value={stockFilter}
+            onChange={changeStockFilter}
+          />
           <Input
             id="inventory-search"
            
@@ -592,8 +628,12 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           onVisibleRowsChange={(rows) => {
             pageRowsRef.current = rows as InventoryRow[];
           }}
-          emptyTitle="No stock found"
-          emptyDescription="Inventory from the Factory will appear here once products are added or transferred."
+          emptyTitle={stockFilter === "low" ? "Nothing needs restocking" : "No stock found"}
+          emptyDescription={
+            stockFilter === "low"
+              ? "Every SKU is above its minimum stock level."
+              : "Inventory from the Factory will appear here once products are added or transferred."
+          }
           emptyIcon={<PackageSearch size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>

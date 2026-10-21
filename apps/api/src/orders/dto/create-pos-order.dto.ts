@@ -12,6 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { PRICE_MAX, PRICE_MIN } from '../../common/money';
 
 export enum PaymentMethodEnum {
   CASH = 'CASH',
@@ -28,16 +29,22 @@ export class PosOrderLineDto {
   customName?: string;
 
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0.001)
   @Max(100_000)
   quantity!: number;
 
-  /** For catalog lines this must match the current catalog price; the server prices the line. */
+  /**
+   * For catalog lines this must match the current catalog price; the server prices the line.
+   * Manual lines follow the same price policy as the catalog (see PRICE_MIN / PRICE_MAX).
+   */
   @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(10_000_000)
+  @IsNumber(
+    { maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false },
+    { message: 'unitPrice must have at most 2 decimal places' },
+  )
+  @Min(PRICE_MIN, { message: 'unitPrice must be at least ₹0.01' })
+  @Max(PRICE_MAX, { message: 'unitPrice cannot exceed ₹10,00,000' })
   unitPrice!: number;
 
   @IsOptional()
@@ -81,7 +88,7 @@ export class CreatePosOrderDto {
 
   /** Flat bill discount in rupees; must not exceed the bill amount (checked in the service). */
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false })
   @Min(0)
   discount?: number;
 

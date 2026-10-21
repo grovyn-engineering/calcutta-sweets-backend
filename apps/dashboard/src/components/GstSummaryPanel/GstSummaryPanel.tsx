@@ -4,7 +4,7 @@ import { App, Button, Card, Col, Row, Spin, Typography } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useShop } from "@/contexts/ShopContext";
-import { apiFetch } from "@/lib/api";
+import { apiFetchLong, isRequestTimeout, REQUEST_TIMEOUT_MESSAGE } from "@/lib/api";
 import { formatInrFull } from "@/lib/chartFormat";
 
 const { Text, Title } = Typography;
@@ -65,29 +65,36 @@ export default function GstSummaryPanel({
   const [data, setData] = useState<GstSummaryPayload | null>(null);
 
   const load = useCallback(async () => {
-    if (!shopKey) return;
+    if (!shopKey || loading) return;
     if (!/^\d{4}-\d{2}$/.test(month)) {
       message.warning("Pick a month (YYYY-MM).");
       return;
     }
     setLoading(true);
     try {
-      const res = await apiFetch(
+      const res = await apiFetchLong(
         `/analytics/gst-summary?month=${encodeURIComponent(month)}`,
       );
       if (!res.ok) {
-        throw new Error((await res.text()) || res.statusText);
+        const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+        throw new Error(
+          typeof body?.message === "string" ? body.message : res.statusText,
+        );
       }
       setData((await res.json()) as GstSummaryPayload);
     } catch (e) {
       setData(null);
       message.error(
-        e instanceof Error ? e.message : "Could not load GST summary.",
+        isRequestTimeout(e)
+          ? `GST report: ${REQUEST_TIMEOUT_MESSAGE}`
+          : e instanceof Error
+            ? e.message
+            : "Could not load GST summary.",
       );
     } finally {
       setLoading(false);
     }
-  }, [shopKey, month, message]);
+  }, [shopKey, month, message, loading]);
 
   useEffect(() => {
     if (shopKey) {

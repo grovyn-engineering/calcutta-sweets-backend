@@ -38,8 +38,6 @@ export class AuthService {
       where: { email: email.toLowerCase().trim() },
     });
 
-    console.log(user);
-    console.log(pass);
     if (!user || !(await bcrypt.compare(pass, user.password))) {
       throw new UnauthorizedException();
     }

@@ -98,6 +98,7 @@ export class InventoryController {
     @Query('search') search?: string,
     @Query('category') category?: string,
     @Query('activeOnly') activeOnly?: string,
+    @Query('lowStock') lowStock?: string,
   ) {
     const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
     const size = Math.min(
@@ -108,8 +109,8 @@ export class InventoryController {
     const catFilter =
       rawCat && rawCat.toLowerCase() !== 'all' ? rawCat : undefined;
     const searchText = (q ?? search)?.trim() || undefined;
-    const onlyActive =
-      activeOnly === '1' || activeOnly === 'true' || activeOnly === 'yes';
+    const isTrue = (v?: string) => v === '1' || v === 'true' || v === 'yes';
+    const onlyActive = isTrue(activeOnly);
 
     return this.inventoryService.findVariantsPage(
       req.effectiveShopCode!,
@@ -119,6 +120,7 @@ export class InventoryController {
         search: searchText,
         category: catFilter,
         activeOnly: onlyActive || undefined,
+        lowStock: isTrue(lowStock) || undefined,
       },
     );
   }

@@ -28,6 +28,7 @@ import {
   allowedInstantDisplayUnits,
   billDisplayUnitPrice,
   billLineSubtotal,
+  billPrintQuantity,
 } from '@/lib/billingInstantPricing';
 import { ProductLineThumb } from '@/components/ProductLineThumb/ProductLineThumb';
 import {
@@ -320,10 +321,11 @@ export function BillingBillPanel({
       customerGstin: customerGstinVal,
       showCustomerGstin,
       items: items.map((i) => {
+        const printed = billPrintQuantity(i.displayQuantity, i.displayUnit);
         const rate = billDisplayUnitPrice(
           i.stockUnitsToDeduct,
           i.catalogUnitPrice,
-          i.displayQuantity,
+          printed.quantity,
         );
         const amount = billLineSubtotal(
           i.stockUnitsToDeduct,
@@ -333,7 +335,7 @@ export function BillingBillPanel({
           i.variantLabel && i.variantLabel !== 'Regular'
             ? `${i.name} (${i.variantLabel})`
             : i.name;
-        return { name, qty: i.displayQuantity, rate, amount, discount: 0 };
+        return { name, qty: printed.quantity, rate, amount, discount: 0 };
       }),
       taxableBase,
       subtotal: taxableBase,
@@ -415,18 +417,21 @@ export function BillingBillPanel({
       invoiceNo,
       issuedAt: billIssuedAt,
       customer: printCustomer,
-      lines: items.map((i) => ({
-        name: i.name,
-        variantLabel: i.variantLabel,
-        barcode: i.barcode,
-        quantity: i.displayQuantity,
-        unit: i.displayUnit,
-        unitPrice: billDisplayUnitPrice(
-          i.stockUnitsToDeduct,
-          i.catalogUnitPrice,
-          i.displayQuantity,
-        ),
-      })),
+      lines: items.map((i) => {
+        const printed = billPrintQuantity(i.displayQuantity, i.displayUnit);
+        return {
+          name: i.name,
+          variantLabel: i.variantLabel,
+          barcode: i.barcode,
+          quantity: printed.quantity,
+          unit: printed.unit,
+          unitPrice: billDisplayUnitPrice(
+            i.stockUnitsToDeduct,
+            i.catalogUnitPrice,
+            printed.quantity,
+          ),
+        };
+      }),
       subtotal: taxableBase,
       gstRate: totalTaxRate,
       gstAmount: billTax,

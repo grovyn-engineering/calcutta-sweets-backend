@@ -11,6 +11,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { PRICE_MAX, PRICE_MIN } from '../../common/money';
 
 export class UpdateVariantDto {
   @IsOptional()
@@ -38,16 +39,19 @@ export class UpdateVariantDto {
   minStock?: number | null;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Max(10_000_000)
+  @IsNumber(
+    { maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false },
+    { message: 'price must have at most 2 decimal places' },
+  )
+  @Min(PRICE_MIN, { message: 'price must be at least ₹0.01' })
+  @Max(PRICE_MAX, { message: 'price cannot exceed ₹10,00,000' })
   price?: number;
 
   @IsOptional()
   @ValidateIf((_, v) => v != null)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  @Max(10_000_000)
+  @Max(PRICE_MAX)
   costPrice?: number | null;
 
   /** GST percent (CGST+SGST) for this item's HSN; null = shop default. */
@@ -59,7 +63,9 @@ export class UpdateVariantDto {
   taxRate?: number | null;
 
   @IsOptional()
+  @ValidateIf((_, v) => v != null)
   @IsString()
+  @MaxLength(64)
   sku?: string | null;
 
   @IsOptional()

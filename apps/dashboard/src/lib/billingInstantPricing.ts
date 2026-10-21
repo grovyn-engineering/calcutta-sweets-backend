@@ -145,3 +145,18 @@ export function billDisplayUnitPrice(
   if (!displayQuantity || !Number.isFinite(displayQuantity)) return 0;
   return billLineSubtotal(stockUnitsToDeduct, catalogUnitPrice) / displayQuantity;
 }
+
+/**
+ * Quantity and unit as printed on a bill. Weights print in KG and volumes in LTR, so an
+ * instant line of 1000 GM reads "1 KG @ ₹520" like the same item added as a standard
+ * 1 KG line (not "1000 GM @ ₹0.52"), and the Items/Qty total adds like with like.
+ */
+export function billPrintQuantity(
+  displayQuantity: number,
+  displayUnit: string,
+): { quantity: number; unit: string } {
+  const du = displayUnit.toUpperCase();
+  if (du === 'GM') return { quantity: displayQuantity / 1000, unit: 'KG' };
+  if (du === 'ML') return { quantity: displayQuantity / 1000, unit: 'LTR' };
+  return { quantity: displayQuantity, unit: displayUnit };
+}

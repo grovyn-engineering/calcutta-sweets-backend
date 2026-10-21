@@ -1,6 +1,6 @@
 "use client";
 
-import { App, Button, Form, Input, Modal, Select, Switch, Tooltip } from "antd";
+import { App, Button, Checkbox, Form, Input, Modal, Select, Switch, Tooltip } from "antd";
 import { Building2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,7 +8,14 @@ import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
-import { ROLE_FORM_OPTIONS } from "@/lib/rolePermissions";
+import type { RolePermissions } from "@/contexts/AuthContext";
+import {
+  computeOverridesFromDraft,
+  getPermissionsForRole,
+  PERMISSION_ROWS,
+  ROLE_FORM_OPTIONS,
+  ROLE_PERMISSION_FIELD_KEYS,
+} from "@/lib/rolePermissions";
 import { ShieldAlert } from "lucide-react";
 import styles from "./UsersManagement.module.css";
 
@@ -66,6 +73,11 @@ function canDeleteUserRow(
   if (authRole === "ADMIN") return row.role !== "SUPER_ADMIN" && row.role !== "ADMIN";
   if (authRole === "MANAGER") return row.role === "CASHIER" || row.role === "STAFF";
   return false;
+}
+
+function enabledPermissionKeys(role: string): (keyof RolePermissions)[] {
+  const defaults = getPermissionsForRole(role);
+  return ROLE_PERMISSION_FIELD_KEYS.filter((k) => defaults[k]);
 }
 
 export default function UsersManagement() {
@@ -293,7 +305,11 @@ export default function UsersManagement() {
 
   useEffect(() => {
     if (!createOpen) return;
-    createForm.setFieldsValue({ shopCode: effectiveShopCode, role: "STAFF" });
+    createForm.setFieldsValue({
+      shopCode: effectiveShopCode,
+      role: "STAFF",
+      permissions: enabledPermissionKeys("STAFF"),
+    });
   }, [createOpen, effectiveShopCode, createForm]);
 
   const onCreateSubmit = async (values: {
@@ -302,8 +318,13 @@ export default function UsersManagement() {
     name?: string;
     role: string;
     shopCode: string;
+    permissions?: (keyof RolePermissions)[];
   }) => {
     setSubmitting(true);
+    const enabled = new Set(values.permissions ?? enabledPermissionKeys(values.role));
+    const draft = Object.fromEntries(
+      ROLE_PERMISSION_FIELD_KEYS.map((k) => [k, enabled.has(k)]),
+    ) as RolePermissions;
     try {
       const res = await apiFetch("/users", {
         method: "POST",
@@ -313,6 +334,7 @@ export default function UsersManagement() {
           name: values.name || undefined,
           role: values.role,
           shopCode: values.shopCode,
+          permissionOverrides: computeOverridesFromDraft(values.role, draft),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -378,7 +400,17 @@ export default function UsersManagement() {
         footer={null}
         destroyOnHidden
       >
-        <Form form={createForm} layout="vertical" onFinish={onCreateSubmit}>
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={onCreateSubmit}
+          onValuesChange={(changed: { role?: string }) => {
+            // A new role starts from that role's defaults; tweak from there.
+            if (changed.role) {
+              createForm.setFieldValue("permissions", enabledPermissionKeys(changed.role));
+            }
+          }}
+        >
           <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
             <Input autoComplete="off" />
           </Form.Item>
@@ -413,6 +445,16 @@ export default function UsersManagement() {
             rules={[{ required: true, message: "Select a shop" }]}
           >
             <Select options={shopOptions} showSearch optionFilterProp="label" />
+          </Form.Item>
+          <Form.Item
+            name="permissions"
+            label="Access"
+            extra="Starts from the role's defaults. Changes are saved as overrides for this user."
+          >
+            <Checkbox.Group
+              className="grid grid-cols-2 gap-y-1"
+              options={PERMISSION_ROWS.map((r) => ({ label: r.label, value: r.key }))}
+            />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={submitting} block>

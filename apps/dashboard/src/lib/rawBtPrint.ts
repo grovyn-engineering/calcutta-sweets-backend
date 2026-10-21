@@ -53,7 +53,7 @@ export function thermalReceiptEffectiveWidth(): number {
 export const THERMAL_FALLBACK_SHOP_NAME = 'CALCUTTA SWEETS';
 export const THERMAL_FALLBACK_ADDRESS =
   'Gurudwara Complex, Tatibandh, Raipur (C.G)';
-export const THERMAL_FALLBACK_PHONE = '9993060082';
+export const THERMAL_FALLBACK_PHONE = '0771 4060082';
 export const THERMAL_FALLBACK_GSTIN = '22AGPPB9798P1ZF';
 export const THERMAL_FALLBACK_FSSAI = '10522016000762';
 export const THERMAL_FALLBACK_BANK_AC = '72910200000019';

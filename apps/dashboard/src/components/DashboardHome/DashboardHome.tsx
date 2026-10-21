@@ -242,7 +242,17 @@ export default function DashboardHome() {
           label="Low or out of stock"
           value={String(data.catalog.lowStockCount)}
           tone={data.catalog.lowStockCount > 0 ? "warning" : undefined}
-          note="Variants at or below minimum"
+          note={
+            <>
+              Variants at or below minimum ·{" "}
+              <Link
+                href="/inventory?filter=low-stock"
+                className="inline-flex items-center gap-0.5 text-[var(--ochre-600)] hover:underline"
+              >
+                View SKUs <ArrowRight className="h-3 w-3" aria-hidden />
+              </Link>
+            </>
+          }
         />
       </section>
 
@@ -449,8 +459,11 @@ export default function DashboardHome() {
           variant="borderless"
           className="rounded-xl border border-[var(--pearl-bush)] shadow-sm h-full lg:col-span-5 xl:col-span-5"
           extra={
-            <Link href="/inventory" className="text-sm text-[var(--ochre-600)] hover:underline">
-              Inventory
+            <Link
+              href="/inventory?filter=low-stock"
+              className="text-sm text-[var(--ochre-600)] hover:underline"
+            >
+              View all low stock
             </Link>
           }
         >

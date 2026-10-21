@@ -25,6 +25,16 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
+/**
+ * Shop a user lookup is limited to. A super admin can create or move users into any
+ * shop, so they must be able to open them again without switching the active shop.
+ */
+function userScope(req: Request): string | null {
+  return (req.user as User).role === UserRole.SUPER_ADMIN
+    ? null
+    : req.effectiveShopCode!;
+}
+
 @Controller('users')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard, RolesGuard)
 export class UsersController {
@@ -50,7 +60,7 @@ export class UsersController {
   @RequirePermission('canAccessUsers')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   findOneForManager(@Req() req: Request, @Param('id') id: string) {
-    return this.usersService.findOneForShop(id, req.effectiveShopCode!);
+    return this.usersService.findOneForShop(id, userScope(req));
   }
 
   @Post()
@@ -91,7 +101,7 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ) {
     const actor = req.user as User;
-    return this.usersService.update(id, dto, req.effectiveShopCode!, {
+    return this.usersService.update(id, dto, userScope(req), {
       id: actor.id,
       role: actor.role,
     });
@@ -102,7 +112,7 @@ export class UsersController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   remove(@Req() req: Request, @Param('id') id: string) {
     const actor = req.user as User;
-    return this.usersService.remove(id, req.effectiveShopCode!, {
+    return this.usersService.remove(id, userScope(req), {
       id: actor.id,
       role: actor.role,
     });

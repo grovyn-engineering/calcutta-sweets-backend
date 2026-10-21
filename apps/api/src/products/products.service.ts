@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { Prisma, Unit } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import {
+  assertProductNameAvailable,
+  assertSkuAvailable,
+} from '../common/catalog-uniqueness';
 import { qty } from '../common/money';
 import { applyStockChange, nextSequence } from '../common/stock';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -23,6 +27,8 @@ export class ProductsService {
   async create(createProductDto: CreateProductDto, shopCode: string) {
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await assertProductNameAvailable(tx, shopCode, createProductDto.name);
+        await assertSkuAvailable(tx, shopCode, createProductDto.sku);
         const barcode =
           createProductDto.barcode?.trim() ||
           (await this.generateBarcode(shopCode, tx));
@@ -52,7 +58,7 @@ export class ProductsService {
     const quantity = qty(createProductDto.quantity ?? 0);
     const product = await tx.product.create({
       data: {
-        name: createProductDto.name,
+        name: createProductDto.name.trim(),
         description: createProductDto.description,
         isListedOnWebsite: createProductDto.isListedOnWebsite ?? false,
         shopCode,
@@ -70,7 +76,9 @@ export class ProductsService {
             ...(createProductDto.costPrice !== undefined
               ? { costPrice: createProductDto.costPrice }
               : {}),
-            ...(createProductDto.sku ? { sku: createProductDto.sku } : {}),
+            ...(createProductDto.sku?.trim()
+              ? { sku: createProductDto.sku.trim() }
+              : {}),
             ...(createProductDto.hsnCode
               ? { hsnCode: createProductDto.hsnCode }
               : {}),
@@ -227,6 +235,15 @@ export class ProductsService {
     const { price, barcode, ...productFields } = updateProductDto;
 
     return this.prisma.$transaction(async (tx) => {
+      if (productFields.name !== undefined) {
+        productFields.name = productFields.name.trim();
+        await assertProductNameAvailable(
+          tx,
+          shopCode,
+          productFields.name,
+          existing.id,
+        );
+      }
       await tx.product.update({
         where: { id: existing.id },
         data: {

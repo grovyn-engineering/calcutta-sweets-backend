@@ -26,3 +26,13 @@ export function inclusiveTax(amount: DecimalLike, ratePercent: DecimalLike) {
   if (r.lte(0)) return dec(0);
   return money(dec(amount).mul(r).div(r.add(100)));
 }
+
+/**
+ * Price policy for catalog prices and manual bill lines: ₹0.01 to ₹10,00,000, at most
+ * 2 decimals. Zero, negative, over-long or sub-paise prices are rejected (400), never
+ * rounded silently. Cost price may be 0. Mirrored in apps/dashboard/src/lib/catalogFields.ts.
+ */
+export const PRICE_MIN = 0.01;
+export const PRICE_MAX = 1_000_000;
+/** Largest bill a single POS sale may total; keeps totals well inside Decimal(12, 2). */
+export const BILL_TOTAL_MAX = 10_000_000;
