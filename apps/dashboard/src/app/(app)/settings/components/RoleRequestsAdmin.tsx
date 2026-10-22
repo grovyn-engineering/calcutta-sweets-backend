@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Table, Button, message, Space, Tag } from "antd";
-import { CheckOutlined, CloseOutlined } from "@ant-design/icons";
-import { Crown } from "lucide-react";
+import { Button, message, Tag } from "antd";
+import { Check, Crown, X } from "lucide-react";
 import { apiFetch } from "../../../../lib/api";
-import { TableEmptyState } from "@/components/DataTable/TableDataOverlay";
-import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
+import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { PERMISSION_ROWS } from "../../../../lib/rolePermissions";
 import type { RolePermissions } from "../../../../contexts/AuthContext";
 import styles from "./RoleRequestsAdmin.module.css";
@@ -33,37 +31,37 @@ type RoleRequestRow = {
   };
 };
 
+function formatRole(role?: string | null): string {
+  if (!role) return "Staff";
+  return role
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 function renderRequested(record: RoleRequestRow) {
   if (record.kind === "PERMISSION_EXTENSION" && record.requestedPermissions) {
     const keys = Object.entries(record.requestedPermissions).filter(
       ([, v]) => v === true,
     );
     if (keys.length === 0) {
-      return (
-        <Tag className="m-0 rounded-md border-neutral-200 bg-neutral-50 text-neutral-700">
-          Permissions
-        </Tag>
-      );
+      return <span className={styles.muted}>Extra permissions</span>;
     }
     return (
-      <Space size={[4, 4]} wrap className="max-w-[280px]">
+      <div className={styles.permList}>
         {keys.map(([k]) => (
-          <Tag
-            key={k}
-            color="purple"
-            className="m-0 rounded-md text-xs font-semibold"
-          >
+          <Tag key={k} className="m-0">
             {PERM_LABEL[k as keyof RolePermissions] ?? k}
           </Tag>
         ))}
-      </Space>
+      </div>
     );
   }
-  const role = record.requestedRole ?? "-";
   return (
-    <Tag color="geekblue" className="m-0 rounded-md">
-      {role}
-    </Tag>
+    <span className={styles.roleChange}>
+      <span className={styles.roleTarget}>{formatRole(record.requestedRole)}</span>
+    </span>
   );
 }
 
@@ -122,157 +120,121 @@ export function RoleRequestsAdmin() {
       message.success(
         action === "approve" ? "Request approved" : "Request rejected",
       );
-      await fetchRequests();
     } catch (e: unknown) {
       message.error(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setPendingAction(null);
+      // Reload either way: a request can be saved even when the response errors
+      // (e.g. the notification email fails), so show the server's real state.
+      await fetchRequests();
     }
   };
 
-  const columns = [
+  const columns: AppTableColumn[] = [
     {
-      title: "User",
-      dataIndex: ["user", "name"],
-      key: "name",
-      ellipsis: true,
-      render: (_: unknown, record: RoleRequestRow) => {
+      key: "user",
+      label: "Team member",
+      minWidth: 200,
+      render: (_, row) => {
+        const record = row as RoleRequestRow;
         const name =
-          record.user?.name?.trim() ||
-          record.user?.email?.trim() ||
-          "Unknown";
+          record.user?.name?.trim() || record.user?.email?.trim() || "Unknown";
         const email = record.user?.email?.trim();
-        const showEmail = email && name !== email;
         return (
-          <div>
-            <span className={styles.userCell}>{name}</span>
-            {showEmail ? (
-              <span className={styles.secondaryLine}>{email}</span>
-            ) : null}
+          <div className={styles.person}>
+            <span className={styles.personAvatar} aria-hidden>
+              {name.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0">
+              <span className={styles.userCell}>{name}</span>
+              {email && email !== name ? (
+                <span className={styles.secondaryLine}>{email}</span>
+              ) : null}
+            </span>
           </div>
         );
       },
     },
     {
-      title: "Current role",
-      dataIndex: ["user", "role"],
-      key: "currentRole",
-      width: 130,
-      render: (role: string) => (
-        <Tag className="m-0 rounded-md border-neutral-200 bg-neutral-50 text-neutral-800">
-          {role || "STAFF"}
-        </Tag>
-      ),
+      key: "change",
+      label: "Request",
+      minWidth: 240,
+      render: (_, row) => {
+        const record = row as RoleRequestRow;
+        const isPermissions = record.kind === "PERMISSION_EXTENSION";
+        return (
+          <div>
+            <span className={styles.requestKind}>
+              {isPermissions ? "Extra permissions" : "Role change"} · from{" "}
+              {formatRole(record.user?.role)}
+            </span>
+            <div className={styles.requestValue}>{renderRequested(record)}</div>
+          </div>
+        );
+      },
     },
     {
-      title: "Type",
-      key: "kind",
-      width: 112,
-      render: (_: unknown, record: RoleRequestRow) => (
-        <Tag
-          className={`m-0 rounded-md ${
-            record.kind === "PERMISSION_EXTENSION"
-              ? "border-violet-200 bg-violet-50 text-violet-900"
-              : "border-neutral-200 bg-neutral-50 text-neutral-800"
-          }`}
-        >
-          {record.kind === "PERMISSION_EXTENSION" ? "Permissions" : "Role"}
-        </Tag>
-      ),
-    },
-    {
-      title: "Requested",
-      key: "requested",
-      width: 220,
-      render: (_: unknown, record: RoleRequestRow) => renderRequested(record),
-    },
-    {
-      title: "Requested on",
-      dataIndex: "createdAt",
       key: "createdAt",
-      width: 128,
-      render: (date: string) => (
-        <span className="tabular-nums text-[var(--bistre-700)]">
-          {new Date(date).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-        </span>
-      ),
+      label: "Requested",
+      width: 130,
+      render: (_, row) =>
+        new Date((row as RoleRequestRow).createdAt).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }),
     },
     {
-      title: "Actions",
       key: "actions",
-      width: 220,
-      render: (_: unknown, record: RoleRequestRow) => (
-        <Space size="small" wrap>
-          <Button
-            type="primary"
-            icon={<CheckOutlined />}
-            size="small"
-            className={styles.actionBtnApprove}
-            loading={
-              pendingAction?.id === record.id &&
-              pendingAction.action === "approve"
-            }
-            onClick={() => handleAction(record.id, "approve")}
-            style={{
-              backgroundColor: "var(--ochre-600)",
-              borderColor: "var(--ochre-600)",
-            }}
-          >
-            Approve
-          </Button>
-          <Button
-            danger
-            icon={<CloseOutlined />}
-            size="small"
-            className={styles.actionBtnReject}
-            loading={
-              pendingAction?.id === record.id &&
-              pendingAction.action === "reject"
-            }
-            onClick={() => handleAction(record.id, "reject")}
-          >
-            Reject
-          </Button>
-        </Space>
-      ),
+      label: "",
+      width: 200,
+      align: "right",
+      render: (_, row) => {
+        const record = row as RoleRequestRow;
+        const busy = pendingAction?.id === record.id;
+        return (
+          <div className={styles.actions}>
+            <Button
+              size="small"
+              icon={<X className="h-3.5 w-3.5" aria-hidden />}
+              disabled={busy && pendingAction?.action !== "reject"}
+              loading={busy && pendingAction?.action === "reject"}
+              onClick={() => handleAction(record.id, "reject")}
+            >
+              Reject
+            </Button>
+            <Button
+              type="primary"
+              size="small"
+              icon={<Check className="h-3.5 w-3.5" aria-hidden />}
+              disabled={busy && pendingAction?.action !== "approve"}
+              loading={busy && pendingAction?.action === "approve"}
+              onClick={() => handleAction(record.id, "approve")}
+            >
+              Approve
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
-  const hasRows = requests.length > 0;
-
   return (
     <div className={styles.root}>
-      <Table<RoleRequestRow>
-        className={`${styles.table} ${hasRows ? "" : styles.tableNoScroll}`.trim()}
-        components={antTableOverflowComponents}
-        dataSource={requests}
+      {requests.length > 0 ? (
+        <p className={styles.summary}>
+          {requests.length} pending request{requests.length === 1 ? "" : "s"}
+        </p>
+      ) : null}
+      <DataTable
         columns={columns}
-        rowKey="id"
+        data={requests}
         loading={loading}
-        pagination={
-          hasRows ? { pageSize: 8, showSizeChanger: false } : false
-        }
-        scroll={hasRows ? { x: 900 } : undefined}
-        locale={{
-          emptyText: (
-            <TableEmptyState
-              embedded
-              title="No pending access requests"
-              description="When team members request a different role or extra permissions, they appear here for you to approve or reject."
-              icon={
-                <Crown
-                  className="text-[var(--ochre-600)]"
-                  strokeWidth={1.35}
-                  aria-hidden
-                />
-              }
-            />
-          ),
-        }}
+        pageSize={8}
+        maxBodyHeight="none"
+        emptyTitle="No pending access requests"
+        emptyDescription="When team members ask for a different role or extra permissions, the requests show up here for you to approve or reject."
+        emptyIcon={<Crown strokeWidth={1.6} aria-hidden />}
       />
     </div>
   );

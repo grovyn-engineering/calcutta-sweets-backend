@@ -18,6 +18,9 @@ import {
   RequirePermission,
 } from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
+import { UserRole } from '@calcutta/database';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -65,12 +68,18 @@ export class CategoryController {
 
   @Post()
   @RequirePermission('canAccessCategories')
+  // Categories are shared by every shop, so creating one needs at least a manager.
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoryService.create(createCategoryDto);
   }
 
   @Patch(':id')
   @RequirePermission('canAccessCategories')
+  // Categories are shared by every shop, so only a super admin may rename/delete them.
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -80,6 +89,9 @@ export class CategoryController {
 
   @Delete(':id')
   @RequirePermission('canAccessCategories')
+  // Categories are shared by every shop, so only a super admin may rename/delete them.
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
   remove(@Param('id') id: string) {
     return this.categoryService.delete(id);
   }

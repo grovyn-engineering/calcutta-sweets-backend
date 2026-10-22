@@ -1,15 +1,17 @@
 "use client";
 
 import { App, Button, Form, Input, Modal } from "antd";
-import { FolderSearch, Plus } from "lucide-react";
+import { ChevronRight, FolderSearch, Plus, Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 
 import styles from "./page.module.css";
 
@@ -25,6 +27,12 @@ type CategorySummary = {
   products: CategoryProductSummary[];
   totalStock: number;
 };
+
+/** Display only: "dry_fruits" → "Dry fruits". Stored names are left as-is. */
+function formatCategoryName(name: string): string {
+  const spaced = name.replace(/_/g, " ").trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
 
 function isCategoryList(data: unknown): data is CategorySummary[] {
   return (
@@ -44,6 +52,7 @@ function isCategoryList(data: unknown): data is CategorySummary[] {
 export default function CategoriesPage() {
   const { message } = App.useApp();
   const { effectiveShopCode } = useShop();
+  const { user } = useAuth();
   const shopCode =
     effectiveShopCode ||
     process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ||
@@ -87,77 +96,118 @@ export default function CategoriesPage() {
 
   const categories = isCategoryList(data) ? data : null;
 
+  const [query, setQuery] = useState("");
+  const visible = useMemo(() => {
+    if (!categories) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return categories;
+    return categories.filter((c) =>
+      formatCategoryName(c.name).toLowerCase().includes(q),
+    );
+  }, [categories, query]);
+
+  const totals = useMemo(() => {
+    if (!categories) return null;
+    return {
+      categories: categories.length,
+      products: categories.reduce((n, c) => n + c.products.length, 0),
+    };
+  }, [categories]);
+
   return (
     <div className={styles.page}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-6">
-        <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Categories</h1>
-        <Button
-          type="primary"
-          size="large"
-          className="rounded-lg shadow-sm font-semibold shrink-0"
-          style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
-          icon={<Plus size={16} strokeWidth={2.25} />}
-          onClick={() => setCreateOpen(true)}
-        >
-          New category
-        </Button>
-      </div>
+      <header className={styles.header}>
+        <div>
+          <h1>Categories</h1>
+          {totals ? (
+            <p className={styles.subtitle}>
+              {totals.categories} {totals.categories === 1 ? "category" : "categories"} ·{" "}
+              {totals.products} {totals.products === 1 ? "product" : "products"}
+            </p>
+          ) : null}
+        </div>
+        <div className={styles.headerActions}>
+          {categories && categories.length > 0 ? (
+            <Input
+              allowClear
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search categories"
+              prefix={<Search className="h-4 w-4 text-[var(--text-muted)]" aria-hidden />}
+              className={styles.search}
+              aria-label="Search categories"
+            />
+          ) : null}
+          {isAtLeastManager(user?.role) && (
+            <Button
+              type="primary"
+              icon={<Plus size={16} strokeWidth={2.25} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              New category
+            </Button>
+          )}
+        </div>
+      </header>
 
-      <section className={styles.panel} aria-label="Category list">
-
+      <section aria-label="Category list">
         {!shopCode ? (
-          <p className={styles.emptyState}>
-            Select a shop in the header to load categories.
-          </p>
+          <p className={styles.notice}>Select a shop in the header to load categories.</p>
         ) : loading ? (
-          <ContentSkeleton variant="card-grid" gridItems={6} />
+          <ContentSkeleton variant="card-grid" gridItems={8} />
         ) : error ? (
-          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
-            Could not load categories: {String(error)}
-          </div>
+          <p className={styles.notice}>Could not load categories: {String(error)}</p>
         ) : !categories ? (
-          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] p-8 text-[var(--text-secondary)]">
-            Unexpected response from server.
-          </div>
+          <p className={styles.notice}>Unexpected response from server.</p>
         ) : categories.length === 0 ? (
           <EmptyState
             message="No categories yet"
             description="Create your first category to start organizing your products into groups."
             icon={<FolderSearch size={48} />}
           />
+        ) : visible.length === 0 ? (
+          <p className={styles.notice}>No categories match &ldquo;{query.trim()}&rdquo;.</p>
         ) : (
-          <div className={styles.grid}>
-            {categories.map((cat) => {
+          <ul className={styles.grid}>
+            {visible.map((cat) => {
               const productCount = cat.products.length;
+              const label = formatCategoryName(cat.name);
+              const isEmpty = productCount === 0;
               return (
-                <Link
-                  key={cat.id}
-                  href={`/categories/${cat.id}`}
-                  className={styles.card}
-                  scroll={false}
-                >
-                  <h2 className={styles.cardTitle}>{cat.name}</h2>
-                  <p className={styles.stockLine}>
-                    Total products:{" "}
-                    <span className={styles.stockStrong}>
-                      {productCount} {productCount === 1 ? "product" : "products"}
+                <li key={cat.id}>
+                  <Link
+                    href={`/categories/${cat.id}`}
+                    className={`${styles.card} ${isEmpty ? styles.cardEmpty : ""}`.trim()}
+                    scroll={false}
+                  >
+                    <span className={styles.monogram} aria-hidden>
+                      {label.charAt(0)}
                     </span>
-                  </p>
-                  <p className={styles.stockLine}>
-                    Total stock:{" "}
-                    <span className={styles.stockStrong}>
-                      {cat.totalStock.toLocaleString("en-IN")} units
+                    <span className={styles.cardBody}>
+                      <span className={styles.cardTitle}>{label}</span>
+                      <span className={styles.cardMeta}>
+                        {isEmpty ? (
+                          "Empty"
+                        ) : (
+                          <>
+                            {productCount} {productCount === 1 ? "product" : "products"}
+                            <span aria-hidden> · </span>
+                            {cat.totalStock.toLocaleString("en-IN")} units
+                          </>
+                        )}
+                      </span>
                     </span>
-                  </p>
-                </Link>
+                    <ChevronRight className={styles.chevron} aria-hidden />
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </section>
 
       <Modal
-        title={<span className={styles.modalTitle}>New category</span>}
+        title="New category"
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         footer={null}
@@ -169,13 +219,14 @@ export default function CategoriesPage() {
             label="Name"
             rules={[{ required: true, message: "Enter a name" }]}
           >
-            <Input placeholder="e.g. Mithai" autoComplete="off" />
+            <Input placeholder="e.g. Mithai" autoComplete="off" autoFocus />
           </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" loading={submitting} block>
-              Create
+          <div className={styles.modalFooter}>
+            <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" loading={submitting}>
+              Create category
             </Button>
-          </Form.Item>
+          </div>
         </Form>
       </Modal>
     </div>

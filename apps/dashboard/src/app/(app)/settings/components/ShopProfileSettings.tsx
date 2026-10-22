@@ -10,10 +10,10 @@ import {
   Switch,
   Typography,
 } from "antd";
-import { Building2 } from "lucide-react";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
 import styles from "./TaxSettings.module.css";
+import { gstinOptionalRules, normalizeGstinFormValue, pincodeOptionalRules } from "@/lib/gstin";
 
 type ShopProfileForm = {
   name: string;
@@ -109,8 +109,7 @@ export function ShopProfileSettings() {
   return (
     <div className={styles.root}>
       <Alert
-        title="Super admin - shop profile"
-        description="These fields are stored per shop and can be used on invoices, receipts, and customer-facing flows. Tax rates are configured separately under Tax Configuration."
+        title="Saved per shop and used on invoices, receipts and customer-facing pages. GST rates live under Tax configuration."
         type="info"
         showIcon
         className={styles.notice}
@@ -152,7 +151,7 @@ export function ShopProfileSettings() {
           <Form.Item label="Country" name="country">
             <Input placeholder="India" />
           </Form.Item>
-          <Form.Item label="PIN code" name="pincode">
+          <Form.Item label="PIN code" name="pincode" rules={pincodeOptionalRules}>
             <Input placeholder="492099" />
           </Form.Item>
         </div>
@@ -173,7 +172,12 @@ export function ShopProfileSettings() {
           Tax &amp; compliance
         </Typography.Title>
         <div className={styles.grid}>
-          <Form.Item label="GSTIN" name="gstNumber">
+          <Form.Item
+            label="GSTIN"
+            name="gstNumber"
+            normalize={normalizeGstinFormValue}
+            rules={gstinOptionalRules}
+          >
             <Input placeholder="22AAAAA0000A1Z5" />
           </Form.Item>
           <Form.Item label="FSSAI no." name="fssaiNumber">
@@ -242,19 +246,12 @@ export function ShopProfileSettings() {
           </Form.Item>
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={loading}
-            size="large"
-            className={styles.submit}
-            icon={<Building2 className="h-4 w-4" aria-hidden />}
-            style={{
-              backgroundColor: "var(--ochre-600)",
-              borderColor: "var(--ochre-600)",
-            }}
-          >
+        {/* Long form: keep the save action in reach while scrolling */}
+        <div className={styles.stickyFooter}>
+          <span className={styles.stickyFooterNote}>
+            Changes apply to <strong>{currentShop.shopCode}</strong> only.
+          </span>
+          <Button type="primary" htmlType="submit" loading={loading}>
             Save shop profile
           </Button>
         </div>

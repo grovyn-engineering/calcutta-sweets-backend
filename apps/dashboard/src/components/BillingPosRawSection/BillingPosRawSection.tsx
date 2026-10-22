@@ -1,11 +1,12 @@
 'use client';
 
-import { App, AutoComplete, Button, Checkbox, Form, Input, InputNumber, Select, Tooltip } from 'antd';
-import { Bluetooth, FileText, Printer, Receipt, X } from 'lucide-react';
+import { App, AutoComplete, Button, Form, Input, InputNumber, Select, Tooltip } from 'antd';
+import { Bluetooth, FileText, Printer, Receipt, UserPlus, UserRound, X } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { BillingPosCheckoutApi } from '@/components/BillingBillPanel/BillingBillPanel';
+import type { CustomerFormValues } from '@/components/CustomerDetails';
 import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
-import { allowedInstantDisplayUnits } from '@/lib/billingInstantPricing';
+import { allowedInstantDisplayUnits, sizeLabel } from '@/lib/billingInstantPricing';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import styles from './BillingPosRawSection.module.css';
 
@@ -18,6 +19,8 @@ export type SelectedCatalogItem = {
   catalogPrice: number;
   barcode: string;
   imageUrl: string | null;
+  /** Stock on hand (inventory unit) when picked; lets the cart warn before checkout. */
+  stock?: number;
 };
 
 export type RawBillFormValues = {
@@ -25,9 +28,6 @@ export type RawBillFormValues = {
   unitPrice: number;
   quantity: number;
   unit: string;
-  customerName: string;
-  includeCustomerGstin: boolean;
-  customerGstin: string;
   /** Set when user picks a product from the catalog search. Null = free-form manual line. */
   selectedCatalogItem: SelectedCatalogItem | null;
 };
@@ -37,9 +37,6 @@ export const RAW_BILL_FORM_INITIAL: RawBillFormValues = {
   unitPrice: 0,
   quantity: 1,
   unit: 'PC',
-  customerName: '',
-  includeCustomerGstin: false,
-  customerGstin: '',
   selectedCatalogItem: null,
 };
 
@@ -56,8 +53,11 @@ export type BillingPosRawSectionProps = {
   formValues: RawBillFormValues;
   onFormChange: (next: RawBillFormValues) => void;
   onAddLine: (values: RawLineAddValues) => void;
-  showToolbarAddCustomer?: boolean;
-  onToolbarAddCustomer?: () => void;
+  /** The sale's customer (shared with the sale panel); optional on a raw bill. */
+  customer: CustomerFormValues | null;
+  /** Opens the customer drawer to add or edit the sale's customer. */
+  onEditCustomer: () => void;
+  onRemoveCustomer: () => void;
   showSaleCheckoutHint?: boolean;
   checkoutApi?: BillingPosCheckoutApi | null;
   showCheckoutButtons?: boolean;
@@ -82,6 +82,7 @@ type ApiVariantResultRow = {
   barcode?: string;
   unit?: string;
   price?: number;
+  quantity?: number | string;
   imageUrl?: string | null;
   image_url?: string | null;
 };
@@ -91,8 +92,9 @@ function BillingPosRawSectionInner({
   formValues,
   onFormChange,
   onAddLine,
-  showToolbarAddCustomer,
-  onToolbarAddCustomer,
+  customer,
+  onEditCustomer,
+  onRemoveCustomer,
   showSaleCheckoutHint,
   checkoutApi,
   showCheckoutButtons,
@@ -167,6 +169,7 @@ function BillingPosRawSectionInner({
               catalogPrice: price,
               barcode: String(r.barcode ?? ''),
               imageUrl: (r.imageUrl ?? r.image_url ?? null) as string | null,
+              stock: r.quantity != null ? Number(r.quantity) : undefined,
             },
           };
         });
@@ -234,7 +237,10 @@ function BillingPosRawSectionInner({
   const COMMON_UNITS = ['PC', 'KG', 'gm', 'ml', 'L', 'BOX', 'PKT', 'PLATE'];
   const unitOptions = isCatalogSelected
     ? allowedInstantDisplayUnits(
-        formValues.selectedCatalogItem!.variantName,
+        sizeLabel(
+          formValues.selectedCatalogItem!.variantName,
+          formValues.selectedCatalogItem!.productName,
+        ),
         formValues.selectedCatalogItem!.inventoryUnit,
       ).map((u) => ({ value: u, label: u }))
     : COMMON_UNITS.map((u) => ({ value: u, label: u }));
@@ -256,11 +262,6 @@ function BillingPosRawSectionInner({
             </p>
           </div>
         </div>
-        {showToolbarAddCustomer && onToolbarAddCustomer ? (
-          <Button type="default" size="small" onClick={onToolbarAddCustomer}>
-            Full customer…
-          </Button>
-        ) : null}
       </div>
 
       <Form layout="vertical" requiredMark={false} className={styles.form}>
@@ -359,44 +360,6 @@ function BillingPosRawSectionInner({
           </p>
         )}
 
-        <div className={styles.sectionLabel}>Customer on bill</div>
-        <Form.Item label={<span className={styles.label}>Customer name</span>}>
-          <Input
-            placeholder="Shown on printed bill (optional)"
-            value={formValues.customerName}
-            onChange={(e) => patch({ customerName: e.target.value })}
-            maxLength={120}
-          />
-        </Form.Item>
-        <div className="mb-4 flex flex-wrap items-center gap-4 rounded-md border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-2">
-          <Checkbox
-            rootClassName={styles.gstinCheckboxRoot}
-            checked={formValues.includeCustomerGstin}
-            onChange={(e) => patch({ includeCustomerGstin: e.target.checked })}
-            className="text-sm text-[var(--text-secondary)]"
-          >
-            Include customer GSTIN
-          </Checkbox>
-          {formValues.includeCustomerGstin && (
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="15-character GSTIN"
-                value={formValues.customerGstin}
-                onChange={(e) =>
-                  patch({
-                    customerGstin: e.target.value
-                      .toUpperCase()
-                      .replace(/[^A-Z0-9]/g, '')
-                      .slice(0, 15),
-                  })
-                }
-                maxLength={15}
-                className="font-mono text-sm"
-              />
-            </div>
-          )}
-        </div>
-
         <Button
           type="primary"
           className="w-full sm:w-auto"
@@ -413,11 +376,47 @@ function BillingPosRawSectionInner({
         >
           {isCatalogSelected ? 'Add Catalog Item' : 'Add Item for sale'}
         </Button>
+
+        {/* Same customer as the sale panel, so it is saved with the order and printed on the bill. */}
+        <div className={styles.sectionLabel}>Want to add a customer? (Optional)</div>
+        {customer ? (
+          <div className="flex items-start gap-3 rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
+              <UserRound className="h-4 w-4" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-[var(--text-primary)]">{customer.name}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{customer.phone}</p>
+              {customer.gstin?.trim() ? (
+                <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
+                  GSTIN {customer.gstin.trim()}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button size="small" onClick={onEditCustomer}>
+                Edit
+              </Button>
+              <Button size="small" danger onClick={onRemoveCustomer}>
+                Remove
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="mb-3 text-xs text-[var(--text-muted)]">
+              The bill prints without a customer. Add one to show their name and GSTIN on it.
+            </p>
+            <Button icon={<UserPlus className="h-4 w-4" aria-hidden />} onClick={onEditCustomer}>
+              Add customer
+            </Button>
+          </div>
+        )}
       </Form>
 
       {showCheckoutButtons && checkoutApi ? (
         <div className="mt-5 rounded-xl border border-[var(--pearl-bush)] bg-[var(--linen-95)] p-3 sm:p-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
+          <p className="mb-2 text-xs font-medium text-[var(--bistre-400)]">
             Print this raw sale
           </p>
           <p className="mb-3 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
@@ -426,7 +425,7 @@ function BillingPosRawSectionInner({
             can lose the USB device until you reconnect it in RawBT.
           </p>
           <div className="flex flex-col gap-2">
-            <Tooltip title="Saves when needed, then opens a receipt preview on this page — use Print for the system dialog.">
+            <Tooltip title="Saves when needed, then opens a receipt preview on this page. Use Print for the system dialog.">
               <Button
                 type="primary"
                 className="flex h-10 w-full items-center justify-center gap-2"
@@ -451,7 +450,7 @@ function BillingPosRawSectionInner({
               </Button>
             </Tooltip>
             {checkoutApi.showUsbThermal ? (
-              <Tooltip title="Prints via the Android app USB bridge (ESC/POS) — best match to SnapBizz-style cut.">
+              <Tooltip title="Prints via the Android app USB bridge (ESC/POS). Closest match to the SnapBizz-style cut.">
                 <Button
                   type="default"
                   className="flex h-10 w-full items-center justify-center gap-2 border-[var(--pearl-bush)]"
@@ -500,7 +499,7 @@ function BillingPosRawSectionInner({
         <p className="mt-4 text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs">
           Open <strong>Review &amp; pay</strong>, pick payment, then use{' '}
           <strong>Generate bill</strong>, <strong>USB thermal</strong>, or{' '}
-          <strong>Print via RawBT</strong> — or the <strong>RawBT</strong> button in the panel
+          <strong>Print via RawBT</strong>, or the <strong>RawBT</strong> button in the panel
           header on Android. Catalog items deduct stock when you pay; custom lines appear on
           the receipt only.
         </p>

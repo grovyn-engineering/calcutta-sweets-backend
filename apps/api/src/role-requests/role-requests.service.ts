@@ -151,21 +151,22 @@ export class RoleRequestsService {
       if (!request.requestedRole) {
         throw new BadRequestException('Invalid role request');
       }
-      await this.prisma.$transaction([
-        this.prisma.roleRequest.update({
-          where: { id },
-          data: { status: RequestStatus.APPROVED },
-        }),
-        this.prisma.user.update({
+      const requestedRole = request.requestedRole;
+      await this.prisma.$transaction(async (tx) => {
+        await this.claimPending(tx, id, RequestStatus.APPROVED);
+        await tx.user.update({
           where: { id: request.userId },
-          data: { role: request.requestedRole },
-        }),
-      ]);
+          data: { role: requestedRole },
+        });
+      });
       invalidateJwtUserCache(request.userId);
-      await this.emailService.sendRoleRequestEmail(
+      await this.notify(
         request.user.email,
-        request.requestedRole,
-        'APPROVED',
+        this.emailService.sendRoleRequestEmail(
+          request.user.email,
+          request.requestedRole,
+          'APPROVED',
+        ),
       );
       return { message: 'Approved successfully' };
     }
@@ -195,12 +196,9 @@ export class RoleRequestsService {
     }
     const newOverrides = this.overridesFromEffective(user.role, nextEffective);
 
-    await this.prisma.$transaction([
-      this.prisma.roleRequest.update({
-        where: { id },
-        data: { status: RequestStatus.APPROVED },
-      }),
-      this.prisma.user.update({
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimPending(tx, id, RequestStatus.APPROVED);
+      await tx.user.update({
         where: { id: request.userId },
         data: {
           permissionOverrides:
@@ -208,8 +206,8 @@ export class RoleRequestsService {
               ? Prisma.DbNull
               : (newOverrides as Prisma.InputJsonValue),
         },
-      }),
-    ]);
+      });
+    });
     invalidateJwtUserCache(request.userId);
 
     const summary = Object.keys(patch)
@@ -220,10 +218,13 @@ export class RoleRequestsService {
           .trim(),
       )
       .join(', ');
-    await this.emailService.sendPermissionRequestEmail(
+    await this.notify(
       request.user.email,
-      summary,
-      'APPROVED',
+      this.emailService.sendPermissionRequestEmail(
+        request.user.email,
+        summary,
+        'APPROVED',
+      ),
     );
     return { message: 'Approved successfully' };
   }
@@ -238,16 +239,18 @@ export class RoleRequestsService {
       throw new BadRequestException('Request is not pending');
     }
 
-    await this.prisma.roleRequest.update({
-      where: { id },
-      data: { status: RequestStatus.REJECTED },
-    });
+    await this.prisma.$transaction((tx) =>
+      this.claimPending(tx, id, RequestStatus.REJECTED),
+    );
 
     if (request.kind === RoleRequestKind.ROLE_CHANGE && request.requestedRole) {
-      await this.emailService.sendRoleRequestEmail(
+      await this.notify(
         request.user.email,
-        request.requestedRole,
-        'REJECTED',
+        this.emailService.sendRoleRequestEmail(
+          request.user.email,
+          request.requestedRole,
+          'REJECTED',
+        ),
       );
     } else {
       const patch =
@@ -269,12 +272,37 @@ export class RoleRequestsService {
               )
               .join(', ')
           : 'additional access';
-      await this.emailService.sendPermissionRequestEmail(
+      await this.notify(
         request.user.email,
-        summary,
-        'REJECTED',
+        this.emailService.sendPermissionRequestEmail(
+          request.user.email,
+          summary,
+          'REJECTED',
+        ),
       );
     }
     return { message: 'Rejected successfully' };
+  }
+
+  /** The decision is already saved, so a failed email is logged rather than returned as an error. */
+  private async notify(email: string, send: Promise<unknown>) {
+    await send.catch((err) => {
+      console.error(`Failed to send role request email to ${email}:`, err);
+    });
+  }
+
+  /** PENDING → status exactly once, even if two admins act at the same time. */
+  private async claimPending(
+    tx: Prisma.TransactionClient,
+    id: string,
+    status: RequestStatus,
+  ) {
+    const res = await tx.roleRequest.updateMany({
+      where: { id, status: RequestStatus.PENDING },
+      data: { status },
+    });
+    if (res.count !== 1) {
+      throw new BadRequestException('Request is not pending');
+    }
   }
 }

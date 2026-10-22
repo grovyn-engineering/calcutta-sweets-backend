@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
 import { RedisService } from '../redis.provider';
 import { EmailService } from '../email/email.service';
+import { JwtService } from '@nestjs/jwt';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -23,6 +24,7 @@ describe('AuthService', () => {
           provide: EmailService,
           useValue: { sendOtpEmail: jest.fn() },
         },
+        { provide: JwtService, useValue: { signAsync: jest.fn() } },
       ],
     }).compile();
 

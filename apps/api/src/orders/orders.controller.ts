@@ -16,7 +16,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermission } from '../auth/permissions.decorator';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
-import { CreatePosOrderDto } from './dto/create-pos-order.dto';
+import { UserRole } from '@calcutta/database';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { CancelOrderDto, CreatePosOrderDto } from './dto/create-pos-order.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
@@ -67,10 +70,30 @@ export class OrdersController {
     return this.ordersService.findOne(req.effectiveShopCode!, id);
   }
 
+  /** Kept for existing clients: DELETE now cancels the bill instead of erasing it. */
   @Delete(':id')
   @HttpCode(204)
   @RequirePermission('canAccessOrders')
-  remove(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
-    return this.ordersService.remove(req.effectiveShopCode!, id);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  async remove(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    await this.ordersService.cancel(req.effectiveShopCode!, id, req.user?.id);
+  }
+
+  @Post(':id/cancel')
+  @RequirePermission('canAccessOrders')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  cancel(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelOrderDto,
+  ) {
+    return this.ordersService.cancel(
+      req.effectiveShopCode!,
+      id,
+      req.user?.id,
+      dto.reason,
+    );
   }
 }

@@ -1,10 +1,10 @@
-import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma.service';
+import { configureApp } from './app.setup';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -20,21 +20,12 @@ async function bootstrap() {
     app.set('trust proxy', 1);
   }
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  configureApp(app);
 
   app.useStaticAssets(join(process.cwd(), 'public', 'uploads'), {
     prefix: '/uploads',
   });
   const prisma = app.get(PrismaService);
-  app.setGlobalPrefix('api', {
-    exclude: [{ path: 'health', method: RequestMethod.GET }],
-  });
   const corsOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')
         .map((o) => o.trim())

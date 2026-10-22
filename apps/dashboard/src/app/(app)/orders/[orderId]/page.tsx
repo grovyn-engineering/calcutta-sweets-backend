@@ -18,14 +18,20 @@ import {
   Typography,
 } from "antd";
 import { Printer, Receipt, Store, UserRound } from "lucide-react";
+import {
+  paymentLabel,
+  receiptPaymentRows,
+  type PaymentLeg,
+} from "@/lib/payments";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
+import { billPrintQuantity } from "@/lib/billingInstantPricing";
 import {
   buildPrintReceiptHtml,
+  billRefOf,
   openPrintableInvoice,
-  orderIdToInvoiceRef,
   type InvoicePrintFormat,
 } from "@/lib/printInvoice";
 
@@ -57,6 +63,7 @@ type OrderLineTabRow = OrderDetailItem & {
 type OrderDetail = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -66,6 +73,10 @@ type OrderDetail = {
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
+  /** Payment legs; older orders come back as one leg of paymentMethod. */
+  payments?: PaymentLeg[];
+  cashTendered?: number | null;
+  changeDue?: number | null;
   subtotal: number;
   items: OrderDetailItem[];
 };
@@ -81,17 +92,7 @@ function formatWhen(iso: string) {
   }
 }
 
-function paymentLabel(raw: string) {
-  if (raw === "CASH") return "Cash";
-  if (raw === "UPI_CARD") return "UPI / Card";
-  return raw || "-";
-}
 
-function paymentTagColor(raw: string): string {
-  if (raw === "CASH") return "green";
-  if (raw === "UPI_CARD") return "purple";
-  return "default";
-}
 
 function statusTagColor(status: string): string {
   const u = status.toUpperCase();
@@ -99,6 +100,16 @@ function statusTagColor(status: string): string {
   if (u === "PENDING" || u === "OPEN") return "warning";
   if (u === "CANCELLED" || u === "REFUNDED") return "error";
   return "processing";
+}
+
+/**
+ * Splits the bill's stored tax the way the API's bill summary does: CGST rounded to paise,
+ * SGST the remainder, so the two always add up to the tax on the original receipt.
+ */
+function splitGst(tax: number, cgstRate: number, sgstRate: number) {
+  const rate = cgstRate + sgstRate;
+  const cgst = rate > 0 ? Math.round((tax * cgstRate * 100) / rate) / 100 : 0;
+  return { cgst, sgst: Math.round((tax - cgst) * 100) / 100 };
 }
 
 export default function OrderBillDetailPage() {
@@ -172,7 +183,7 @@ export default function OrderBillDetailPage() {
     void load();
   }, [load]);
 
-  const invoiceRef = order ? (order.billNo || orderIdToInvoiceRef(order.id)) : "…";
+  const invoiceRef = order ? billRefOf(order) : "…";
 
   const lineColumns = useMemo<AppTableColumn[]>(
     () => [
@@ -248,6 +259,12 @@ export default function OrderBillDetailPage() {
     [],
   );
 
+  const taxSplit = splitGst(
+    order?.tax ?? 0,
+    currentShop?.cgstRate ?? 2.5,
+    currentShop?.sgstRate ?? 2.5,
+  );
+
   const handlePrint = (format: InvoicePrintFormat) => {
     if (!order) return;
     const customer =
@@ -263,8 +280,7 @@ export default function OrderBillDetailPage() {
     const cg = currentShop?.cgstRate ?? 2.5;
     const sg = currentShop?.sgstRate ?? 2.5;
     const taxAmt = order.tax ?? 0;
-    const cgstSplit = taxAmt * (cg / (cg + sg));
-    const sgstSplit = taxAmt * (sg / (cg + sg));
+    const { cgst: cgstSplit, sgst: sgstSplit } = splitGst(taxAmt, cg, sg);
     const taxableBase = order.totalAmount - taxAmt;
 
     const invoiceData = {
@@ -274,17 +290,25 @@ export default function OrderBillDetailPage() {
       shopPhone: currentShop?.phone ?? null,
       gstNumber: currentShop?.gstNumber ?? null,
       fssaiNumber: currentShop?.fssaiNumber ?? null,
-      invoiceNo: order.billNo || orderIdToInvoiceRef(order.id),
+      invoiceNo: billRefOf(order),
       issuedAt: order.createdAt,
       customer,
-      lines: order.items.map((i) => ({
-        name: i.productName,
-        variantLabel: i.variantLabel,
-        barcode: i.barcode,
-        quantity: i.quantity,
-        unit: i.unit ?? "PC",
-        unitPrice: i.unitPrice,
-      })),
+      // Same KG/LTR normalisation as the POS receipt, so an instant line reprints as
+      // "0.25 KG @ ₹520" rather than "250 GM @ ₹2.08".
+      lines: order.items.map((i) => {
+        const printed = billPrintQuantity(i.quantity, i.unit ?? "PC");
+        return {
+          name: i.productName,
+          variantLabel: i.variantLabel,
+          barcode: i.barcode,
+          quantity: printed.quantity,
+          unit: printed.unit,
+          unitPrice:
+            printed.quantity > 0
+              ? (i.quantity * i.unitPrice) / printed.quantity
+              : i.unitPrice,
+        };
+      }),
       subtotal: taxableBase,
       gstRate: totalTaxRate,
       gstAmount: taxAmt,
@@ -300,7 +324,10 @@ export default function OrderBillDetailPage() {
           : null,
       bankAccountNumber: currentShop?.bankAccountNumber ?? null,
       bankIfsc: currentShop?.bankIfsc ?? null,
-      paymentMode: order.paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
+      paymentMode: paymentLabel(order.paymentMethod, 'Cash'),
+      payments: order.payments ?? null,
+      cashTendered: order.cashTendered ?? null,
+      changeDue: order.changeDue ?? null,
     };
 
     if (format === 'receipt') {
@@ -377,7 +404,7 @@ export default function OrderBillDetailPage() {
                 </Title>
                 <Tag
                   color={statusTagColor(order.status)}
-                  className="m-0 shrink-0 uppercase"
+                  className="m-0 shrink-0"
                 >
                   {order.status}
                 </Tag>
@@ -392,7 +419,6 @@ export default function OrderBillDetailPage() {
                   ·
                 </span>
                 <Tag
-                  color={paymentTagColor(order.paymentMethod)}
                   className="m-0 shrink-0"
                 >
                   {paymentLabel(order.paymentMethod)}
@@ -408,10 +434,6 @@ export default function OrderBillDetailPage() {
                   type="primary"
                   icon={<Printer className="h-4 w-4" />}
                   onClick={() => handlePrint("a4")}
-                  style={{
-                    backgroundColor: "var(--ochre-600)",
-                    borderColor: "var(--ochre-600)",
-                  }}
                 >
                   Print invoice (A4)
                 </Button>
@@ -429,7 +451,7 @@ export default function OrderBillDetailPage() {
 
           <Card
             variant="borderless"
-            className="min-w-0 rounded-xl border border-[var(--pearl-bush)] bg-[rgba(255,254,249,0.55)] shadow-sm"
+            className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)]"
             styles={{
               body: { padding: 0 },
             }}
@@ -437,8 +459,8 @@ export default function OrderBillDetailPage() {
             <div className="p-5 sm:p-6">
               <Row gutter={[16, 16]}>
                 <Col xs={24} lg={13}>
-                  <div className="flex flex-col rounded-lg border border-[var(--pearl-bush)] bg-[rgba(255,255,255,0.5)] px-4 py-3 shadow-sm backdrop-blur-md">
-                    <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[var(--bistre-400)]">
+                  <div className="flex flex-col rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--bistre-400)]">
                       <UserRound className="h-3.5 w-3.5" aria-hidden />
                       Customer
                     </div>
@@ -467,10 +489,10 @@ export default function OrderBillDetailPage() {
                   </div>
                 </Col>
                 <Col xs={24} lg={11}>
-                  <div className="flex flex-col rounded-lg border border-[rgba(201,147,45,0.15)] bg-[var(--linen-50)] px-4 py-3 shadow-sm">
+                  <div className="flex flex-col rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3">
                     <Text
                       type="secondary"
-                      className="mb-2 text-[9px] font-bold uppercase tracking-widest"
+                      className="mb-2 text-xs font-medium"
                     >
                       Summary
                     </Text>
@@ -484,13 +506,13 @@ export default function OrderBillDetailPage() {
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
                         <span>CGST</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
-                          {inr.format(order.tax / 2)}
+                          {inr.format(taxSplit.cgst)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
                         <span>SGST</span>
                         <span className="tabular-nums font-medium text-[var(--text-primary)]">
-                          {inr.format(order.tax / 2)}
+                          {inr.format(taxSplit.sgst)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-[var(--text-secondary)]">
@@ -502,7 +524,7 @@ export default function OrderBillDetailPage() {
                     </div>
                     <Divider className="my-2 border-[var(--pearl-bush)]/50" />
                     <div className="flex items-baseline justify-between gap-4 mt-1">
-                      <Text strong className="text-sm text-[var(--text-primary)] uppercase tracking-wider">
+                      <Text strong className="text-sm text-[var(--text-primary)]">
                         Payable total
                       </Text>
                       <Text
@@ -510,6 +532,21 @@ export default function OrderBillDetailPage() {
                       >
                         {inr.format(order.totalAmount)}
                       </Text>
+                    </div>
+                    <div className="mt-2 space-y-1 text-sm">
+                      {receiptPaymentRows(order, order.totalAmount, order.paymentMethod).map(
+                        (r) => (
+                          <div
+                            key={r.label}
+                            className="flex justify-between gap-4 text-[var(--text-secondary)]"
+                          >
+                            <span>{r.label}</span>
+                            <span className="tabular-nums font-medium text-[var(--text-primary)]">
+                              {inr.format(r.amount)}
+                            </span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
                 </Col>

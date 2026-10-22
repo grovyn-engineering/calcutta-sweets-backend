@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { App, Button, Input, Modal } from "antd";
-import type { Shop } from "@calcutta/database";
+import type { Shop } from "@/lib/types/shop";
 import { ChevronRight, MapPin, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import ShopPlaceholder from "@/assets/shop.jpeg";

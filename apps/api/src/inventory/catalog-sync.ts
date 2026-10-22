@@ -1,5 +1,4 @@
 import type { PrismaClient } from '@prisma/client';
-import type { Unit } from '@prisma/client';
 
 export type CatalogSyncResult = {
   factoryShopCode: string;
@@ -9,6 +8,8 @@ export type CatalogSyncResult = {
   productsUpdated: number;
   variantsCreated: number;
   variantsUpdated: number;
+  /** Retail prices that were changed to match the factory price. */
+  pricesUpdated: number;
   imagesCreated: number;
 };
 
@@ -17,10 +18,6 @@ export type CatalogSyncBatchResult = CatalogSyncResult & {
   nextSkip: number;
   completed: boolean;
 };
-
-function defaultRetailOpeningQty(unit: Unit | null | undefined): number {
-  return unit === 'KG' ? 20 : 100;
-}
 
 const UUID_LIKE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +28,11 @@ async function assertFactoryAndTarget(
   prisma: PrismaClient,
   targetShopCode: string,
 ) {
-  const factory = await prisma.shop.findFirst({ where: { isFactory: true } });
+  // One factory is assumed; oldest wins so the choice is deterministic.
+  const factory = await prisma.shop.findFirst({
+    where: { isFactory: true },
+    orderBy: { createdAt: 'asc' },
+  });
   if (!factory) {
     throw new Error(
       'No factory shop (isFactory=true). Mark a warehouse shop as factory first.',
@@ -79,87 +80,101 @@ export async function syncFactoryCatalogToShopBatch(
   let productsUpdated = 0;
   let variantsCreated = 0;
   let variantsUpdated = 0;
+  let pricesUpdated = 0;
   let imagesCreated = 0;
 
+  // One transaction per product: a failure never leaves a half-synced product.
+  // New retail variants start at 0 stock. Stock only reaches a shop through a
+  // stock transfer, so nothing is created out of thin air.
   for (const fp of factoryProducts) {
-    let tp = await prisma.product.findFirst({
-      where: { shopCode: target.shopCode, name: fp.name },
-    });
-
-    if (!tp) {
-      tp = await prisma.product.create({
-        data: {
-          name: fp.name,
-          description: fp.description,
-          categoryId: fp.categoryId,
-          shopCode: target.shopCode,
-          isActive: fp.isActive,
-          isListedOnWebsite: fp.isListedOnWebsite,
-        },
+    await prisma.$transaction(async (tx) => {
+      // Match on barcode first (stable), then fall back to the product name.
+      const barcodes = fp.variants.map((v) => v.barcode);
+      const byBarcode = await tx.productVariant.findFirst({
+        where: { shopCode: target.shopCode, barcode: { in: barcodes } },
+        select: { productId: true },
       });
-      productsCreated += 1;
+      let tp = byBarcode
+        ? await tx.product.findUnique({ where: { id: byBarcode.productId } })
+        : await tx.product.findFirst({
+            where: { shopCode: target.shopCode, name: fp.name },
+            orderBy: { createdAt: 'asc' },
+          });
 
-      for (const img of fp.images) {
-        await prisma.productImage.create({
-          data: { url: img.url, productId: tp.id },
-        });
-        imagesCreated += 1;
-      }
-    } else {
-      await prisma.product.update({
-        where: { id: tp.id },
-        data: {
-          description: fp.description,
-          categoryId: fp.categoryId,
-          isActive: fp.isActive,
-          isListedOnWebsite: fp.isListedOnWebsite,
-        },
-      });
-      productsUpdated += 1;
-    }
-
-    const existingVariants = await prisma.productVariant.findMany({
-      where: { productId: tp.id },
-    });
-    const byName = new Map(existingVariants.map((v) => [v.name, v]));
-
-    for (const fv of fp.variants) {
-      const hit = byName.get(fv.name);
-      if (hit) {
-        const repairBarcode =
-          !!fv.barcode &&
-          UUID_LIKE.test(hit.barcode) &&
-          !UUID_LIKE.test(fv.barcode);
-
-        await prisma.productVariant.update({
-          where: { id: hit.id },
+      if (!tp) {
+        tp = await tx.product.create({
           data: {
-            price: fv.price,
-            costPrice: fv.costPrice,
-            hsnCode: fv.hsnCode,
-            sku: fv.sku,
-            unit: fv.unit,
-            ...(repairBarcode ? { barcode: fv.barcode } : {}),
+            name: fp.name,
+            description: fp.description,
+            categoryId: fp.categoryId,
+            shopCode: target.shopCode,
+            isActive: fp.isActive,
+            isListedOnWebsite: fp.isListedOnWebsite,
+            images: { create: fp.images.map((img) => ({ url: img.url })) },
           },
         });
-        variantsUpdated += 1;
+        productsCreated += 1;
+        imagesCreated += fp.images.length;
       } else {
-        await prisma.productVariant.create({
+        await tx.product.update({
+          where: { id: tp.id },
           data: {
-            productId: tp.id,
-            name: fv.name,
-            price: fv.price,
-            costPrice: fv.costPrice,
-            hsnCode: fv.hsnCode,
-            sku: fv.sku,
-            unit: fv.unit,
-            barcode: fv.barcode,
-            quantity: defaultRetailOpeningQty(fv.unit),
+            description: fp.description,
+            categoryId: fp.categoryId,
+            isActive: fp.isActive,
+            isListedOnWebsite: fp.isListedOnWebsite,
           },
         });
-        variantsCreated += 1;
+        productsUpdated += 1;
       }
-    }
+
+      const existing = await tx.productVariant.findMany({
+        where: { shopCode: target.shopCode, productId: tp.id },
+      });
+      for (const fv of fp.variants) {
+        const hit =
+          existing.find((v) => v.barcode === fv.barcode) ??
+          existing.find((v) => v.name === fv.name);
+        if (hit) {
+          const repairBarcode =
+            !!fv.barcode &&
+            hit.barcode !== fv.barcode &&
+            UUID_LIKE.test(hit.barcode) &&
+            !UUID_LIKE.test(fv.barcode);
+          if (!hit.price.eq(fv.price)) pricesUpdated += 1;
+          await tx.productVariant.update({
+            where: { id: hit.id },
+            data: {
+              price: fv.price,
+              costPrice: fv.costPrice,
+              hsnCode: fv.hsnCode,
+              taxRate: fv.taxRate,
+              sku: fv.sku,
+              unit: fv.unit,
+              ...(repairBarcode ? { barcode: fv.barcode } : {}),
+            },
+          });
+          variantsUpdated += 1;
+        } else {
+          await tx.productVariant.create({
+            data: {
+              productId: tp.id,
+              shopCode: target.shopCode,
+              name: fv.name,
+              price: fv.price,
+              costPrice: fv.costPrice,
+              hsnCode: fv.hsnCode,
+              taxRate: fv.taxRate,
+              sku: fv.sku,
+              unit: fv.unit,
+              barcode: fv.barcode,
+              quantity: 0,
+            },
+          });
+          variantsCreated += 1;
+        }
+      }
+    });
   }
 
   const batchSize = factoryProducts.length;
@@ -174,6 +189,7 @@ export async function syncFactoryCatalogToShopBatch(
     productsUpdated,
     variantsCreated,
     variantsUpdated,
+    pricesUpdated,
     imagesCreated,
     batchSize,
     nextSkip,
@@ -202,6 +218,7 @@ export async function syncFactoryCatalogToShop(
   let productsUpdated = 0;
   let variantsCreated = 0;
   let variantsUpdated = 0;
+  let pricesUpdated = 0;
   let imagesCreated = 0;
 
   let skip = 0;
@@ -216,6 +233,7 @@ export async function syncFactoryCatalogToShop(
     productsUpdated += batch.productsUpdated;
     variantsCreated += batch.variantsCreated;
     variantsUpdated += batch.variantsUpdated;
+    pricesUpdated += batch.pricesUpdated;
     imagesCreated += batch.imagesCreated;
     skip = batch.nextSkip;
     if (batch.batchSize === 0) break;
@@ -229,6 +247,7 @@ export async function syncFactoryCatalogToShop(
     productsUpdated,
     variantsCreated,
     variantsUpdated,
+    pricesUpdated,
     imagesCreated,
   };
 }

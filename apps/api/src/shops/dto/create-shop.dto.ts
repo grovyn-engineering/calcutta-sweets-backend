@@ -2,18 +2,28 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsNumber,
+  Max,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
+  Matches,
 } from 'class-validator';
+import {
+  GSTIN_MESSAGE,
+  GSTIN_OR_EMPTY,
+  PINCODE_OR_EMPTY,
+} from '../../common/gstin';
 
 export class CreateShopDto {
   @IsString()
   @MaxLength(200)
   name: string;
 
+  /** Ignored: the server always generates the shop code. Accepted for older clients. */
+  @IsOptional()
   @IsString()
-  shopCode: string;
+  shopCode?: string;
 
   @IsOptional()
   @IsString()
@@ -45,10 +55,12 @@ export class CreateShopDto {
 
   @IsOptional()
   @IsString()
+  @Matches(PINCODE_OR_EMPTY, { message: 'PIN code must be 6 digits' })
   pincode?: string;
 
   @IsOptional()
   @IsString()
+  @Matches(GSTIN_OR_EMPTY, { message: GSTIN_MESSAGE })
   gstNumber?: string;
 
   @IsOptional()
@@ -91,10 +103,14 @@ export class CreateShopDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(20)
   cgstRate?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(20)
   sgstRate?: number;
 }

@@ -10,6 +10,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { UsersModule } from './users/users.module';
 import { CategoryModule } from './category/category.module';
 import { OrdersModule } from './orders/orders.module';
+import { CustomersModule } from './customers/customers.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RoleRequestsModule } from './role-requests/role-requests.module';
@@ -17,12 +18,15 @@ import { SettingsModule } from './settings/settings.module';
 import { PublicModule } from './public/public.module';
 import { PaymentModule } from './payment/payment.module';
 import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
+import { validateEnv } from './common/env.validation';
+import { KeepWarmService } from './keep-warm.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnv,
     }),
     PrismaModule,
     ShopsModule,
@@ -32,6 +36,7 @@ import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
     UsersModule,
     CategoryModule,
     OrdersModule,
+    CustomersModule,
     NotificationsModule,
     AnalyticsModule,
     RoleRequestsModule,
@@ -41,6 +46,6 @@ import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
     StockTransfersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, KeepWarmService],
 })
 export class AppModule {}

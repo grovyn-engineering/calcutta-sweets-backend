@@ -29,6 +29,10 @@ import { InventoryService } from './inventory.service';
 import { BulkDeleteVariantsDto } from './dto/bulk-delete-variants.dto';
 import { CloneCatalogDto } from './dto/clone-catalog.dto';
 import { UpdateVariantDto } from './dto/update-variant.dto';
+import { PurgeShopCatalogDto } from './dto/purge-shop-catalog.dto';
+import { UserRole } from '@calcutta/database';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, ShopScopeGuard, PermissionsGuard)
@@ -48,9 +52,15 @@ export class InventoryController {
     );
   }
 
+  /** Wipes the shop's catalog only. Super admin, with the shop code typed back as confirmation. */
   @Post('purge-shop-catalog')
   @RequirePermission('canAccessInventory')
-  purgeShopCatalog(@Req() req: Request) {
+  @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  purgeShopCatalog(@Req() req: Request, @Body() body: PurgeShopCatalogDto) {
+    if (body.confirmShopCode !== req.effectiveShopCode) {
+      throw new BadRequestException('Type the shop code to confirm the purge');
+    }
     return this.shopCatalogPurgeService.purgeCurrentShop(
       req.effectiveShopCode!,
     );
@@ -71,6 +81,8 @@ export class InventoryController {
 
   @Post('variants/bulk-delete')
   @RequirePermission('canAccessInventory')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   bulkDeleteVariants(@Req() req: Request, @Body() dto: BulkDeleteVariantsDto) {
     return this.inventoryService.deleteVariantsByIds(
       req.effectiveShopCode!,
@@ -88,6 +100,7 @@ export class InventoryController {
     @Query('search') search?: string,
     @Query('category') category?: string,
     @Query('activeOnly') activeOnly?: string,
+    @Query('lowStock') lowStock?: string,
   ) {
     const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
     const size = Math.min(
@@ -98,8 +111,8 @@ export class InventoryController {
     const catFilter =
       rawCat && rawCat.toLowerCase() !== 'all' ? rawCat : undefined;
     const searchText = (q ?? search)?.trim() || undefined;
-    const onlyActive =
-      activeOnly === '1' || activeOnly === 'true' || activeOnly === 'yes';
+    const isTrue = (v?: string) => v === '1' || v === 'true' || v === 'yes';
+    const onlyActive = isTrue(activeOnly);
 
     return this.inventoryService.findVariantsPage(
       req.effectiveShopCode!,
@@ -109,6 +122,7 @@ export class InventoryController {
         search: searchText,
         category: catFilter,
         activeOnly: onlyActive || undefined,
+        lowStock: isTrue(lowStock) || undefined,
       },
     );
   }
@@ -126,7 +140,13 @@ export class InventoryController {
     @Param('id') id: string,
     @Body() dto: UpdateVariantDto,
   ) {
-    return this.inventoryService.updateVariant(id, dto, req.effectiveShopCode!);
+    return this.inventoryService.updateVariant(
+      id,
+      dto,
+      req.effectiveShopCode!,
+      req.user?.id,
+      req.user?.role,
+    );
   }
 
   @Post('upload')

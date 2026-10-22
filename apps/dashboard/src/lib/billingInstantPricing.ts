@@ -31,6 +31,21 @@ export function contentPerStockUnit(
   return null;
 }
 
+/**
+ * Label to read a pack size from: the variant name ("250g") when it has one, else the
+ * product name. Some catalog rows carry the size only in the product name, e.g. product
+ * "AKHROT 250g" with variant "Gm"; without this they could only be sold as PC.
+ */
+export function sizeLabel(
+  variantName: string | null | undefined,
+  productName: string | null | undefined,
+): string {
+  const v = variantName ?? '';
+  if (contentPerStockUnit(v, 'PC')) return v;
+  const p = productName ?? '';
+  return contentPerStockUnit(p, 'PC') ? p : v;
+}
+
 function inventoryBasePerStockUnit(
   variantLabel: string,
   inventoryUnit: string | null | undefined,
@@ -144,4 +159,19 @@ export function billDisplayUnitPrice(
 ): number {
   if (!displayQuantity || !Number.isFinite(displayQuantity)) return 0;
   return billLineSubtotal(stockUnitsToDeduct, catalogUnitPrice) / displayQuantity;
+}
+
+/**
+ * Quantity and unit as printed on a bill. Weights print in KG and volumes in LTR, so an
+ * instant line of 1000 GM reads "1 KG @ ₹520" like the same item added as a standard
+ * 1 KG line (not "1000 GM @ ₹0.52"), and the Items/Qty total adds like with like.
+ */
+export function billPrintQuantity(
+  displayQuantity: number,
+  displayUnit: string,
+): { quantity: number; unit: string } {
+  const du = displayUnit.toUpperCase();
+  if (du === 'GM') return { quantity: displayQuantity / 1000, unit: 'KG' };
+  if (du === 'ML') return { quantity: displayQuantity / 1000, unit: 'LTR' };
+  return { quantity: displayQuantity, unit: displayUnit };
 }

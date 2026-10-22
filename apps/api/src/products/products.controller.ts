@@ -10,10 +10,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermission } from '../auth/permissions.decorator';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { ShopScopeGuard } from '../auth/shop-scope.guard';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -26,6 +29,9 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
+  // A new product sets a price and an opening stock, which only a manager or above may do.
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   create(@Req() req: Request, @Body() createProductDto: CreateProductDto) {
     return this.productsService.create(
       createProductDto,
@@ -76,10 +82,14 @@ export class ProductsController {
       id,
       updateProductDto,
       req.effectiveShopCode!,
+      req.user?.role,
     );
   }
 
   @Delete(':id')
+  // Deleting a product is not a counter task; cashiers and staff can edit but not remove.
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
+  @UseGuards(RolesGuard)
   remove(@Req() req: Request, @Param('id') id: string) {
     return this.productsService.remove(id, req.effectiveShopCode!);
   }

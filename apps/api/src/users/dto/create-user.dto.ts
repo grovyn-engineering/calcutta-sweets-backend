@@ -1,5 +1,6 @@
 import { UserRole } from '@prisma/client';
 import {
+  Allow,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -24,4 +25,9 @@ export class CreateUserDto {
 
   @IsEnum(UserRole)
   role!: UserRole;
+
+  /** Per-user toggles on top of the role defaults; unknown keys are dropped. */
+  @IsOptional()
+  @Allow()
+  permissionOverrides?: Record<string, boolean> | null;
 }

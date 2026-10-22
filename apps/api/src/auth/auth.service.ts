@@ -15,6 +15,17 @@ const SALT_ROUNDS = 10;
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
 const OTP_LENGTH = 6;
+// Wrong guesses allowed per OTP before it is discarded (a 6-digit code is otherwise brute-forceable).
+const OTP_MAX_ATTEMPTS = 5;
+
+/** Copy of a user row without the bcrypt hash, safe to return from an endpoint. */
+function withoutPassword<T extends { password: string }>(
+  user: T,
+): Omit<T, 'password'> {
+  const { password, ...rest } = user;
+  void password;
+  return rest;
+}
 
 const ROLE_MAP: Record<string, string> = {
   admin: 'ADMIN',
@@ -38,10 +49,15 @@ export class AuthService {
       where: { email: email.toLowerCase().trim() },
     });
 
-    console.log(user);
-    console.log(pass);
     if (!user || !(await bcrypt.compare(pass, user.password))) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid email or password');
+    }
+    // JwtAuthGuard rejects inactive users anyway; refuse here so they get a clear reason
+    // instead of a token that fails on the first request.
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        'This account has been deactivated. Contact your shop admin.',
+      );
     }
     const { password, ...result } = user;
     const payload = { sub: user.id };
@@ -86,6 +102,7 @@ export class AuthService {
       .padStart(OTP_LENGTH, '0');
 
     await this.redis.set(`otp:reset:${emailKey}`, otp, 'EX', OTP_TTL_SECONDS);
+    await this.redis.del(`otp:reset:${emailKey}:attempts`);
     await this.emailService.sendOtpEmail(email, otp);
     await this.redis.set(cooldownKey, '1', 'EX', 60);
 
@@ -99,10 +116,7 @@ export class AuthService {
     otp: string,
   ): Promise<{ verified: true }> {
     const emailKey = email.toLowerCase().trim();
-    const storedOtp = await this.redis.get(`otp:reset:${emailKey}`);
-    const normalizedOtp = String(otp ?? '').trim();
-
-    if (!storedOtp || storedOtp.trim() !== normalizedOtp) {
+    if (!(await this.matchOtp(`otp:reset:${emailKey}`, otp))) {
       throw new UnauthorizedException('Invalid or expired OTP');
     }
 
@@ -143,10 +157,7 @@ export class AuthService {
     newPassword: string,
   ): Promise<any> {
     const emailKey = email.toLowerCase().trim();
-    const storedOtp = await this.redis.get(`otp:reset:${emailKey}`);
-    const normalizedOtp = String(otp ?? '').trim();
-
-    if (!storedOtp || storedOtp.trim() !== normalizedOtp) {
+    if (!(await this.matchOtp(`otp:reset:${emailKey}`, otp))) {
       throw new UnauthorizedException('Invalid or expired OTP');
     }
 
@@ -190,6 +201,7 @@ export class AuthService {
       .toString()
       .padStart(OTP_LENGTH, '0');
     await this.redis.set(`otp:change:${user.id}`, otp, 'EX', OTP_TTL_SECONDS);
+    await this.redis.del(`otp:change:${user.id}:attempts`);
     await this.emailService.sendOtpEmail(user.email, otp);
     return { message: 'OTP sent to your email.' };
   }
@@ -206,9 +218,7 @@ export class AuthService {
     if (!(await bcrypt.compare(oldPassword, user.password)))
       throw new UnauthorizedException('Incorrect old password');
 
-    const storedOtp = await this.redis.get(`otp:change:${user.id}`);
-    const normalizedOtp = String(otp ?? '').trim();
-    if (!storedOtp || storedOtp.trim() !== normalizedOtp) {
+    if (!(await this.matchOtp(`otp:change:${user.id}`, otp))) {
       throw new UnauthorizedException('Invalid or expired OTP');
     }
 
@@ -220,6 +230,25 @@ export class AuthService {
       data: { password: hashedPassword },
     });
     return { message: 'Password changed successfully' };
+  }
+
+  /**
+   * True when `otp` matches the code stored at `key`. Each miss is counted, and after
+   * OTP_MAX_ATTEMPTS misses the code is deleted so the user has to request a new one.
+   */
+  private async matchOtp(key: string, otp: string): Promise<boolean> {
+    const storedOtp = await this.redis.get(key);
+    if (storedOtp && storedOtp.trim() === String(otp ?? '').trim()) {
+      await this.redis.del(`${key}:attempts`);
+      return true;
+    }
+    if (storedOtp) {
+      const attemptsKey = `${key}:attempts`;
+      const attempts = await this.redis.incr(attemptsKey);
+      if (attempts === 1) await this.redis.expire(attemptsKey, OTP_TTL_SECONDS);
+      if (attempts >= OTP_MAX_ATTEMPTS) await this.redis.del(key, attemptsKey);
+    }
+    return false;
   }
 
   private normalizeRole(
@@ -236,10 +265,7 @@ export class AuthService {
 
   async verifyOtp(email: string, otp: string) {
     const emailKey = email.toLowerCase().trim();
-    const storedOtp = await this.redis.get(`otp:${emailKey}`);
-    const normalizedOtp = String(otp ?? '').trim();
-
-    if (!storedOtp || storedOtp.trim() !== normalizedOtp) {
+    if (!(await this.matchOtp(`otp:${emailKey}`, otp))) {
       throw new UnauthorizedException('Invalid OTP');
     }
 
@@ -277,8 +303,7 @@ export class AuthService {
           role: normalizedRole,
         },
       });
-      const payload = { sub: user.id };
-      return { user };
+      return { user: withoutPassword(user) };
     } catch (error) {
       throw new HttpException(
         {
@@ -309,6 +334,6 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException(`User with email ${email} not found`);
     }
-    return user;
+    return withoutPassword(user);
   }
 }

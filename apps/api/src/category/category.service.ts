@@ -45,7 +45,10 @@ export class CategoryService {
 
     return categories.map((cat) => {
       const products: CategoryProductSummary[] = cat.products.map((p) => {
-        const totalStock = p.variants.reduce((s, v) => s + v.quantity, 0);
+        const totalStock = p.variants.reduce(
+          (s, v) => s + Number(v.quantity),
+          0,
+        );
         return { id: p.id, name: p.name, totalStock };
       });
       const totalStock = products.reduce((s, p) => s + p.totalStock, 0);
@@ -80,7 +83,7 @@ export class CategoryService {
       },
       _sum: { quantity: true },
     });
-    const totalStock = agg._sum.quantity ?? 0;
+    const totalStock = Number(agg._sum.quantity ?? 0);
     return { ...category, totalStock };
   }
 
@@ -117,7 +120,26 @@ export class CategoryService {
     };
   }
 
+  /** The unique index is case-sensitive, so "sweets" would otherwise sit beside "Sweets". */
+  private async assertNameFree(name: string | undefined, exceptId?: string) {
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+    const clash = await this.prisma.category.findFirst({
+      where: {
+        name: { equals: trimmed, mode: 'insensitive' },
+        ...(exceptId ? { NOT: { id: exceptId } } : {}),
+      },
+      select: { name: true },
+    });
+    if (clash) {
+      throw new ConflictException(
+        `A category with the name "${clash.name}" already exists.`,
+      );
+    }
+  }
+
   async create(createCategoryDto: CreateCategoryDto) {
+    await this.assertNameFree(createCategoryDto.name);
     try {
       return await this.prisma.category.create({ data: createCategoryDto });
     } catch (e) {
@@ -135,6 +157,7 @@ export class CategoryService {
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto) {
     await this.ensureCategoryExists(id);
+    await this.assertNameFree(updateCategoryDto.name, id);
     try {
       return await this.prisma.category.update({
         where: { id },

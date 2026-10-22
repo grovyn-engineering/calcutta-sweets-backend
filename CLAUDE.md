@@ -34,7 +34,7 @@ We use `pnpm workspaces` and `Turborepo` to manage dependencies and build steps 
 - **UI Components & Tooling:** 
   - `antd` (Ant Design) for complex UI elements.
   - `lucide-react` for iconography.
-  - `react-tabulator` / `tabulator-tables` for high-performance data grids.
+  - A custom `DataTable` (`apps/dashboard/src/components/DataTable`) for all data grids: sticky header, local or remote pagination, infinite scroll, skeleton loading. No third-party grid library.
   - `recharts` for analytics and data visualization.
 - **Utility/Export:**
   - `exceljs`, `jspdf`, `jspdf-autotable` for robust reporting and data exports.
@@ -76,7 +76,7 @@ We use `pnpm workspaces` and `Turborepo` to manage dependencies and build steps 
 - Favor Server Components where appropriate to minimize client JavaScript.
 - Client components (`"use client"`) should be pushed down the component tree as far as possible.
 - Use Tailwind CSS for utility styling.
-- For complex data tables, use Tabulator. For charts, use Recharts.
+- For data tables, use the shared `DataTable` component (do not add Tabulator or another grid library). For charts, use Recharts.
 - Ensure all API calls handle loading and error states gracefully.
 
 ## 5. Development Workflow Context

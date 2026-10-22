@@ -2,10 +2,15 @@
   padding: 20px 24px 8px !important;
 }
 
+/* Sticky so Cancel / Save stay visible while the drawer body scrolls. */
 .modalFooter {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   margin-top: 20px;
-  padding-top: 16px;
+  padding: 16px 0;
   border-top: 1px solid var(--pearl-bush);
+  background: var(--surface, #ffffff);
 }
 
 .titleRow {
@@ -56,8 +61,7 @@
 .sectionLabel {
   font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--bistre-400);
   margin-bottom: 10px;
   margin-top: 4px;
@@ -92,8 +96,7 @@
 .fieldLabel {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.005em;
   color: var(--bistre-600);
 }
 

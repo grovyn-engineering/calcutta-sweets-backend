@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { invalidateJwtUserCache } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
 import { ROLE_PERMISSION_FIELD_KEYS } from '../settings/effective-permissions';
@@ -18,6 +18,24 @@ import {
   normalizeIndianMobile,
 } from '../common/indian-mobile';
 import * as bcrypt from 'bcrypt';
+
+/** Keeps only known permission keys with boolean values; empty means "role defaults". */
+function cleanPermissionOverrides(
+  raw: unknown,
+): Record<string, boolean> | null {
+  if (raw == null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new BadRequestException(
+      'permissionOverrides must be an object or null',
+    );
+  }
+  const cleaned: Record<string, boolean> = {};
+  for (const k of ROLE_PERMISSION_FIELD_KEYS) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (typeof v === 'boolean') cleaned[k] = v;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : null;
+}
 
 const SALT_ROUNDS = 10;
 
@@ -80,6 +98,8 @@ export class UsersService {
         name: dto.name ?? null,
         shopCode: dto.shopCode,
         role: dto.role,
+        permissionOverrides:
+          cleanPermissionOverrides(dto.permissionOverrides) ?? Prisma.DbNull,
       },
       select: {
         id: true,
@@ -88,6 +108,7 @@ export class UsersService {
         role: true,
         shopCode: true,
         isActive: true,
+        permissionOverrides: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -135,7 +156,7 @@ export class UsersService {
 
   async remove(
     id: string,
-    scopeShopCode: string,
+    scopeShopCode: string | null,
     actor: { id: string; role: UserRole },
   ) {
     if (id === actor.id) {
@@ -144,20 +165,79 @@ export class UsersService {
     const target = await this.findOneForShop(id, scopeShopCode);
     this.assertActorCanRemoveUser(actor.role, target.role);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.order.updateMany({
-        where: { createdById: id },
-        data: { createdById: null },
+    // Users who rang up sales, moved stock or handled transfers are deactivated, not
+    // deleted, so "who did this" stays answerable. Users with no history are removed.
+    const [orders, movements, transfers] = await Promise.all([
+      this.prisma.order.count({
+        where: { OR: [{ createdById: id }, { cancelledById: id }] },
+      }),
+      this.prisma.stockMovement.count({ where: { userId: id } }),
+      this.prisma.stockTransferRequest.count({
+        where: { OR: [{ createdById: id }, { approvedById: id }] },
+      }),
+    ]);
+    if (orders + movements + transfers > 0) {
+      await this.prisma.user.update({
+        where: { id },
+        data: { isActive: false },
       });
+      invalidateJwtUserCache(id);
+      return { removed: false, deactivated: true };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
       await tx.roleRequest.deleteMany({ where: { userId: id } });
       await tx.user.delete({ where: { id } });
     });
-
     invalidateJwtUserCache(id);
+    return { removed: true, deactivated: false };
   }
 
-  async update(id: string, dto: UpdateUserDto, scopeShopCode: string) {
-    await this.findOneForShop(id, scopeShopCode);
+  /**
+   * Who may change whom: only a super admin can grant ADMIN/SUPER_ADMIN, move a user to
+   * another shop, or edit an admin. Nobody changes their own role.
+   */
+  private assertActorCanUpdateUser(
+    actor: { id: string; role: UserRole },
+    target: { id: string; role: UserRole; shopCodeOrNull: string },
+    dto: UpdateUserDto,
+  ) {
+    if (
+      dto.role !== undefined &&
+      actor.id === target.id &&
+      dto.role !== target.role
+    ) {
+      throw new ForbiddenException('You cannot change your own role');
+    }
+    if (actor.role === UserRole.SUPER_ADMIN) return;
+    const privileged: UserRole[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN];
+    if (actor.id !== target.id && privileged.includes(target.role)) {
+      throw new ForbiddenException('Only a super admin can edit an admin');
+    }
+    if (dto.role !== undefined && privileged.includes(dto.role)) {
+      throw new ForbiddenException(
+        'Only a super admin can grant the ADMIN or SUPER_ADMIN role',
+      );
+    }
+    if (dto.shopCode !== undefined && dto.shopCode !== target.shopCodeOrNull) {
+      throw new ForbiddenException(
+        'Only a super admin can move a user to another shop',
+      );
+    }
+  }
+
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+    scopeShopCode: string | null,
+    actor: { id: string; role: UserRole },
+  ) {
+    const target = await this.findOneForShop(id, scopeShopCode);
+    this.assertActorCanUpdateUser(
+      actor,
+      { id: target.id, role: target.role, shopCodeOrNull: target.shopCode },
+      dto,
+    );
 
     if (dto.shopCode) {
       const shop = await this.prisma.shop.findUnique({
@@ -177,24 +257,12 @@ export class UsersService {
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.permissionOverrides !== undefined) {
-      if (dto.permissionOverrides === null) {
-        data.permissionOverrides = null;
-      } else if (
-        typeof dto.permissionOverrides === 'object' &&
-        !Array.isArray(dto.permissionOverrides)
-      ) {
-        const cleaned: Record<string, boolean> = {};
-        for (const k of ROLE_PERMISSION_FIELD_KEYS) {
-          const v = (dto.permissionOverrides as Record<string, unknown>)[k];
-          if (typeof v === 'boolean') cleaned[k] = v;
-        }
-        data.permissionOverrides =
-          Object.keys(cleaned).length > 0 ? cleaned : null;
-      } else {
-        throw new BadRequestException(
-          'permissionOverrides must be an object or null',
-        );
-      }
+      data.permissionOverrides =
+        cleanPermissionOverrides(dto.permissionOverrides) ?? Prisma.DbNull;
+    } else if (dto.role !== undefined && dto.role !== target.role) {
+      // Overrides are diffs against the old role's defaults; carried over they would
+      // silently grant/revoke things on the new role.
+      data.permissionOverrides = Prisma.DbNull;
     }
 
     const updated = await this.prisma.user.update({
@@ -216,9 +284,10 @@ export class UsersService {
     return updated;
   }
 
-  async findOneForShop(id: string, shopCode: string) {
+  /** `shopCode` null = any shop (super admin, who can create users in other shops). */
+  async findOneForShop(id: string, shopCode: string | null) {
     const user = await this.prisma.user.findFirst({
-      where: { id, shopCode },
+      where: { id, ...(shopCode ? { shopCode } : {}) },
       select: {
         id: true,
         email: true,

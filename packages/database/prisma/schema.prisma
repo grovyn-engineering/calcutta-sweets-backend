@@ -45,8 +45,8 @@ model Shop {
   allowBookingWhenOutOfStock Boolean @default(false)
   allowShopSwitcher          Boolean @default(true)
 
-  cgstRate Float @default(2.5)
-  sgstRate Float @default(2.5)
+  cgstRate Decimal @default(2.5) @db.Decimal(5, 2)
+  sgstRate Decimal @default(2.5) @db.Decimal(5, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -58,6 +58,8 @@ model Shop {
   roleRequests RoleRequest[]
   transfersOut StockTransferRequest[] @relation("TransfersOut")
   transfersIn  StockTransferRequest[] @relation("TransfersIn")
+  variants       ProductVariant[]
+  stockMovements StockMovement[]
 }
 
 model User {
@@ -79,8 +81,12 @@ model User {
   shopCode String
   shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
-  ordersCreated Order[]
-  roleRequests  RoleRequest[]
+  ordersCreated     Order[]                @relation("OrderCreatedBy")
+  ordersCancelled   Order[]                @relation("OrderCancelledBy")
+  roleRequests      RoleRequest[]
+  transfersCreated  StockTransferRequest[] @relation("TransferCreatedBy")
+  transfersApproved StockTransferRequest[] @relation("TransferApprovedBy")
+  stockMovements    StockMovement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,43 +113,70 @@ model OrderItem {
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   productId String?
-  product   Product? @relation(fields: [productId], references: [id])
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   customName String?
 
   productVariantId String?
-  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
 
-  quantity Float
-  price    Float
+  /// Snapshot at sale time so invoices and reports survive catalog renames/deletes.
+  productName String?
+  variantName String?
+  barcode     String?
+  hsnCode     String?
+
+  quantity Decimal @db.Decimal(12, 3)
+  price    Decimal @db.Decimal(12, 2)
+
+  /// Inclusive GST rate (CGST+SGST, percent) and tax amount for this line, after its share of the bill discount.
+  taxRate   Decimal @default(0) @db.Decimal(5, 2)
+  taxAmount Decimal @default(0) @db.Decimal(12, 2)
 
   /** Optional POS display qty (e.g. 400 when stock `quantity` is 0.4 kg). */
-  posLabelQuantity Float?
+  posLabelQuantity Decimal? @db.Decimal(12, 3)
   posLabelUnit     String?
+
+  @@index([orderId])
+  @@index([productVariantId])
 }
 
 // ================== ORDER ==================
 model Order {
   id String @id @default(uuid())
   transactionId String @default(uuid()) @unique
+  /// Digits-only, per-shop series (e.g. "000042"). Set by the server, immutable once issued.
   billNo        String?
+  /// Reference printed on bills issued before bill numbers existed (first 12 hex chars of
+  /// the id, upper-case). Backfilled once by migration; never set for new orders.
+  legacyBillRef String?
 
   shopCode String
   shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
-  totalAmount Float
-  discount    Float? @default(0)
-  tax         Float? @default(0)
+  totalAmount Decimal @db.Decimal(12, 2)
+  discount    Decimal @default(0) @db.Decimal(12, 2)
+  tax         Decimal @default(0) @db.Decimal(12, 2)
 
   status OrderStatus @default(PAID)
 
-  /**
-   * POS settlement: CASH | UPI_CARD
-   */
-  paymentMethod String @default("CASH")
+  /// Single leg's method, or SPLIT when the bill was paid with several modes (see payments).
+  paymentMethod PaymentMethod @default(CASH)
+  /// Cash handed over by the customer (POS only); >= the cash leg. Null when not captured.
+  cashTendered  Decimal?        @db.Decimal(12, 2)
+  /// cashTendered minus the cash leg.
+  changeDue     Decimal?        @db.Decimal(12, 2)
+  /// Payment legs. Orders created before split payments have none: treat them as one
+  /// leg of paymentMethod for totalAmount.
+  payments      OrderPayment[]
 
   createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdBy   User?   @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  cancelledAt   DateTime?
+  cancelReason  String?
+  cancelledById String?
+  cancelledBy   User?     @relation("OrderCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
 
   customerName  String?
   customerPhone String?
@@ -154,8 +187,27 @@ model Order {
 
   createdAt DateTime    @default(now())
   items     OrderItem[]
+
+  @@unique([shopCode, billNo])
+  @@index([shopCode, createdAt])
+  @@index([shopCode, legacyBillRef])
 }
 
+/// One payment leg of an order; legs of a PAID order sum to Order.totalAmount.
+model OrderPayment {
+  id      String           @id @default(uuid())
+  orderId String
+  order   Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method  PaymentLegMethod
+  amount  Decimal          @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+/// Generic gap-free counters: bill numbers (`BILL-<shop>`, one continuous digits-only series per shop),
+/// barcodes (`BARCODE-<shop>`), shop codes (`SHOPCODE`). Legacy per-FY bill counters (`<shop>-FY<yy>`) are kept for audit only.
 model InvoiceSequence {
   id      String @id
   current Int    @default(0)
@@ -179,6 +231,33 @@ model Customer {
 
   @@unique([shopCode, phone])
   @@index([shopCode])
+}
+
+enum PaymentMethod {
+  CASH
+  /// Legacy combined mode (orders before UPI and card were recorded separately).
+  UPI_CARD
+  ONLINE
+  UPI
+  CARD
+  SPLIT
+}
+
+enum PaymentLegMethod {
+  CASH
+  UPI
+  CARD
+}
+
+enum StockMovementReason {
+  SALE
+  SALE_CANCEL
+  WEB_SALE
+  TRANSFER_OUT
+  TRANSFER_IN
+  ADJUSTMENT
+  CATALOG_SYNC
+  SHOP_SEED
 }
 
 enum OrderSource {
@@ -222,6 +301,7 @@ model Product {
   orderItems OrderItem[]
   images     ProductImage[]
 
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -233,29 +313,36 @@ model ProductVariant {
   id String @id @default(uuid())
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Denormalised from Product.shopCode so barcodes can be unique per shop.
+  shopCode String
+  shop     Shop   @relation(fields: [shopCode], references: [shopCode])
 
   name String // e.g. "200g", "1kg", "Regular"
 
-  price     Float
-  costPrice Float?
+  price     Decimal  @db.Decimal(12, 2)
+  costPrice Decimal? @db.Decimal(12, 2)
 
   barcode String
   sku     String?
 
   hsnCode String?
+  /// Inclusive GST percent (CGST+SGST) for this item's HSN. Null = use the shop's cgstRate + sgstRate.
+  taxRate Decimal? @db.Decimal(5, 2)
 
-  quantity Float @default(0)
-  minStock Float?
+  quantity Decimal  @default(0) @db.Decimal(12, 3)
+  minStock Decimal? @db.Decimal(12, 3)
 
   unit Unit?
 
-  orderItems OrderItem[]
+  orderItems     OrderItem[]
+  stockMovements StockMovement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([productId, barcode])
+  @@unique([shopCode, barcode])
   @@index([productId])
 }
 
@@ -264,7 +351,7 @@ model ProductImage {
   url String
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
@@ -312,7 +399,9 @@ model StockTransferRequest {
   status       TransferStatus @default(PENDING)
   note         String?
   createdById  String?
+  createdBy    User?          @relation("TransferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   approvedById String?
+  approvedBy   User?          @relation("TransferApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   items        StockTransferItem[]
@@ -325,5 +414,28 @@ model StockTransferItem {
   barcode     String
   productName String
   variantName String
-  quantity    Int
+  quantity    Decimal @db.Decimal(12, 3)
+}
+
+// ================== STOCK LEDGER ==================
+
+/// Append-only record of every stock change. `ProductVariant.quantity` is the running balance.
+model StockMovement {
+  id        String              @id @default(uuid())
+  shopCode  String
+  shop      Shop                @relation(fields: [shopCode], references: [shopCode])
+  variantId String?
+  variant   ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  reason    StockMovementReason
+  delta     Decimal             @db.Decimal(12, 3)
+  balance   Decimal             @db.Decimal(12, 3)
+  /// Order id, transfer id, etc.
+  refId     String?
+  note      String?
+  userId    String?
+  user      User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime            @default(now())
+
+  @@index([variantId, createdAt])
+  @@index([shopCode, createdAt])
 }

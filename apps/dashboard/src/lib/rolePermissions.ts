@@ -7,6 +7,13 @@ export const ROLE_FORM_OPTIONS = [
   { value: "STAFF", label: "Staff" },
 ] as const;
 
+/** Manager and above: may cancel bills, delete products/SKUs and add shared categories (matches the API @Roles). */
+const MANAGER_AND_ABOVE = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+
+export function isAtLeastManager(role: string | null | undefined): boolean {
+  return !!role && MANAGER_AND_ABOVE.includes(role);
+}
+
 export const PERMISSION_ROWS: { key: keyof RolePermissions; label: string }[] = [
   { key: "canAccessDashboard", label: "Dashboard" },
   { key: "canAccessBilling", label: "Billing POS" },

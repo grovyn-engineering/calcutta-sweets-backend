@@ -1,16 +1,20 @@
 'use client';
 
-import { App, Button, Form, Input, Modal } from 'antd';
+import { App, Button, Drawer, Form, Input } from 'antd';
 import { UserPlus } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './styles.module.css';
 import {
   indianMobileRequiredRules,
   normalizeMobileFormValue,
 } from '@/lib/mobileNumber';
 import { apiFetch } from '@/lib/api';
+import { CUSTOMER_NAME_MAX_LENGTH } from '@/lib/customerFields';
+import { gstinOptionalRules, normalizeGstinFormValue } from '@/lib/gstin';
 
 export type CustomerFormValues = {
+  /** Set when the customer was picked from (or saved to) the shop's customer list. */
+  id?: string;
   name: string;
   phone: string;
   email?: string;
@@ -25,22 +29,53 @@ export type CustomerDetailsProps = {
   onCancel: () => void;
   onSave?: (values: CustomerFormValues) => void;
   initialValues?: Partial<CustomerFormValues> | null;
+  /** When set, edits the saved customer (PATCH /customers/:id) instead of only this sale. */
+  customerId?: string | null;
+  /** Saved customers only: whether the phone (shop-unique key) may be changed. */
+  canEditPhone?: boolean;
 };
+
+/** Customer row from the API (null optionals) -> form values. */
+export function customerFromApi(row: {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  gstin?: string | null;
+}): CustomerFormValues {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email ?? undefined,
+    address: row.address ?? undefined,
+    notes: row.notes ?? undefined,
+    gstin: row.gstin ?? undefined,
+  };
+}
 
 /** Mounted only while the modal is open so `useForm` is always tied to a mounted `Form`. */
 function CustomerDetailsForm({
   initialValues,
   onSave,
   onCancel,
+  customerId,
+  canEditPhone,
 }: {
   initialValues?: Partial<CustomerFormValues> | null;
   onSave?: (values: CustomerFormValues) => void;
   onCancel: () => void;
+  customerId?: string | null;
+  canEditPhone: boolean;
 }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<CustomerFormValues>();
   const phone = Form.useWatch('phone', form);
   const lastFetchedPhoneRef = useRef<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const isSaved = Boolean(customerId);
 
   useEffect(() => {
     form.setFieldsValue({
@@ -54,6 +89,8 @@ function CustomerDetailsForm({
   }, [form, initialValues]);
 
   useEffect(() => {
+    // Saved customer: the form already holds its record; a phone change must not pull in another one.
+    if (isSaved) return;
     const mobile = normalizeMobileFormValue(phone);
     if (!/^[6-9]\d{9}$/.test(mobile)) {
       lastFetchedPhoneRef.current = null;
@@ -88,16 +125,50 @@ function CustomerDetailsForm({
     return () => {
       ignore = true;
     };
-  }, [form, message, phone]);
+  }, [form, message, phone, isSaved]);
 
   const handleSave = async () => {
+    let values: CustomerFormValues;
     try {
-      const values = await form.validateFields();
+      values = await form.validateFields();
+    } catch {
+      return; /* validation errors only */
+    }
+    if (!customerId) {
       onSave?.(values);
       message.success('Customer details saved for this sale');
       onCancel();
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/customers/${encodeURIComponent(customerId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: values.name,
+          ...(canEditPhone ? { phone: values.phone } : {}),
+          email: values.email ?? '',
+          address: values.address ?? '',
+          notes: values.notes ?? '',
+          gstin: values.gstin ?? '',
+        }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg =
+          typeof payload?.message === 'string'
+            ? payload.message
+            : 'Could not update the customer. Please try again.';
+        message.error(msg);
+        return;
+      }
+      onSave?.(customerFromApi(payload));
+      message.success('Customer updated');
+      onCancel();
     } catch {
-      /* validation errors only */
+      message.error('Network error while updating the customer.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -121,7 +192,8 @@ function CustomerDetailsForm({
             <Input
               placeholder="e.g. Amit Kumar"
               className={styles.input}
-              maxLength={120}
+              maxLength={CUSTOMER_NAME_MAX_LENGTH}
+              showCount
             />
           </Form.Item>
           <Form.Item
@@ -130,8 +202,14 @@ function CustomerDetailsForm({
             rules={indianMobileRequiredRules}
             normalize={normalizeMobileFormValue}
             className={styles.formItemPhone}
+            tooltip={
+              isSaved && !canEditPhone
+                ? 'Only a manager or admin can change a saved customer’s mobile'
+                : undefined
+            }
           >
             <Input
+              disabled={isSaved && !canEditPhone}
               type="tel"
               placeholder="10 digits (6–9…)"
               className={styles.input}
@@ -157,22 +235,8 @@ function CustomerDetailsForm({
         <Form.Item
           label={<span className={styles.fieldLabel}>GSTIN (optional)</span>}
           name="gstin"
-          normalize={(v) =>
-            String(v ?? '')
-              .toUpperCase()
-              .replace(/[^A-Z0-9]/g, '')
-              .slice(0, 15)
-          }
-          rules={[
-            {
-              validator(_rule, value) {
-                const raw = String(value ?? '').trim();
-                if (!raw) return Promise.resolve();
-                if (/^[0-9A-Z]{15}$/.test(raw)) return Promise.resolve();
-                return Promise.reject(new Error('GSTIN must be 15 letters or digits'));
-              },
-            },
-          ]}
+          normalize={normalizeGstinFormValue}
+          rules={gstinOptionalRules}
         >
           <Input
             placeholder="15-character GSTIN"
@@ -207,8 +271,8 @@ function CustomerDetailsForm({
       </Form>
       <div className={`${styles.modalFooter} ${styles.footer}`}>
         <Button onClick={onCancel}>Cancel</Button>
-        <Button type="primary" onClick={() => void handleSave()}>
-          Save to sale
+        <Button type="primary" loading={saving} onClick={() => void handleSave()}>
+          {isSaved ? 'Save customer' : 'Save to sale'}
         </Button>
       </div>
     </>
@@ -220,23 +284,22 @@ export default function CustomerDetails({
   onCancel,
   onSave,
   initialValues,
+  customerId,
+  canEditPhone = false,
 }: CustomerDetailsProps) {
   return (
-    <Modal
+    <Drawer
       open={open}
-      onCancel={onCancel}
-      width={520}
-      centered
+      onClose={onCancel}
+      placement="right"
+      size={480}
       destroyOnHidden
-      footer={null}
       classNames={{
         body: styles.modalBodyRoot,
       }}
       styles={{
         header: {
           borderBottom: '1px solid var(--pearl-bush)',
-          marginBottom: 0,
-          paddingBottom: 16,
         },
       }}
       title={
@@ -245,9 +308,13 @@ export default function CustomerDetails({
             <UserPlus size={22} strokeWidth={1.75} />
           </div>
           <div>
-            <span className={styles.title}>Customer for this sale</span>
+            <span className={styles.title}>
+              {customerId ? 'Edit saved customer' : 'Customer for this sale'}
+            </span>
             <p className={styles.titleHint}>
-              Add contact details for SMS, receipts, or follow-up.
+              {customerId
+                ? 'Changes are saved to the customer record and used on this bill.'
+                : 'Add contact details for SMS, receipts, or follow-up.'}
             </p>
           </div>
         </div>
@@ -257,7 +324,9 @@ export default function CustomerDetails({
         initialValues={initialValues}
         onSave={onSave}
         onCancel={onCancel}
+        customerId={customerId}
+        canEditPhone={canEditPhone}
       />
-    </Modal>
+    </Drawer>
   );
 }

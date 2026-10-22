@@ -1,6 +1,6 @@
 'use client';
 
-import type { Shop } from "@calcutta/database";
+import type { Shop } from "@/lib/types/shop";
 import useFetch from "@/hooks/useFetch";
 import ShopCard from "@/components/ShopCard/ShopCard";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";

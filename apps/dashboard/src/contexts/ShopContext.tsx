@@ -1,6 +1,6 @@
 "use client";
 
-import type { Shop } from "@calcutta/database";
+import type { Shop } from "@/lib/types/shop";
 import {
   createContext,
   useCallback,

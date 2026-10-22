@@ -75,15 +75,26 @@ export class SeedService {
             ? 20
             : 100;
 
-        await this.prisma.productVariant.create({
+        const created = await this.prisma.productVariant.create({
           data: {
             productId: product.id,
+            shopCode,
             name: extractVariant(variant.name),
             price: variant.price,
             hsnCode: variant.hsnCode,
             unit: variant.unit,
             quantity: initialQuantity,
             barcode: randomUUID(),
+          },
+        });
+        await this.prisma.stockMovement.create({
+          data: {
+            shopCode,
+            variantId: created.id,
+            reason: 'ADJUSTMENT',
+            delta: initialQuantity,
+            balance: initialQuantity,
+            note: 'Seed opening stock',
           },
         });
       }

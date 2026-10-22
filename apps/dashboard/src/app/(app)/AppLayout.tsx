@@ -2,7 +2,26 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { LogOut, Menu as MenuIcon, Settings, X } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Contact,
+  LayoutDashboard,
+  LogOut,
+  Menu as MenuIcon,
+  Package,
+  ReceiptIndianRupee,
+  ScanBarcode,
+  Settings,
+  Store,
+  Tags,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { Drawer, Button, Dropdown, Layout, Menu, Select, Space, Tag } from 'antd';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,6 +39,15 @@ import styles from './AppLayout.module.css';
 
 const { Header, Sider, Content } = Layout;
 
+function formatRole(role?: string): string {
+  if (!role) return '';
+  return role
+    .toLowerCase()
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 function sidebarSelectedKey(pathname: string): string {
   const hit = SIDEBAR_ROUTE_PREFIXES.find(
     (base) => pathname === base || pathname.startsWith(`${base}/`),
@@ -27,12 +55,44 @@ function sidebarSelectedKey(pathname: string): string {
   return hit ?? pathname;
 }
 
+/** Sidebar groups; a hairline separates them. Order inside APP_NAV_ITEMS is unchanged. */
+const navGroup: Record<string, number> = {
+  '/dashboard': 0,
+  '/reports/gst-summary': 0,
+  '/billing-pos': 1,
+  '/orders': 1,
+  '/customers': 1,
+  '/products': 2,
+  '/inventory': 2,
+  '/stock-transfers': 2,
+  '/categories': 2,
+  '/users': 3,
+  '/shops': 3,
+  '/settings': 3,
+};
+
+const navIcons: Record<string, LucideIcon> = {
+  '/dashboard': LayoutDashboard,
+  '/reports/gst-summary': ReceiptIndianRupee,
+  '/billing-pos': ScanBarcode,
+  '/orders': ClipboardList,
+  '/customers': Contact,
+  '/products': Package,
+  '/inventory': Boxes,
+  '/stock-transfers': ArrowLeftRight,
+  '/categories': Tags,
+  '/users': Users,
+  '/shops': Store,
+  '/settings': Settings,
+};
+
 const pageTitles: Record<string, string> = {
   '/access-denied': 'Access restricted',
   '/dashboard': 'Dashboard',
   '/reports/gst-summary': 'GST summary',
   '/billing-pos': 'Billing POS',
   '/orders': 'Orders',
+  '/customers': 'Customers',
   '/products': 'Products',
   '/inventory': 'Inventory',
   '/stock-transfers': 'Stock Transfers',
@@ -54,6 +114,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return !!s?.isFactory;
   }, [shops, effectiveShopCode]);
 
+  const activeShopName = useMemo(
+    () => shops.find((x) => x.shopCode === effectiveShopCode)?.name ?? effectiveShopCode,
+    [shops, effectiveShopCode],
+  );
+
   const sidebarItems = useMemo(() => {
     return APP_NAV_ITEMS.filter((item) => item.sidebarLabel).filter((item) =>
       isAppNavAllowed(item, {
@@ -61,8 +126,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         permissions,
         isFactory,
       }),
-    ).map((item) => ({
+    ).flatMap((item, i, all) => {
+      const Icon = navIcons[item.prefix];
+      const startsGroup =
+        i > 0 && navGroup[item.prefix] !== navGroup[all[i - 1].prefix];
+      const entry = {
       key: item.prefix,
+      icon: Icon ? <Icon className="size-[17px]" strokeWidth={1.9} aria-hidden /> : undefined,
       label: (
         <Link
           href={item.prefix}
@@ -72,7 +142,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {item.sidebarLabel}
         </Link>
       ),
-    }));
+      };
+      return startsGroup
+        ? [{ type: 'divider' as const, key: `divider-${item.prefix}` }, entry]
+        : [entry];
+    });
   }, [user, permissions, isFactory]);
 
   const pageTitle =
@@ -130,6 +204,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         />
       </Link>
       {MainMenu}
+      {activeShopName && (
+        <div className={styles.siderFooter}>
+          <div className={styles.siderFooterShop}>
+            {isFactory ? 'Factory' : 'Shop'}
+          </div>
+          <div className={styles.siderFooterName} title={activeShopName}>
+            {activeShopName}
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -176,7 +260,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {showShopSwitcher && (
             <div className={styles.mobileDrawerShopSwitcher}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--bistre-400)] mb-2 px-1">Active Shop</p>
+              <p className="text-xs font-medium text-[var(--bistre-400)] mb-2 px-1">Active Shop</p>
               <Select
                 size="middle"
                 className="w-full"
@@ -200,11 +284,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         >
           <div className={`flex min-w-0 flex-1 items-center gap-3 ${styles.headerTitleCluster}`}>
             <Button
-              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[rgba(44,24,16,0.1)] shadow-sm bg-[var(--linen-95)]`}
+              className={`${styles.mobileMenuButton} flex shrink-0 items-center justify-center size-9 p-0 border-[var(--border)] shadow-sm bg-[var(--surface)]`}
               onClick={() => setIsMobileMenuOpen(true)}
               icon={<MenuIcon className="size-5 text-[var(--bistre-800)]" />}
             />
-            {/* Page title removed to prevent duplication with component headers */}
+            {/* Context breadcrumb (shop / section); the page itself owns the big title */}
+            <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
+              <span className={styles.breadcrumbShop}>{activeShopName}</span>
+              <ChevronRight className={styles.breadcrumbSep} aria-hidden />
+              <span className={styles.breadcrumbPage} aria-current="page">
+                {pageTitle}
+              </span>
+            </nav>
           </div>
           <div className={`flex shrink-0 items-center ${styles.headerToolbar}`}>
             {showShopSwitcher && (
@@ -212,11 +303,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Select
                   size="middle"
                   className={`${styles.shopSelect} ${styles.headerShopSelect}`}
+                  prefix={<Store className="size-4 text-[var(--bistre-400)]" strokeWidth={1.8} aria-hidden />}
                   value={effectiveShopCode}
                   disabled={!shopSwitcherEnabled || (shopsLoading && shops.length === 0)}
                   options={shops.map((s) => ({
                     value: s.shopCode,
-                    label: `${s.name} (${s.shopCode})`,
+                    label: (
+                      <span>
+                        {s.name}
+                        <span className="ml-1.5 text-[var(--text-muted)]">{s.shopCode}</span>
+                      </span>
+                    ),
                   }))}
                   onChange={(code) => setEffectiveShopCode(code)}
                   aria-label="Active shop"
@@ -263,13 +360,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               trigger={['click']}
               placement="bottomRight"
             >
-              <div className={`flex items-center gap-3 cursor-pointer ${styles.profileSection}`} style={{ lineHeight: 'normal' }}>
-                <div className="flex flex-col items-end justify-center">
-                  <span className="text-[13.5px] font-semibold text-[var(--bistre-950)] leading-tight hidden sm:block">
+              <button type="button" className={styles.profileSection}>
+                <div className="hidden flex-col items-start justify-center text-left sm:flex">
+                  <span className="text-[13px] font-medium text-[var(--bistre-950)] leading-tight">
                     {user?.name || 'User'}
                   </span>
-                  <span className="text-[10px] font-bold text-[var(--bistre-400)] tracking-widest uppercase mt-0.5 hidden sm:block">
-                    {user?.role?.replace(/_/g, ' ')}
+                  <span className="mt-0.5 text-[11.5px] text-[var(--bistre-400)] leading-tight">
+                    {formatRole(user?.role)}
                   </span>
                 </div>
                 <div className={styles.avatarWrapper}>
@@ -277,22 +374,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <Image
                       src={user.avatarUrl}
                       alt={user.name || 'User'}
-                      width={40}
-                      height={40}
-                      className="rounded-full object-cover border border-[rgba(44,24,16,0.12)] shadow-sm"
+                      width={32}
+                      height={32}
+                      className="rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-[var(--ochre-100)] flex items-center justify-center text-[var(--ochre-600)] font-bold text-sm">
+                    <div className="h-8 w-8 rounded-full bg-[var(--ochre-100)] flex items-center justify-center text-[var(--ochre-600)] font-semibold text-sm">
                       {(user?.name || 'U').charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-              </div>
+                <ChevronDown className="hidden size-4 text-[var(--bistre-400)] sm:block" aria-hidden />
+              </button>
             </Dropdown>
           </div>
         </Header>
         <Content
-          className={`flex min-h-0 flex-1 flex-col p-6 ${styles.content} ${isInventoryListPage ? styles.contentInventoryList : ""}`}
+          className={`flex min-h-0 flex-1 flex-col p-4 sm:p-6 lg:px-8 lg:py-7 ${styles.content} ${isInventoryListPage ? styles.contentInventoryList : ""}`}
         >
           {children}
         </Content>

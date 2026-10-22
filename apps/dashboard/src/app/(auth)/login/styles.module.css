@@ -72,7 +72,7 @@
   border: 1px solid rgba(91, 70, 30, 0.12);
   box-shadow:
     0 2px 4px rgba(26, 17, 12, 0.04),
-    0 28px 56px -20px rgba(44, 24, 16, 0.18),
+    0 28px 56px -20px rgba(24, 24, 27, 0.18),
     0 0 0 1px rgba(255, 255, 255, 0.75) inset;
 }
 
@@ -188,7 +188,7 @@
   border-radius: 12px;
   border: 1px solid rgba(91, 70, 30, 0.14);
   background: var(--cream-field) !important;
-  box-shadow: inset 0 1px 2px rgba(44, 24, 16, 0.05);
+  box-shadow: inset 0 1px 2px rgba(24, 24, 27, 0.05);
   padding-inline: 14px;
   transition:
     border-color 0.2s ease,
@@ -206,8 +206,8 @@
 .input :global(.ant-input-password .ant-input-affix-wrapper:focus-within) {
   border-color: var(--ochre-400);
   box-shadow:
-    inset 0 1px 2px rgba(44, 24, 16, 0.05),
-    0 0 0 3px rgba(201, 147, 45, 0.16);
+    inset 0 1px 2px rgba(24, 24, 27, 0.05),
+    0 0 0 3px rgba(168, 79, 28, 0.16);
 }
 
 .input :global(.ant-input) {
@@ -238,7 +238,7 @@
   height: 18px;
   border-radius: 5px;
   border: 2px solid var(--bistre-400) !important;
-  background-color: #fffef9 !important;
+  background-color: #ffffff !important;
 }
 
 .checkbox :global(.ant-checkbox:hover .ant-checkbox-inner) {
@@ -251,7 +251,7 @@
 }
 
 .checkbox :global(.ant-checkbox-checked .ant-checkbox-inner::after) {
-  border-color: #fffef9;
+  border-color: #ffffff;
 }
 
 .checkbox :global(span:not(.ant-checkbox)) {
@@ -290,15 +290,14 @@
   color: #fff !important;
   background: linear-gradient(
     180deg,
-    #d4a84b 0%,
-    #c9932d 35%,
-    #b88e3e 55%,
-    #a67c23 100%
+    #c8773a 0%,
+    #a84f1c 50%,
+    #8f4218 100%
   ) !important;
-  text-shadow: 0 1px 1px rgba(44, 24, 16, 0.22);
+  text-shadow: 0 1px 1px rgba(24, 24, 27, 0.22);
   box-shadow:
-    0 2px 4px rgba(44, 24, 16, 0.1),
-    0 8px 24px rgba(201, 147, 45, 0.28),
+    0 2px 4px rgba(24, 24, 27, 0.1),
+    0 8px 24px rgba(168, 79, 28, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
   transition:
     transform 0.18s ease,
@@ -311,14 +310,14 @@
   color: #fff !important;
   background: linear-gradient(
     180deg,
-    #e0bc6d 0%,
-    #d4a84b 38%,
-    #c9932d 72%,
-    #a67c23 100%
+    #e0a27a 0%,
+    #c8773a 38%,
+    #a84f1c 72%,
+    #8f4218 100%
   ) !important;
   box-shadow:
-    0 4px 8px rgba(44, 24, 16, 0.12),
-    0 12px 32px rgba(201, 147, 45, 0.35),
+    0 4px 8px rgba(24, 24, 27, 0.12),
+    0 12px 32px rgba(168, 79, 28, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 

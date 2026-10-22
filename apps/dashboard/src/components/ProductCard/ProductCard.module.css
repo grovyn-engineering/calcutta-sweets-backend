@@ -3,8 +3,8 @@
   flex-direction: column;
   border-radius: 16px;
   border: 1px solid var(--pearl-bush);
-  background: linear-gradient(180deg, #fffef9 0%, #fff 48%);
-  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+  background: linear-gradient(180deg, #ffffff 0%, #fff 48%);
+  box-shadow: 0 1px 3px rgba(24, 24, 27, 0.06);
   overflow: hidden;
 }
 
@@ -36,8 +36,7 @@
   padding: 0.2rem 0.6rem;
   font-size: 0.7rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.005em;
 }
 
 .badgeActive {
@@ -87,8 +86,7 @@
   margin: 0 0 0.75rem;
   font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.005em;
   color: var(--text-muted);
 }
 

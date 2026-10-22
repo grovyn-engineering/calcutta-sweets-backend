@@ -16,7 +16,7 @@
   flex-shrink: 0;
   margin: 0 0 1.125rem;
   padding-bottom: 1.25rem;
-  border-bottom: 1px solid rgba(44, 24, 16, 0.08);
+  border-bottom: 1px solid rgba(24, 24, 27, 0.08);
 }
 
 @media (min-width: 768px) {
@@ -46,7 +46,7 @@
   background: linear-gradient(
     90deg,
     var(--ochre-500) 0%,
-    rgba(201, 147, 45, 0.35) 100%
+    rgba(168, 79, 28, 0.35) 100%
   );
 }
 
@@ -60,15 +60,6 @@
     width: auto;
     max-width: 14rem;
   }
-}
-
-.kicker {
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ochre-600);
-  margin: 0 0 0.375rem;
 }
 
 .title {
@@ -110,7 +101,7 @@
   );
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.85) inset,
-    0 12px 40px -24px rgba(44, 24, 16, 0.18);
+    0 12px 40px -24px rgba(24, 24, 27, 0.18);
   padding: 1.25rem 1.25rem 1.125rem;
 }
 
@@ -130,8 +121,7 @@
 .filterLabel {
   font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--bistre-500);
   margin: 0 0 0.375rem;
   display: block;
@@ -150,11 +140,11 @@
 .statusSelect :global(.ant-select-selector) {
   min-height: 48px !important;
   border-radius: 12px !important;
-  border-color: rgba(44, 24, 16, 0.08) !important;
+  border-color: rgba(24, 24, 27, 0.08) !important;
   background: #ffffff !important;
   box-shadow:
-    0 2px 4px rgba(44, 24, 16, 0.02),
-    0 1px 2px rgba(44, 24, 16, 0.04) !important;
+    0 2px 4px rgba(24, 24, 27, 0.02),
+    0 1px 2px rgba(24, 24, 27, 0.04) !important;
   padding-left: 12px !important;
   padding-right: 12px !important;
   align-items: center !important;
@@ -163,7 +153,7 @@
 .statusSelect:global(.ant-select-focused) :global(.ant-select-selector),
 .statusSelect:global(.ant-select-open) :global(.ant-select-selector) {
   border-color: var(--ochre-400) !important;
-  box-shadow: 0 0 0 3px rgba(201, 147, 45, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(168, 79, 28, 0.15) !important;
 }
 
 .tableSlot {
@@ -177,7 +167,6 @@
   flex-direction: column;
 }
 
-/* Tabulator cell helpers (formatters set these class names on elements) */
 .tableSlot :global(.st-from-name),
 .tableSlot :global(.st-to-name) {
   font-weight: 600;
@@ -215,8 +204,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -232,7 +220,7 @@
     rgba(255, 255, 255, 0.75) 0%,
     rgba(255, 243, 214, 0.95) 100%
   );
-  border-color: rgba(201, 147, 45, 0.35);
+  border-color: rgba(168, 79, 28, 0.35);
 }
 
 .tableSlot :global(.st-status-approved) {
@@ -308,7 +296,7 @@
 }
 
 .tableSlot :global(.st-btn-danger) {
-  background: #fffef9;
+  background: #ffffff;
   border: 1px solid rgba(185, 80, 80, 0.45);
   color: #9f2d2d;
 }

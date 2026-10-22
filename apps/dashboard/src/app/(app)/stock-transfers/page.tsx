@@ -69,7 +69,7 @@ function formatDate(iso: string) {
 }
 
 export default function StockTransfersPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { effectiveShopCode, shops } = useShop();
 
   const [requests, setRequests] = useState<TransferRequest[]>([]);
@@ -264,7 +264,14 @@ export default function StockTransfersPage() {
                   disabled={rowPending}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleActionRef.current(r.id, "fulfill");
+                    // Fulfilling moves stock between shops at once and has no undo.
+                    modal.confirm({
+                      title: "Fulfill and ship this transfer?",
+                      content: `${r.itemsCount} item${r.itemsCount === 1 ? "" : "s"} will move out of ${r.fromShopName} into ${r.toShopName} now. This cannot be undone.`,
+                      okText: "Fulfill & Ship",
+                      cancelText: "Not yet",
+                      onOk: () => handleActionRef.current(r.id, "fulfill"),
+                    });
                   }}
                 >
                   <Truck size={14} aria-hidden />
@@ -278,7 +285,7 @@ export default function StockTransfersPage() {
         },
       },
     ],
-    [actionBusy],  // re-render columns when actionBusy changes to update button states
+    [actionBusy, modal],  // re-render columns when actionBusy changes to update button states
   );
 
   const tableData: TransferTableRow[] = useMemo(
@@ -297,7 +304,6 @@ export default function StockTransfersPage() {
       <div className={pageStyles.surface}>
         <header className={pageStyles.surfaceHeader}>
           <div className={pageStyles.surfaceHeaderLead}>
-            <p className={pageStyles.kicker}>Stock transfers</p>
             <h1 className={pageStyles.title}>Stock Transfers</h1>
             <p className={pageStyles.subtitle}>
               {currentShop

@@ -45,6 +45,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     permissionKey: "canAccessOrders",
   },
   {
+    prefix: "/customers",
+    sidebarLabel: "Customers",
+    anyPermissionKeys: ["canAccessBilling", "canAccessOrders"],
+  },
+  {
     prefix: "/products",
     sidebarLabel: "Products",
     permissionKey: "canAccessProducts",

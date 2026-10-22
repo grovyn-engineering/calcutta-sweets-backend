@@ -1,6 +1,6 @@
 'use client';
 
-import { App, Button, Checkbox, Modal, InputNumber, Select, Tooltip } from 'antd';
+import { App, Button, Checkbox, Modal, InputNumber, Select, Space, Tooltip } from 'antd';
 import {
   UserPlus,
   Receipt,
@@ -8,12 +8,18 @@ import {
   Bluetooth,
   Banknote,
   CreditCard,
+  Smartphone,
+  Split,
+  Plus,
+  X,
   Pencil,
-  UserRound,
   CalendarClock,
+  ShoppingBag,
+  Info,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomerFormValues } from '../CustomerDetails';
+import CustomerSelector from '../CustomerDetails/CustomerSelector';
 import { useShop } from '@/contexts/ShopContext';
 import { apiFetch } from '@/lib/api';
 import {
@@ -24,16 +30,27 @@ import {
 } from '@/lib/printInvoice';
 import {
   allowedInstantDisplayUnits,
+  sizeLabel,
   billDisplayUnitPrice,
   billLineSubtotal,
+  billPrintQuantity,
 } from '@/lib/billingInstantPricing';
 import { ProductLineThumb } from '@/components/ProductLineThumb/ProductLineThumb';
+import {
+  PAYMENT_LEG_METHODS,
+  paymentLabel,
+  planCheckoutPayment,
+  roundRupees,
+  type PaymentLeg,
+  type PaymentLegMethod,
+  type PosPaymentMode,
+  type SplitRow,
+} from '@/lib/payments';
 import {
   isNativeUsbPrinterAvailable,
   printBillViaNativeAndroid,
   type NativeAndroidBillPayload,
 } from '@/lib/usbPrinter';
-import type { RawBillFormValues } from '@/components/BillingPosRawSection/BillingPosRawSection';
 import {
   buildPlainTextReceiptForRawBt,
   isLikelyAndroidForRawBt,
@@ -71,18 +88,25 @@ export interface BillItem {
   inventoryUnit: string;
   imageUrl?: string | null;
   isInstant?: boolean;
+  /**
+   * Instant line whose quantity or unit the cashier has set by hand. Untouched instant
+   * lines absorb repeat "Add" clicks; edited ones stay separate (e.g. 250 g and 400 g).
+   */
+  instantEdited?: boolean;
   /** Manual line: not tied to catalog; checkout prints only (no order / stock). */
   isRaw?: boolean;
+  /** Stock on hand (inventory unit) when the line was added; used to warn before checkout. */
+  availableStock?: number;
 }
-
-export type ManualSaleCustomer = {
-  name: string;
-  gstin?: string | null;
-};
 
 export type BillingBillPanelLayout = 'sidebar' | 'drawer';
 
-export type PosPaymentMethod = 'CASH' | 'UPI_CARD';
+export type PosPaymentMethod = PosPaymentMode;
+
+const DEFAULT_SPLIT_ROWS: SplitRow[] = [
+  { method: 'CASH', amount: null },
+  { method: 'UPI', amount: null },
+];
 
 export type BillingCustomerBinding = {
   customer: CustomerFormValues | null;
@@ -118,12 +142,23 @@ export interface BillingBillPanelProps {
   className?: string;
   customerBinding?: BillingCustomerBinding;
   hideAddCustomerInPanel?: boolean;
-  manualSaleCustomer?: ManualSaleCustomer | null;
-  /** Used for raw-tab GSTIN checkbox when building the native thermal payload */
-  rawBillForm?: RawBillFormValues | null;
   /** Register checkout handlers (e.g. Raw billing tab duplicate buttons). */
   onCheckoutApi?: (api: BillingPosCheckoutApi | null) => void;
 }
+
+/** Totals the API stored for a saved sale (POST /orders/pos response). */
+type SavedBill = {
+  totalAmount?: number;
+  tax?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  discount?: number;
+  createdAt?: string;
+  paymentMethod?: string;
+  payments?: PaymentLeg[];
+  cashTendered?: number | null;
+  changeDue?: number | null;
+};
 
 export function BillingBillPanel({
   items,
@@ -136,8 +171,6 @@ export function BillingBillPanel({
   className = '',
   customerBinding,
   hideAddCustomerInPanel = false,
-  manualSaleCustomer = null,
-  rawBillForm = null,
   onCheckoutApi,
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
@@ -157,7 +190,24 @@ export function BillingBillPanel({
       sum + billLineSubtotal(i.stockUnitsToDeduct, i.catalogUnitPrice),
     0,
   );
-  
+
+  // Stock on hand for each variant whose lines together ask for more than that. The API
+  // still decides at checkout; this only warns the cashier before they take payment.
+  const shortStock = new Map<string, number>();
+  {
+    const wanted = new Map<string, number>();
+    for (const i of items) {
+      if (i.isRaw || i.availableStock == null) continue;
+      wanted.set(i.variantId, (wanted.get(i.variantId) ?? 0) + i.stockUnitsToDeduct);
+    }
+    for (const i of items) {
+      const w = wanted.get(i.variantId);
+      if (w != null && i.availableStock != null && w > i.availableStock) {
+        shortStock.set(i.variantId, i.availableStock);
+      }
+    }
+  }
+
   const [discount, setDiscount] = useState(0);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [tempDiscount, setTempDiscount] = useState(0);
@@ -218,6 +268,118 @@ export function BillingBillPanel({
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(
     null,
   );
+  /** Cash handed over (Cash mode, or the cash leg of a split). null = exact. */
+  const [cashReceived, setCashReceived] = useState<number | null>(null);
+  const [splitRows, setSplitRows] = useState<SplitRow[]>(DEFAULT_SPLIT_ROWS);
+
+  // Discount and payment choice survive leaving the POS page and the sidebar/drawer swap,
+  // alongside the cart draft (same key prefix, so logout clears them together).
+  const checkoutDraftKey = `calcutta_pos_draft:${effectiveShopCode}:checkout`;
+  const [checkoutDraftShop, setCheckoutDraftShop] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!effectiveShopCode || checkoutDraftShop === effectiveShopCode) return;
+    try {
+      const raw = sessionStorage.getItem(checkoutDraftKey);
+      const draft = raw
+        ? (JSON.parse(raw) as {
+            discount?: number;
+            paymentMethod?: PosPaymentMethod | null;
+            cashReceived?: number | null;
+            splitRows?: SplitRow[];
+          })
+        : null;
+      if (typeof draft?.discount === 'number') setDiscount(draft.discount);
+      if (draft?.paymentMethod) setPaymentMethod(draft.paymentMethod);
+      if (typeof draft?.cashReceived === 'number') setCashReceived(draft.cashReceived);
+      if (Array.isArray(draft?.splitRows) && draft.splitRows.length > 0) {
+        setSplitRows(draft.splitRows);
+      }
+    } catch {
+      // Storage blocked or draft unreadable: start from the defaults.
+    }
+    setCheckoutDraftShop(effectiveShopCode);
+  }, [effectiveShopCode, checkoutDraftKey, checkoutDraftShop]);
+
+  useEffect(() => {
+    if (!effectiveShopCode || checkoutDraftShop !== effectiveShopCode) return;
+    try {
+      const untouched =
+        discount === 0 &&
+        paymentMethod == null &&
+        cashReceived == null &&
+        splitRows === DEFAULT_SPLIT_ROWS;
+      if (untouched) sessionStorage.removeItem(checkoutDraftKey);
+      else {
+        sessionStorage.setItem(
+          checkoutDraftKey,
+          JSON.stringify({ discount, paymentMethod, cashReceived, splitRows }),
+        );
+      }
+    } catch {
+      // Storage full or blocked: checkout still works, it just won't survive navigation.
+    }
+  }, [
+    effectiveShopCode,
+    checkoutDraftKey,
+    checkoutDraftShop,
+    discount,
+    paymentMethod,
+    cashReceived,
+    splitRows,
+  ]);
+
+  // Emptying the cart by hand ends that sale, so its discount and payment choice go too;
+  // otherwise the next sale would silently start with them. Only the drop from some lines
+  // to none counts, so the first render (before a saved cart is restored) is left alone.
+  const prevItemCountRef = useRef(items.length);
+  useEffect(() => {
+    if (prevItemCountRef.current > 0 && items.length === 0) {
+      setDiscount(0);
+      setPaymentMethod(null);
+      setCashReceived(null);
+      setSplitRows(DEFAULT_SPLIT_ROWS);
+    }
+    prevItemCountRef.current = items.length;
+  }, [items.length]);
+
+  const payment = useMemo(
+    () =>
+      planCheckoutPayment(paymentMethod, roundRupees(total), cashReceived, splitRows),
+    [paymentMethod, total, cashReceived, splitRows],
+  );
+  const splitHasCash = splitRows.some((r) => r.method === 'CASH');
+
+  const selectPaymentMode = (mode: PosPaymentMethod) => {
+    setPaymentMethod(mode);
+    setCashReceived(null);
+    if (mode === 'SPLIT') setSplitRows(DEFAULT_SPLIT_ROWS);
+  };
+  const updateSplitRow = (index: number, next: Partial<SplitRow>) =>
+    setSplitRows((rows) => rows.map((r, i) => (i === index ? { ...r, ...next } : r)));
+  const addSplitRow = () =>
+    setSplitRows((rows) => {
+      const free = PAYMENT_LEG_METHODS.find((m) => !rows.some((r) => r.method === m));
+      return free && rows.length < 3 ? [...rows, { method: free, amount: null }] : rows;
+    });
+  const removeSplitRow = (index: number) => {
+    if (splitRows[index]?.method === 'CASH') setCashReceived(null);
+    setSplitRows((rows) => rows.filter((_, i) => i !== index));
+  };
+
+  /** Payment details to print: the server's stored legs, else what the cashier entered. */
+  const printedPayment = (saved?: SavedBill) => {
+    const mode = saved?.paymentMethod ?? paymentMethod ?? 'CASH';
+    return {
+      paymentMode: paymentLabel(mode, 'Cash'),
+      payments:
+        saved?.payments ??
+        payment.payments ??
+        (mode !== 'SPLIT' ? [{ method: mode, amount: saved?.totalAmount ?? total }] : []),
+      cashTendered: saved?.cashTendered ?? payment.cashTendered ?? null,
+      changeDue: saved?.changeDue ?? (payment.change > 0 ? payment.change : null),
+    };
+  };
   const [checkoutBusyMode, setCheckoutBusyMode] = useState<
     BillingPosCheckoutPrintMode | null
   >(null);
@@ -229,53 +391,29 @@ export function BillingBillPanel({
   const receiptIframeRef = useRef<HTMLIFrameElement | null>(null);
   const lineCount = items.length;
 
-  const rawManualNameOnBill =
-    items.some((i) => i.isRaw) && Boolean(manualSaleCustomer?.name?.trim());
-
-  const buildNativeAndroidBill = (billNo: string): NativeAndroidBillPayload => {
-    const hasRaw = items.some((i) => i.isRaw);
-    const hasCatalog = items.some((i) => !i.isRaw);
-    const isMixed = hasRaw && hasCatalog;
+  const buildNativeAndroidBill = (
+    billNo: string,
+    saved?: SavedBill,
+  ): NativeAndroidBillPayload => {
+    // Print what the server stored (it prices and taxes the bill); fall back to the
+    // cart's own figures only if the save response is missing them.
+    const billTotal = saved?.totalAmount ?? total;
+    const billTax = saved?.tax ?? gstAmount;
+    const billCgst = saved?.cgstAmount ?? cgstAmount;
+    const billSgst = saved?.sgstAmount ?? sgstAmount;
+    const billDiscount = saved?.discount ?? discount;
+    const billIssuedAt = saved?.createdAt ?? (saleDateTime ?? new Date()).toISOString();
     const fallbackAddress = [currentShop?.city, currentShop?.state]
       .filter(Boolean)
       .join(', ');
     const address = shopAddressPrint?.trim() || fallbackAddress || '';
 
-    let customerName: string;
-    let customerPhone: string;
-    let customerGstinVal: string;
-    let showCustomerGstin: boolean;
+    const customerName = customer?.name?.trim() ?? '';
+    const customerPhone = customer?.phone?.trim() ?? '';
+    const customerGstinVal = customer?.gstin?.trim() ?? '';
+    const showCustomerGstin = customerGstinVal.length > 0;
 
-    if (isMixed) {
-      customerName =
-        customer?.name?.trim() ||
-        manualSaleCustomer?.name?.trim() ||
-        '';
-      customerPhone = customer?.phone?.trim() ?? '';
-      const gstModal = customer?.gstin?.trim() ?? '';
-      const gstRaw =
-        rawBillForm?.includeCustomerGstin
-          ? (rawBillForm.customerGstin?.trim() ?? '')
-          : '';
-      customerGstinVal = gstModal || gstRaw;
-      showCustomerGstin = customerGstinVal.length > 0;
-    } else if (hasRaw) {
-      customerName = manualSaleCustomer?.name?.trim() ?? '';
-      customerPhone = '';
-      customerGstinVal = rawBillForm?.includeCustomerGstin
-        ? (rawBillForm.customerGstin?.trim() ?? '')
-        : '';
-      showCustomerGstin = Boolean(
-        rawBillForm?.includeCustomerGstin && customerGstinVal.length > 0,
-      );
-    } else {
-      customerName = customer?.name?.trim() ?? '';
-      customerPhone = customer?.phone?.trim() ?? '';
-      customerGstinVal = customer?.gstin?.trim() ?? '';
-      showCustomerGstin = customerGstinVal.length > 0;
-    }
-
-    const taxableBase = Math.max(0, total - gstAmount);
+    const taxableBase = Math.max(0, billTotal - billTax);
 
     const base: NativeAndroidBillPayload = {
       shopName,
@@ -292,10 +430,11 @@ export function BillingBillPanel({
       customerGstin: customerGstinVal,
       showCustomerGstin,
       items: items.map((i) => {
+        const printed = billPrintQuantity(i.displayQuantity, i.displayUnit);
         const rate = billDisplayUnitPrice(
           i.stockUnitsToDeduct,
           i.catalogUnitPrice,
-          i.displayQuantity,
+          printed.quantity,
         );
         const amount = billLineSubtotal(
           i.stockUnitsToDeduct,
@@ -305,26 +444,38 @@ export function BillingBillPanel({
           i.variantLabel && i.variantLabel !== 'Regular'
             ? `${i.name} (${i.variantLabel})`
             : i.name;
-        return { name, qty: i.displayQuantity, rate, amount, discount: 0 };
+        return { name, qty: printed.quantity, rate, amount, discount: 0 };
       }),
       taxableBase,
       subtotal: taxableBase,
-      discount,
-      tax: gstAmount,
+      discount: billDiscount,
+      tax: billTax,
       taxLabel: `GST ${(cgstRate + sgstRate).toFixed(1)}%`,
       cgstPercent: cgstRate,
       sgstPercent: sgstRate,
-      cgstAmount,
-      sgstAmount,
-      total,
-      paymentMode: paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
-      amountPaid: total,
+      cgstAmount: billCgst,
+      sgstAmount: billSgst,
+      total: billTotal,
+      ...(() => {
+        const pay = printedPayment(saved);
+        return {
+          paymentMode: pay.paymentMode,
+          amountPaid: billTotal,
+          payments: pay.payments.map((p) => ({
+            mode: paymentLabel(p.method, 'Cash'),
+            amount: p.amount,
+          })),
+          ...((pay.changeDue ?? 0) > 0.005 && pay.cashTendered != null
+            ? { cashTendered: pay.cashTendered, changeDue: pay.changeDue ?? 0 }
+            : {}),
+        };
+      })(),
       footerMessage: 'Thank You. Come Again!',
       footerNote: '* Tax not payable on reverse charge basis',
       bankAccountNumber: currentShop?.bankAccountNumber?.trim() ?? '',
       bankIfsc: currentShop?.bankIfsc?.trim() ?? '',
       poweredBy: THERMAL_POWERED_BY_LINE,
-      issuedAt: (saleDateTime ?? new Date()).toISOString(),
+      issuedAt: billIssuedAt,
     };
     return {
       ...base,
@@ -332,38 +483,19 @@ export function BillingBillPanel({
     };
   };
 
-  const buildPrintInvoiceInput = (invoiceNo: string): PrintInvoiceInput => {
-    const hasRaw = items.some((i) => i.isRaw);
-    const hasCatalog = items.some((i) => !i.isRaw);
-    const isMixed = hasRaw && hasCatalog;
-
-    const printCustomer: CustomerFormValues | null = (() => {
-      if (!hasRaw) return customer;
-      if (isMixed) {
-        if (customer?.name?.trim()) return customer;
-        if (manualSaleCustomer?.name?.trim()) {
-          return {
-            name: manualSaleCustomer.name.trim(),
-            phone: customer?.phone?.trim() ?? '',
-            gstin: rawBillForm?.includeCustomerGstin
-              ? rawBillForm.customerGstin?.trim() || undefined
-              : undefined,
-          };
-        }
-        return customer;
-      }
-      return manualSaleCustomer?.name?.trim()
-        ? {
-            name: manualSaleCustomer.name.trim(),
-            phone: customer?.phone?.trim() ?? '',
-            gstin: rawBillForm?.includeCustomerGstin
-              ? rawBillForm.customerGstin?.trim() || undefined
-              : undefined,
-          }
-        : null;
-    })();
-
-    const taxableBase = Math.max(0, total - gstAmount);
+  const buildPrintInvoiceInput = (
+    invoiceNo: string,
+    saved?: SavedBill,
+  ): PrintInvoiceInput => {
+    // Print what the server stored (it prices and taxes the bill); fall back to the
+    // cart's own figures only if the save response is missing them.
+    const billTotal = saved?.totalAmount ?? total;
+    const billTax = saved?.tax ?? gstAmount;
+    const billCgst = saved?.cgstAmount ?? cgstAmount;
+    const billSgst = saved?.sgstAmount ?? sgstAmount;
+    const billDiscount = saved?.discount ?? discount;
+    const billIssuedAt = saved?.createdAt ?? (saleDateTime ?? new Date()).toISOString();
+    const taxableBase = Math.max(0, billTotal - billTax);
 
     return {
       shopName,
@@ -374,36 +506,39 @@ export function BillingBillPanel({
       fssaiNumber: currentShop?.fssaiNumber ?? null,
       showGstinOnBill: showGstinOnBill,
       invoiceNo,
-      issuedAt: (saleDateTime ?? new Date()).toISOString(),
-      customer: printCustomer,
-      lines: items.map((i) => ({
-        name: i.name,
-        variantLabel: i.variantLabel,
-        barcode: i.barcode,
-        quantity: i.displayQuantity,
-        unit: i.displayUnit,
-        unitPrice: billDisplayUnitPrice(
-          i.stockUnitsToDeduct,
-          i.catalogUnitPrice,
-          i.displayQuantity,
-        ),
-      })),
+      issuedAt: billIssuedAt,
+      customer,
+      lines: items.map((i) => {
+        const printed = billPrintQuantity(i.displayQuantity, i.displayUnit);
+        return {
+          name: i.name,
+          variantLabel: i.variantLabel,
+          barcode: i.barcode,
+          quantity: printed.quantity,
+          unit: printed.unit,
+          unitPrice: billDisplayUnitPrice(
+            i.stockUnitsToDeduct,
+            i.catalogUnitPrice,
+            printed.quantity,
+          ),
+        };
+      }),
       subtotal: taxableBase,
       gstRate: totalTaxRate,
-      gstAmount,
+      gstAmount: billTax,
       cgstPercent: cgstRate,
       sgstPercent: sgstRate,
-      cgstAmountSplit: cgstAmount,
-      sgstAmountSplit: sgstAmount,
-      discount,
-      total,
+      cgstAmountSplit: billCgst,
+      sgstAmountSplit: billSgst,
+      discount: billDiscount,
+      total: billTotal,
       returnHref:
         typeof window !== 'undefined'
           ? `${window.location.origin}/billing-pos`
           : null,
       bankAccountNumber: currentShop?.bankAccountNumber ?? null,
       bankIfsc: currentShop?.bankIfsc ?? null,
-      paymentMode: paymentMethod === 'CASH' ? 'Cash' : 'Digital Payment',
+      ...printedPayment(saved),
     };
   };
 
@@ -419,7 +554,11 @@ export function BillingBillPanel({
       return;
     }
     if (!paymentMethod) {
-      message.warning('Select a payment mode (Cash or UPI / Card) first.');
+      message.warning('Select a payment mode (Cash, UPI, Card or Split) first.');
+      return;
+    }
+    if (!payment.ready) {
+      message.warning(payment.blocker ?? 'Payment does not match the bill total.');
       return;
     }
     const hasRaw = items.some((i) => i.isRaw);
@@ -449,14 +588,17 @@ export function BillingBillPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentMethod,
+          // Single mode: the server charges its own total. Split: legs must add up to it.
+          ...(payment.payments ? { payments: payment.payments } : {}),
+          ...(payment.cashTendered != null ? { cashTendered: payment.cashTendered } : {}),
           discount,
           createdAt: saleDateTime ? saleDateTime.toISOString() : undefined,
-          customerName: customer?.name || manualSaleCustomer?.name || undefined,
+          customerName: customer?.name || undefined,
           customerPhone: customer?.phone,
           customerEmail: customer?.email,
           customerAddress: customer?.address,
           customerNotes: customer?.notes,
-          customerGstin: customer?.gstin || (rawBillForm?.includeCustomerGstin ? rawBillForm.customerGstin : undefined),
+          customerGstin: customer?.gstin,
           items: items.map((i) => ({
             variantId: i.isRaw ? undefined : i.variantId,
             customName: i.isRaw ? i.name : undefined,
@@ -482,27 +624,29 @@ export function BillingBillPanel({
         );
         return;
       }
-      const saved = payload as { id: string, billNo?: string | null };
+      const saved = payload as SavedBill & { id: string; billNo?: string | null };
       const invoiceNo = saved.billNo || orderIdToInvoiceRef(saved.id);
       if (printMode === 'browser') {
         setReceiptPreviewHtml(
-          buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo), {
+          buildPrintReceiptHtml(buildPrintInvoiceInput(invoiceNo, saved), {
             inlinePreview: true,
           }),
         );
-        message.success('Sale saved — review the receipt, then print or close.');
+        message.success('Sale saved. Review the receipt, then print or close.');
       } else if (printMode === 'thermal') {
-        await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo));
+        await printBillViaNativeAndroid(buildNativeAndroidBill(invoiceNo, saved));
         message.success('Bill saved and sent to USB thermal printer.');
       } else {
-        const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo));
+        const r = launchRawBtPrintFromBill(buildNativeAndroidBill(invoiceNo, saved));
         if (!r.ok) {
           message.error(r.error);
           return;
         }
-        message.success('Bill saved — opening RawBT…');
+        message.success('Bill saved. Opening RawBT…');
       }
       setPaymentMethod(null);
+      setCashReceived(null);
+      setSplitRows(DEFAULT_SPLIT_ROWS);
       setDiscount(0);
       setSaleDateTime(null);
       onSaleComplete?.();
@@ -531,13 +675,13 @@ export function BillingBillPanel({
       },
       busy: checkoutBusy,
       busyMode: checkoutBusyMode,
-      canPrint: lineCount > 0 && paymentMethod != null,
+      canPrint: lineCount > 0 && payment.ready,
       showUsbThermal: isNativeUsbPrinterAvailable(),
     });
     return () => {
       onCheckoutApi(null);
     };
-  }, [onCheckoutApi, checkoutBusy, checkoutBusyMode, lineCount, paymentMethod]);
+  }, [onCheckoutApi, checkoutBusy, checkoutBusyMode, lineCount, payment.ready]);
 
   const openDateModal = () => {
     setTempSaleDateTime(
@@ -556,10 +700,10 @@ export function BillingBillPanel({
     >
       <Button
         type="default"
-        className={`!flex h-9 w-9 shrink-0 items-center justify-center !p-0 ${
+        className={`!flex h-8 w-8 shrink-0 items-center justify-center !p-0 ${
           saleDateTime
-            ? '!border-[var(--ochre-600)] !bg-[var(--ochre-600)] !text-white'
-            : 'border-[var(--pearl-bush)] text-[var(--ochre-600)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]'
+            ? '!border-[var(--ochre-500)] !bg-[var(--ochre-100)] !text-[var(--ochre-600)]'
+            : 'border-[var(--border)] text-[var(--bistre-600)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
         }`}
         icon={<CalendarClock className="h-4 w-4" aria-hidden />}
         onClick={openDateModal}
@@ -573,13 +717,13 @@ export function BillingBillPanel({
       className={`flex min-h-0 flex-1 flex-col overflow-hidden ${className}`}
     >
       {layout === 'sidebar' && (
-        <header className="shrink-0 border-b border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+        <header className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              <h2 className="text-[17px] font-semibold leading-tight text-[var(--text-primary)]">
                 Current sale
               </h2>
-              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
                 {items.length === 0
                   ? 'Scan a barcode or add a line below'
                   : `${lineCount} line${lineCount === 1 ? '' : 's'} · Order #${orderId}`}
@@ -591,7 +735,7 @@ export function BillingBillPanel({
                 <Tooltip title="Add customer">
                   <Button
                     type="default"
-                    className="!flex h-9 w-9 shrink-0 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
+                    className="!flex h-8 w-8 shrink-0 items-center justify-center !p-0 text-[var(--bistre-600)] border-[var(--border)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                     icon={<UserPlus className="h-4 w-4" aria-hidden />}
                     onClick={() => setDetailsOpen(true)}
                     aria-label="Add customer"
@@ -610,7 +754,7 @@ export function BillingBillPanel({
             <Tooltip title="Add customer">
               <Button
                 type="default"
-                className="!flex h-9 w-9 items-center justify-center !p-0 text-[var(--ochre-600)] border-[var(--pearl-bush)] hover:border-[var(--ochre-300)] hover:text-[var(--ochre-700)]"
+                className="!flex h-8 w-8 items-center justify-center !p-0 text-[var(--bistre-600)] border-[var(--border)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                 icon={<UserPlus className="h-4 w-4" aria-hidden />}
                 onClick={() => setDetailsOpen(true)}
                 aria-label="Add customer"
@@ -620,110 +764,24 @@ export function BillingBillPanel({
         </div>
       ) : null}
 
-      {rawManualNameOnBill && manualSaleCustomer ? (
-        <div className="mx-4 mt-4 shrink-0">
-          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
-            <div className="mb-1 flex items-start gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
-                <UserRound className="h-4 w-4" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-                  Customer (raw bill)
-                </p>
-                <p className="truncate font-semibold text-[var(--text-primary)]">
-                  {manualSaleCustomer.name.trim()}
-                </p>
-                {manualSaleCustomer.gstin?.trim() ? (
-                  <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
-                    GSTIN {manualSaleCustomer.gstin.trim()}
-                  </p>
-                ) : null}
-                <p className="mt-2 text-[10px] leading-snug text-[var(--text-muted)]">
-                  Edit name and GSTIN on the Raw billing tab. Add full contact with the toolbar
-                  button to include mobile on the printout.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {customer && !rawManualNameOnBill ? (
-        <div className="mx-4 mt-4 shrink-0">
-          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
-                  <UserRound className="h-4 w-4" aria-hidden />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--bistre-400)]">
-                    Customer
-                  </p>
-                  <p className="truncate font-semibold text-[var(--text-primary)]">
-                    {customer.name}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setDetailsOpen(true)}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--ochre-10)] hover:text-[var(--ochre-600)]"
-                  aria-label="Edit customer"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCustomer(null)}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
-                  aria-label="Remove customer from sale"
-                >
-                  <span className="sr-only">Remove customer</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
-                  >
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <p className="pl-11 text-sm text-[var(--text-secondary)]">
-              {customer.phone}
-            </p>
-            {customer.gstin?.trim() ? (
-              <p className="pl-11 font-mono text-xs text-[var(--text-secondary)]">
-                GSTIN {customer.gstin.trim()}
-              </p>
-            ) : null}
-            {customer.email ? (
-              <p className="mt-0.5 pl-11 text-xs text-[var(--text-muted)]">
-                {customer.email}
-              </p>
-            ) : null}
-            {customer.address ? (
-              <p className="mt-1 pl-11 text-xs leading-snug text-[var(--text-muted)] line-clamp-2">
-                {customer.address}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <div className="mx-4 mt-4 shrink-0">
+        <CustomerSelector
+          customer={customer}
+          setCustomer={setCustomer}
+          onOpenDetails={() => setDetailsOpen(true)}
+        />
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:py-4">
         {items.length === 0 ? (
-          <div className="py-10 text-center text-sm text-[var(--text-muted)]">
-            No lines yet. Scan a barcode, use Standard or Instant billing, or Raw for
-            manual lines.
+          <div className="flex flex-col items-center px-6 py-14 text-center">
+            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--bistre-400)]">
+              <ShoppingBag className="h-5 w-5" strokeWidth={1.6} aria-hidden />
+            </span>
+            <p className="text-sm font-medium text-[var(--text-primary)]">No items yet</p>
+            <p className="mt-1 max-w-[16rem] text-[13px] leading-relaxed text-[var(--text-muted)]">
+              Scan a barcode, use Standard or Instant billing, or Raw for manual lines.
+            </p>
           </div>
         ) : (
           <ul className="space-y-2 pr-1 sm:space-y-2.5">
@@ -762,6 +820,14 @@ export function BillingBillPanel({
                           ).toFixed(2)}
                         </span>
                       </p>
+                      {shortStock.has(item.variantId) ? (
+                        <p
+                          role="status"
+                          className="mt-0.5 text-[11px] font-medium leading-snug text-[var(--danger)]"
+                        >
+                          Only {shortStock.get(item.variantId)} {item.inventoryUnit} in stock
+                        </p>
+                      ) : null}
                     </div>
                     <p className="shrink-0 text-sm font-semibold tabular-nums text-[var(--text-primary)] sm:text-[0.9375rem]">
                       ₹
@@ -772,14 +838,13 @@ export function BillingBillPanel({
                     </p>
                   </div>
                   {item.isInstant ? (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
-                          Qty
-                        </span>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      {/* Quantity + unit as one control; one row like standard lines */}
+                      <Space.Compact size="small">
                         <InputNumber
                           size="small"
-                          className="!min-w-0 w-[4.75rem] sm:w-[5.25rem]"
+                          className="!w-[4.5rem]"
+                          aria-label={`Quantity of ${item.name}`}
                           min={
                             item.displayUnit.toUpperCase() === 'PC' ? 1 : 0.001
                           }
@@ -795,17 +860,13 @@ export function BillingBillPanel({
                             });
                           }}
                         />
-                      </div>
-                      <div className="flex min-w-0 items-center gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--bistre-400)]">
-                          Unit
-                        </span>
                         <Select
                           size="small"
-                          className="min-w-[4rem] w-[4.75rem] sm:w-[5.25rem]"
+                          className="!w-[4.25rem]"
+                          aria-label={`Unit for ${item.name}`}
                           value={item.displayUnit}
                           options={allowedInstantDisplayUnits(
-                            item.variantLabel,
+                            sizeLabel(item.variantLabel, item.name),
                             item.inventoryUnit,
                           ).map((u) => ({
                             value: u,
@@ -826,16 +887,17 @@ export function BillingBillPanel({
                             n.parentElement ?? document.body
                           }
                         />
-                      </div>
+                      </Space.Compact>
                       <Tooltip title="Total uses the catalog price for the unit you select.">
-                        <span className="cursor-help text-[10px] text-[var(--text-muted)] underline decoration-dotted underline-offset-2">
-                          Pricing
-                        </span>
+                        <Info
+                          className="h-3.5 w-3.5 shrink-0 cursor-help text-[var(--bistre-300)]"
+                          aria-label="How the line total is priced"
+                        />
                       </Tooltip>
                       <button
                         type="button"
                         onClick={() => onRemove(item.lineId)}
-                        className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--bistre-400)] transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                         aria-label={`Remove ${item.name}`}
                       >
                         <svg
@@ -881,7 +943,7 @@ export function BillingBillPanel({
                       <button
                         type="button"
                         onClick={() => onRemove(item.lineId)}
-                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-[var(--bistre-400)] transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                         aria-label={`Remove ${item.name}`}
                       >
                         <svg
@@ -912,39 +974,23 @@ export function BillingBillPanel({
       </div>
 
       {items.length > 0 && (
-        <div className="shrink-0 space-y-2 rounded-t-2xl border-t-2 border-[var(--pearl-bush)] bg-[var(--linen-95)] px-3 pb-3 pt-2 sm:space-y-2.5 sm:px-4 sm:pb-3 sm:pt-2.5">
-          <div className="space-y-1 text-xs sm:text-sm">
-            <div className="flex justify-between gap-2 text-[var(--text-secondary)]">
-              <span>Items (incl. tax)</span>
-              <span className="shrink-0 font-medium tabular-nums text-[var(--text-primary)]">
-                ₹{itemsGrossTotal.toFixed(2)}
-              </span>
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-4 pt-3 sm:px-5">
+          {/* Totals: one tidy column, figures right-aligned */}
+          <dl className="m-0 space-y-1.5 text-[13px]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--text-secondary)]">Items (incl. tax)</dt>
+              <dd className="m-0 tabular-nums text-[var(--text-primary)]">₹{itemsGrossTotal.toFixed(2)}</dd>
             </div>
-            <div className="space-y-0.5">
-              <div className="flex min-w-0 justify-between gap-2 text-[var(--text-secondary)]">
-                <span className="min-w-0 truncate">CGST ({cgstRate}%)</span>
-                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-[var(--text-primary)]">
-                  ₹{cgstAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex min-w-0 justify-between gap-2 text-[var(--text-secondary)]">
-                <span className="min-w-0 truncate">SGST ({sgstRate}%)</span>
-                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-[var(--text-primary)]">
-                  ₹{sgstAmount.toFixed(2)}
-                </span>
-              </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--text-muted)]">CGST ({cgstRate}%)</dt>
+              <dd className="m-0 tabular-nums text-[var(--text-secondary)]">₹{cgstAmount.toFixed(2)}</dd>
             </div>
-            <div className="pt-0.5">
-              <Checkbox
-                checked={showGstinOnBill}
-                onChange={(e) => setShowGstinOnBill(e.target.checked)}
-                className="text-xs text-[var(--text-secondary)] [&_.ant-checkbox+span]:!ps-1"
-              >
-                Show Your GSTIN on printed bill
-              </Checkbox>
+            <div className="flex justify-between gap-2">
+              <dt className="text-[var(--text-muted)]">SGST ({sgstRate}%)</dt>
+              <dd className="m-0 tabular-nums text-[var(--text-secondary)]">₹{sgstAmount.toFixed(2)}</dd>
             </div>
-            <div className="flex items-center justify-between gap-2 text-[var(--text-secondary)]">
-              <span className="flex min-w-0 items-center gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <dt className="flex items-center gap-2 text-[var(--text-secondary)]">
                 Discount
                 <button
                   type="button"
@@ -952,76 +998,194 @@ export function BillingBillPanel({
                     setTempDiscount(discount);
                     setIsDiscountModalOpen(true);
                   }}
-                  className="rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--ochre-10)] hover:text-[var(--ochre-500)]"
+                  className="inline-flex items-center gap-1 rounded px-1 text-xs font-medium text-[var(--ochre-600)] hover:bg-[var(--ochre-100)]"
                   aria-label="Edit discount"
                 >
-                  <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Pencil className="h-3 w-3" aria-hidden />
+                  Edit
                 </button>
-              </span>
-              <span className="shrink-0 font-medium tabular-nums text-[var(--text-primary)]">
-                ₹{discount.toFixed(2)}
-              </span>
+              </dt>
+              <dd className={`m-0 tabular-nums ${discount > 0 ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}`}>
+                {discount > 0 ? '−' : ''}₹{discount.toFixed(2)}
+              </dd>
             </div>
-          </div>
-          <div className="flex items-baseline justify-between gap-2 border-y border-[var(--pearl-bush)] py-1.5 sm:py-2">
-            <span className="text-xs font-semibold text-[var(--text-primary)] sm:text-sm">
-              Payable total
-            </span>
-            <span className="text-lg font-bold tabular-nums text-[var(--bistre-800)] sm:text-xl">
+          </dl>
+
+          <div className="mt-3 flex items-baseline justify-between gap-2 border-t border-[var(--border)] pt-3">
+            <span className="text-sm font-medium text-[var(--text-primary)]">Payable total</span>
+            <span className="text-2xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
               ₹{total.toFixed(2)}
             </span>
           </div>
 
-          <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)] sm:text-xs sm:normal-case sm:tracking-normal">
-              Payment <span className="text-red-600">*</span>
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <Button
-                type={paymentMethod === 'CASH' ? 'primary' : 'default'}
-                className="flex h-9 items-center justify-center gap-1.5 px-2 text-xs font-medium sm:h-10 sm:gap-2 sm:text-sm"
-                icon={<Banknote className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                onClick={() => setPaymentMethod('CASH')}
-                style={
-                  paymentMethod === 'CASH'
-                    ? {
-                      backgroundColor: 'var(--ochre-600)',
-                      borderColor: 'var(--ochre-600)',
-                    }
-                    : undefined
-                }
-              >
-                Cash
-              </Button>
-              <Button
-                type={paymentMethod === 'UPI_CARD' ? 'primary' : 'default'}
-                className="flex h-9 items-center justify-center gap-1.5 px-2 text-xs font-medium sm:h-10 sm:gap-2 sm:text-sm"
-                icon={<CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                onClick={() => setPaymentMethod('UPI_CARD')}
-                style={
-                  paymentMethod === 'UPI_CARD'
-                    ? {
-                      backgroundColor: 'var(--ochre-600)',
-                      borderColor: 'var(--ochre-600)',
-                    }
-                    : undefined
-                }
-              >
-                UPI / Card
-              </Button>
+          {/* Payment mode: a choice, not an action, so it is never a solid button */}
+          <div className="mt-3" role="radiogroup" aria-label="Payment mode">
+            <div className="grid grid-cols-4 gap-1.5">
+              {(
+                [
+                  { value: 'CASH', label: 'Cash', icon: <Banknote className="h-4 w-4" aria-hidden /> },
+                  { value: 'UPI', label: 'UPI', icon: <Smartphone className="h-4 w-4" aria-hidden /> },
+                  { value: 'CARD', label: 'Card', icon: <CreditCard className="h-4 w-4" aria-hidden /> },
+                  { value: 'SPLIT', label: 'Split', icon: <Split className="h-4 w-4" aria-hidden /> },
+                ] as const
+              ).map((opt) => {
+                const selected = paymentMethod === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => selectPaymentMode(opt.value)}
+                    className={`flex h-10 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:shadow-[var(--ring)] ${
+                      selected
+                        ? 'border-[var(--ochre-500)] bg-[var(--ochre-100)] text-[var(--ochre-600)]'
+                        : 'border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--bistre-300)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {opt.icon}
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
+
+            {paymentMethod === 'UPI' || paymentMethod === 'CARD' ? (
+              <p className="mt-2 mb-0 text-xs text-[var(--text-muted)]">
+                Collect exactly ₹{roundRupees(total).toFixed(2)} by {paymentLabel(paymentMethod)}.
+              </p>
+            ) : null}
+
+            {paymentMethod === 'SPLIT' ? (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {splitRows.map((row, index) => (
+                  <div key={row.method} className="flex items-center gap-1.5">
+                    <Select<PaymentLegMethod>
+                      size="middle"
+                      className="!w-24 shrink-0"
+                      value={row.method}
+                      aria-label={`Payment ${index + 1} mode`}
+                      options={PAYMENT_LEG_METHODS.map((m) => ({
+                        value: m,
+                        label: paymentLabel(m),
+                        disabled: m !== row.method && splitRows.some((r) => r.method === m),
+                      }))}
+                      onChange={(method) => {
+                        if (row.method === 'CASH') setCashReceived(null);
+                        updateSplitRow(index, { method });
+                      }}
+                    />
+                    <InputNumber<number>
+                      className="!w-full"
+                      min={0}
+                      step={1}
+                      precision={2}
+                      prefix="₹"
+                      placeholder="0.00"
+                      aria-label={`${paymentLabel(row.method)} amount`}
+                      value={row.amount}
+                      onChange={(v) => updateSplitRow(index, { amount: v ?? null })}
+                    />
+                    {payment.remaining > 0 ? (
+                      <Tooltip title={`Put the remaining ₹${payment.remaining.toFixed(2)} on ${paymentLabel(row.method)}`}>
+                        <Button
+                          size="small"
+                          type="text"
+                          className="shrink-0 !px-1.5 text-xs"
+                          onClick={() =>
+                            updateSplitRow(index, {
+                              amount: roundRupees((row.amount ?? 0) + payment.remaining),
+                            })
+                          }
+                        >
+                          Rest
+                        </Button>
+                      </Tooltip>
+                    ) : null}
+                    <Button
+                      size="small"
+                      type="text"
+                      className="shrink-0"
+                      aria-label={`Remove ${paymentLabel(row.method)}`}
+                      icon={<X className="h-3.5 w-3.5" />}
+                      disabled={splitRows.length <= 1}
+                      onClick={() => removeSplitRow(index)}
+                    />
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  {splitRows.length < 3 ? (
+                    <Button
+                      size="small"
+                      type="link"
+                      className="!px-0"
+                      icon={<Plus className="h-3.5 w-3.5" />}
+                      onClick={addSplitRow}
+                    >
+                      Add mode
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  <span
+                    className={`tabular-nums font-medium ${
+                      Math.abs(payment.remaining) < 0.005
+                        ? 'text-[var(--success)]'
+                        : 'text-[var(--danger)]'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {payment.remaining < -0.005
+                      ? `Over by ₹${(-payment.remaining).toFixed(2)}`
+                      : `Remaining ₹${Math.max(0, payment.remaining).toFixed(2)}`}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            {paymentMethod === 'CASH' || (paymentMethod === 'SPLIT' && splitHasCash) ? (
+              <div className="mt-2">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="pos-cash-received" className="shrink-0 text-xs text-[var(--text-secondary)]">
+                    {paymentMethod === 'SPLIT' ? 'Cash received' : 'Amount received'}
+                  </label>
+                  <InputNumber<number>
+                    id="pos-cash-received"
+                    className="!w-full"
+                    min={0}
+                    step={10}
+                    precision={2}
+                    prefix="₹"
+                    placeholder="Exact"
+                    value={cashReceived}
+                    onChange={(v) => setCashReceived(v ?? null)}
+                  />
+                </div>
+                {cashReceived != null ? (
+                  <p
+                    className={`mt-1 mb-0 text-right text-sm font-semibold tabular-nums ${
+                      payment.blocker?.startsWith('Cash short')
+                        ? 'text-[var(--danger)]'
+                        : 'text-[var(--success)]'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {payment.blocker?.startsWith('Cash short')
+                      ? payment.blocker.replace('Cash short', 'Short')
+                      : `Change: ₹${payment.change.toFixed(2)}`}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
+
           <div className="flex flex-col gap-2">
-            <Tooltip title="Saves the sale (when applicable), then opens a receipt preview here — use Print for the system dialog (PDF, network printer, etc.).">
+            <Tooltip title="Saves the sale (when applicable), then opens a receipt preview here. Use Print for the system dialog (PDF, network printer, etc.).">
               <Button
                 type="primary"
-                className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 sm:h-11 sm:text-base"
-                icon={<Receipt className="h-4 w-4 sm:h-5 sm:w-5" />}
-                style={{
-                  backgroundColor: 'var(--ochre-600)',
-                  borderColor: 'var(--ochre-600)',
-                }}
-                disabled={!paymentMethod || checkoutBusy}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 text-[15px] font-semibold"
+                icon={<Receipt className="h-4 w-4" />}
+                disabled={!payment.ready || checkoutBusy}
                 loading={checkoutBusyMode === 'browser'}
                 onClick={() => void completeCheckout('browser')}
               >
@@ -1032,9 +1196,9 @@ export function BillingBillPanel({
               <Tooltip title="Same checkout, but prints silently to the TVS-style USB thermal printer via the POS app (ESC/POS).">
                 <Button
                   type="default"
-                  className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
-                  icon={<Printer className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  disabled={!paymentMethod || checkoutBusy}
+                  className="flex h-10 w-full items-center justify-center gap-2 text-sm font-medium"
+                  icon={<Printer className="h-4 w-4" />}
+                  disabled={!payment.ready || checkoutBusy}
                   loading={checkoutBusyMode === 'thermal'}
                   onClick={() => void completeCheckout('thermal')}
                 >
@@ -1051,7 +1215,7 @@ export function BillingBillPanel({
                 type="default"
                 className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold border-[var(--pearl-bush)] sm:h-11 sm:text-base"
                 icon={<Bluetooth className="h-4 w-4 sm:h-5 sm:w-5" />}
-                disabled={!paymentMethod || checkoutBusy}
+                disabled={!payment.ready || checkoutBusy}
                 loading={checkoutBusyMode === 'rawbt'}
                 onClick={() => void completeCheckout('rawbt')}
               >
@@ -1059,6 +1223,15 @@ export function BillingBillPanel({
               </Button>
             </Tooltip> */}
           </div>
+
+          {/* Print option, kept apart from the money so the totals read cleanly */}
+          <Checkbox
+            checked={showGstinOnBill}
+            onChange={(e) => setShowGstinOnBill(e.target.checked)}
+            className="!mt-3 !flex text-xs text-[var(--text-muted)] [&_.ant-checkbox+span]:!ps-1.5"
+          >
+            Show your GSTIN on the printed bill
+          </Checkbox>
         </div>
       )}
 
@@ -1166,7 +1339,7 @@ export function BillingBillPanel({
       >
         <div className="space-y-3 py-4">
           <p className="text-sm text-[var(--text-secondary)]">
-            Pick a past date and time for this bill. This is optional — leave it
+            Pick a past date and time for this bill. This is optional; leave it
             as-is to use the current date and time when the bill is generated.
           </p>
           <input

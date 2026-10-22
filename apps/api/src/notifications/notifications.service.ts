@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { dec } from '../common/money';
 import { PrismaService } from '../prisma.service';
 
 const ROLLING_HOURS = 24;
@@ -79,7 +80,8 @@ export class NotificationsService {
 
     for (const v of variantsWithMin) {
       const min = v.minStock ?? 0;
-      if (v.quantity <= min) {
+      // Decimal `<=` compares the string values ("30" <= "5" is true), so compare numerically.
+      if (dec(v.quantity).lte(dec(min))) {
         items.push({
           type: 'low_stock',
           at: v.updatedAt.toISOString(),

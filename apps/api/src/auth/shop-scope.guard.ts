@@ -35,7 +35,9 @@ export class ShopScopeGuard implements CanActivate {
     ).trim();
 
     if (user.role === UserRole.SUPER_ADMIN) {
-      req.effectiveShopCode = headerShop || queryShop || user.shopCode || '';
+      // The dashboard sends X-Shop (the active shop) on every call, so an explicit
+      // ?shopCode= is a deliberate override, e.g. viewing another shop's stock from /shops.
+      req.effectiveShopCode = queryShop || headerShop || user.shopCode || '';
       if (!req.effectiveShopCode) {
         throw new BadRequestException(
           'Missing shop context: send X-Shop header or ensure your account has a shop',

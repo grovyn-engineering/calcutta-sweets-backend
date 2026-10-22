@@ -5,8 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
+import { assertManagerForChanges } from '../auth/manager-roles';
 import { PrismaService } from '../prisma.service';
+import {
+  assertProductNameAvailable,
+  assertSkuAvailable,
+} from '../common/catalog-uniqueness';
+import { dec, qty } from '../common/money';
+import { applyStockChange } from '../common/stock';
 import { UpdateVariantDto } from './dto/update-variant.dto';
 
 type VariantDetailRow = Prisma.ProductVariantGetPayload<{
@@ -19,6 +26,8 @@ export type VariantListFilters = {
   search?: string;
   category?: string;
   activeOnly?: boolean;
+  /** Out of stock, or at/below `minStock` (same rule as the dashboard's low-stock count). */
+  lowStock?: boolean;
 };
 
 @Injectable()
@@ -121,8 +130,28 @@ export class InventoryService {
     return this.mapVariantDetailAbsoluteUrls(row);
   }
 
-  async updateVariant(id: string, dto: UpdateVariantDto, shopCode: string) {
+  async updateVariant(
+    id: string,
+    dto: UpdateVariantDto,
+    shopCode: string,
+    userId?: string,
+    actorRole?: UserRole,
+  ) {
     const existing = await this.findVariantById(id, shopCode);
+    const differs = (
+      next: number | null | undefined,
+      current: Prisma.Decimal | number | null,
+    ) =>
+      next !== undefined &&
+      (next === null
+        ? current !== null
+        : current === null || !dec(current).eq(next));
+    assertManagerForChanges(actorRole, {
+      price: differs(dto.price, existing.price),
+      'cost price': differs(dto.costPrice, existing.costPrice),
+      stock: differs(dto.quantity, existing.quantity),
+      'low-stock alert': differs(dto.minStock, existing.minStock),
+    });
 
     if (dto.barcode !== undefined) {
       const next = dto.barcode.trim();
@@ -156,44 +185,91 @@ export class InventoryService {
       throw new BadRequestException('Product name cannot be empty');
     }
 
-    const updated = await this.prisma.productVariant.update({
-      where: { id },
-      data: {
-        ...(dto.quantity !== undefined ? { quantity: dto.quantity } : {}),
-        ...(dto.minStock !== undefined ? { minStock: dto.minStock } : {}),
-        ...(dto.price !== undefined ? { price: dto.price } : {}),
-        ...(dto.costPrice !== undefined ? { costPrice: dto.costPrice } : {}),
-        ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
-        ...(dto.unit !== undefined ? { unit: dto.unit } : {}),
-        ...(dto.hsnCode !== undefined ? { hsnCode: dto.hsnCode } : {}),
-        ...(variantName !== undefined ? { name: variantName } : {}),
-        ...(dto.barcode !== undefined ? { barcode: dto.barcode.trim() } : {}),
-        product: {
-          update: {
-            ...(productName !== undefined ? { name: productName } : {}),
-            ...(dto.categoryId !== undefined
-              ? { categoryId: dto.categoryId }
-              : {}),
-            ...(dto.description !== undefined
-              ? { description: dto.description }
-              : {}),
-            ...(dto.isListedOnWebsite !== undefined
-              ? { isListedOnWebsite: dto.isListedOnWebsite }
-              : {}),
-            ...(dto.images !== undefined
-              ? {
-                  images: {
-                    deleteMany: {},
-                    create: dto.images.map((url) => ({ url })),
-                  },
-                }
-              : {}),
+    if (
+      dto.categoryId &&
+      !(await this.prisma.category.findUnique({
+        where: { id: dto.categoryId },
+      }))
+    ) {
+      throw new BadRequestException('Category not found');
+    }
+
+    const sku = dto.sku === undefined ? undefined : dto.sku?.trim() || null;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (productName !== undefined) {
+        await assertProductNameAvailable(
+          tx,
+          shopCode,
+          productName,
+          existing.productId,
+        );
+      }
+      await assertSkuAvailable(tx, shopCode, sku, id);
+      if (dto.quantity !== undefined) {
+        // Stock is adjusted as a delta through the ledger. If the client sends the
+        // quantity it was looking at, reject when a sale changed it in the meantime
+        // instead of silently overwriting that sale.
+        const current = await tx.productVariant.findUniqueOrThrow({
+          where: { id },
+          select: { quantity: true },
+        });
+        if (
+          dto.expectedQuantity !== undefined &&
+          !qty(dto.expectedQuantity).eq(current.quantity)
+        ) {
+          throw new ConflictException(
+            `Stock changed to ${dec(current.quantity).toString()} while you were editing. Reload and try again.`,
+          );
+        }
+        await applyStockChange(tx, {
+          variantId: id,
+          shopCode,
+          delta: qty(dto.quantity).sub(current.quantity),
+          reason: 'ADJUSTMENT',
+          userId,
+          note: dto.stockNote?.trim() || 'Manual stock edit',
+        });
+      }
+      return tx.productVariant.update({
+        where: { id },
+        data: {
+          ...(dto.minStock !== undefined ? { minStock: dto.minStock } : {}),
+          ...(dto.price !== undefined ? { price: dto.price } : {}),
+          ...(dto.costPrice !== undefined ? { costPrice: dto.costPrice } : {}),
+          ...(sku !== undefined ? { sku } : {}),
+          ...(dto.unit !== undefined ? { unit: dto.unit } : {}),
+          ...(dto.hsnCode !== undefined ? { hsnCode: dto.hsnCode } : {}),
+          ...(dto.taxRate !== undefined ? { taxRate: dto.taxRate } : {}),
+          ...(variantName !== undefined ? { name: variantName } : {}),
+          ...(dto.barcode !== undefined ? { barcode: dto.barcode.trim() } : {}),
+          product: {
+            update: {
+              ...(productName !== undefined ? { name: productName } : {}),
+              ...(dto.categoryId !== undefined
+                ? { categoryId: dto.categoryId }
+                : {}),
+              ...(dto.description !== undefined
+                ? { description: dto.description }
+                : {}),
+              ...(dto.isListedOnWebsite !== undefined
+                ? { isListedOnWebsite: dto.isListedOnWebsite }
+                : {}),
+              ...(dto.images !== undefined
+                ? {
+                    images: {
+                      deleteMany: {},
+                      create: dto.images.map((url) => ({ url })),
+                    },
+                  }
+                : {}),
+            },
           },
         },
-      },
-      include: {
-        product: { include: { category: true, shop: true, images: true } },
-      },
+        include: {
+          product: { include: { category: true, shop: true, images: true } },
+        },
+      });
     });
     return this.mapVariantDetailAbsoluteUrls(updated);
   }
@@ -221,6 +297,22 @@ export class InventoryService {
 
     const where: Prisma.ProductVariantWhereInput = {
       product: productWhere,
+      ...(filters.lowStock
+        ? {
+            AND: [
+              {
+                OR: [
+                  { quantity: { lte: 0 } },
+                  {
+                    quantity: {
+                      lte: this.prisma.productVariant.fields.minStock,
+                    },
+                  },
+                ],
+              },
+            ],
+          }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -257,7 +349,9 @@ export class InventoryService {
         where,
         skip,
         take: size,
-        orderBy: [{ product: { name: 'asc' } }, { name: 'asc' }],
+        orderBy: filters.lowStock
+          ? [{ quantity: 'asc' }, { product: { name: 'asc' } }]
+          : [{ product: { name: 'asc' } }, { name: 'asc' }],
         include: {
           product: {
             include: {
@@ -332,10 +426,7 @@ export class InventoryService {
 
       const ids = found.map((f) => f.id);
 
-      await tx.orderItem.deleteMany({
-        where: { productVariantId: { in: ids } },
-      });
-
+      // Past order lines keep their snapshot (name, barcode, price); the FK is SET NULL.
       await tx.productVariant.deleteMany({
         where: { id: { in: ids } },
       });
@@ -347,24 +438,16 @@ export class InventoryService {
           where: { productId: pid },
         });
         if (left === 0) {
-          await tx.productImage.deleteMany({ where: { productId: pid } });
           await tx.product.delete({ where: { id: pid } });
           productsRemoved += 1;
         }
       }
 
-      const emptyCats = await tx.category.findMany({
-        where: { products: { none: {} } },
-        select: { id: true },
-      });
-      const catDel = await tx.category.deleteMany({
-        where: { id: { in: emptyCats.map((c) => c.id) } },
-      });
-
+      // Categories are shared by every shop, so they are not swept here.
       return {
         variantsRemoved: ids.length,
         productsRemoved,
-        orphanCategoriesRemoved: catDel.count,
+        orphanCategoriesRemoved: 0,
       };
     });
   }

@@ -92,12 +92,13 @@ export function BarcodeScannerInput({
         imageUrl: v.imageUrl ?? null,
         images: v.images ?? [],
       });
-
-      setValue('');
     } catch (err) {
       console.error('Barcode lookup error:', err);
       message.error('Failed to look up barcode.');
     } finally {
+      // Clear on every outcome: a scanner types the next code straight after the last one,
+      // so a leftover unknown code would be glued onto it. The toast still names the code.
+      setValue('');
       setBusy(false);
       requestAnimationFrame(tryFocus);
     }
@@ -109,18 +110,31 @@ export function BarcodeScannerInput({
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onPressEnter={() => void handleScan(value)}
-      placeholder="Scan product barcode…"
+      placeholder="Scan or type a barcode"
       size="large"
-      prefix={<ScanBarcode className="h-5 w-5 text-[var(--ochre-501)]" />}
+      prefix={
+        <ScanBarcode
+          className="mr-1 h-[18px] w-[18px] text-[var(--ochre-500)]"
+          strokeWidth={1.8}
+          aria-hidden
+        />
+      }
+      suffix={
+        <kbd className="hidden rounded border border-[var(--border)] bg-[var(--surface-subtle)] px-1.5 py-px font-sans text-[11px] text-[var(--text-muted)] sm:inline">
+          Enter ↵
+        </kbd>
+      }
       disabled={disabled || busy}
       allowClear
       autoFocus
       autoComplete="off"
       spellCheck={false}
       style={{
-        borderRadius: '0.75rem',
-        border: '1px solid var(--ochre-200)',
-        boxShadow: busy ? '0 0 0 2px var(--ochre-100)' : 'none',
+        height: 48,
+        borderRadius: 10,
+        background: 'var(--surface)',
+        borderColor: 'var(--border-strong)',
+        boxShadow: busy ? 'var(--ring)' : 'none',
       }}
     />
   );

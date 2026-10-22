@@ -5,6 +5,11 @@ import {
   THERMAL_POWERED_BY_LINE,
 } from '@/lib/rawBtPrint';
 import type { NativeAndroidBillPayload } from '@/lib/usbPrinter';
+import {
+  paymentLabel,
+  receiptPaymentRows,
+  type PaymentLeg,
+} from '@/lib/payments';
 
 export type InvoiceLineInput = {
   name: string;
@@ -41,6 +46,10 @@ export type PrintInvoiceInput = {
   bankAccountNumber?: string | null;
   bankIfsc?: string | null;
   paymentMode?: string | null;
+  /** Payment legs (method enum + amount); when absent the total is shown against paymentMode. */
+  payments?: PaymentLeg[] | null;
+  cashTendered?: number | null;
+  changeDue?: number | null;
 };
 
 export type InvoicePrintFormat = 'a4' | 'receipt';
@@ -90,7 +99,7 @@ function buildLineRowsReceipt(data: PrintInvoiceInput): string {
           : '';
       const qtyStr = Number.isInteger(line.quantity)
         ? `${line.quantity}`
-        : line.quantity.toFixed(1);
+        : `${parseFloat(line.quantity.toFixed(4))}`;
       return `<tr class="item-block">
       <td class="item-name-cell">${esc(line.name)}${variant}</td>
       <td class="num qty-cell">${qtyStr} ${esc(line.unit)}</td>
@@ -201,6 +210,16 @@ function totalsRowsHtml(data: PrintInvoiceInput): string {
     <div class="totals-row grand"><span>Total</span><span>₹${formatMoney(data.total)}</span></div>`;
 }
 
+/** "<Mode> Paid" per leg, plus Tendered / Change for cash change. */
+function paymentRowsHtml(data: PrintInvoiceInput, suffix = ''): string {
+  return receiptPaymentRows(data, data.total, data.paymentMode)
+    .map(
+      (r, i) =>
+        `<div class="totals-row"${i === 0 ? ' style="margin-top: 4px;"' : ''}><span>${esc(r.label + suffix)}</span><span>₹${formatMoney(r.amount)}</span></div>`,
+    )
+    .join('');
+}
+
 function totalsRowsReceiptHtml(data: PrintInvoiceInput): string {
   const hasSplitFields =
     data.cgstAmountSplit != null &&
@@ -281,8 +300,19 @@ function printInvoiceInputToNativeBill(data: PrintInvoiceInput): NativeAndroidBi
     cgstAmount: hasSplit ? (data.cgstAmountSplit ?? 0) : 0,
     sgstAmount: hasSplit ? (data.sgstAmountSplit ?? 0) : 0,
     total: data.total,
-    paymentMode: 'Cash',
+    paymentMode: data.paymentMode?.trim() || 'Cash',
     amountPaid: data.total,
+    ...(data.payments && data.payments.length > 0
+      ? {
+          payments: data.payments.map((p) => ({
+            mode: paymentLabel(p.method, 'Cash'),
+            amount: p.amount,
+          })),
+        }
+      : {}),
+    ...((data.changeDue ?? 0) > 0.005 && data.cashTendered != null
+      ? { cashTendered: data.cashTendered, changeDue: data.changeDue ?? 0 }
+      : {}),
     footerMessage: 'Thank You. Come Again!',
     footerNote: '* Tax not payable on reverse charge basis',
     bankAccountNumber: '',
@@ -490,7 +520,7 @@ function buildInvoiceHtml(
     }
     .meta { font-size: 9px; margin: 6px 0; color: #3d2818; }
     .meta div { margin: 1px 0; }
-    .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; }
+    .cust { font-size: 9px; margin: 6px 0; padding: 4px 0; border-top: 1px dashed #b8a08a; border-bottom: 1px dashed #b8a08a; overflow-wrap: anywhere; word-break: break-word; }
     .cust-meta { font-size: 8px; color: #5c4030; margin-top: 2px; }
     .cust.muted { color: #6b4a30; font-style: italic; }
     .col-name, .item-name-cell { width: 44%; text-align: left; }
@@ -654,15 +684,7 @@ function buildInvoiceHtml(
   <div class="totals">
     ${totalsRowsReceiptHtml(data)}
     
-    ${(() => {
-        const mode = data.paymentMode?.trim() || 'Cash';
-        const payLabel = mode.toLowerCase() === 'cash' ? 'Cash Paid:' : `${mode} Paid:`;
-        return `
-      <div class="totals-row" style="margin-top: 4px;">
-        <span>${esc(payLabel)}</span>
-        <span>₹${formatMoney(data.total)}</span>
-      </div>`;
-      })()}
+    ${paymentRowsHtml(data, ':')}
   </div>
 
   
@@ -714,6 +736,8 @@ function buildInvoiceHtml(
     .meta { display: flex; flex-wrap: wrap; gap: 16px 32px; margin-bottom: 14px; font-size: 10pt; color: #3d2818; }
     .meta strong { color: #1a110c; }
     .box {
+      overflow-wrap: anywhere;
+      word-break: break-word;
       border: 1px solid #c5ad94;
       border-radius: 6px;
       padding: 10px 12px;
@@ -773,6 +797,7 @@ function buildInvoiceHtml(
   </table>
   <div class="totals">
     ${totalsRowsHtml(data)}
+    ${paymentRowsHtml(data)}
   </div>
   <div class="footer">
     Thank you for your visit. For queries, contact the store.<br />
@@ -831,4 +856,17 @@ export function makeInvoiceNo(prefix = 'INV'): string {
 
 export function orderIdToInvoiceRef(id: string): string {
   return id.replace(/-/g, '').slice(0, 12).toUpperCase();
+}
+
+/**
+ * The reference to show/print for an order: its bill number, else the reference printed
+ * on bills issued before bill numbers existed (stored by the API as `legacyBillRef`),
+ * else the id-derived reference (unpaid website drafts that never became bills).
+ */
+export function billRefOf(order: {
+  id: string;
+  billNo?: string | null;
+  legacyBillRef?: string | null;
+}): string {
+  return order.billNo || order.legacyBillRef || orderIdToInvoiceRef(order.id);
 }

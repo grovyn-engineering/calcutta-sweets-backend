@@ -47,7 +47,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, user, permissions } = useAuth();
-  const { effectiveShopCode, shops } = useShop();
+  const { effectiveShopCode, shops, shopsLoading } = useShop();
+  // The shop list loads after the session, and this guard's effects run before ShopProvider's.
+  // Until a shop is chosen, a factory-only page can't be judged yet (refreshing /shops used
+  // to bounce to access-denied because the factory looked like a retail shop).
+  const shopPending = shopsLoading || !effectiveShopCode;
   const redirectingRef = useRef(false);
 
   const isFactory = useMemo(() => {
@@ -81,6 +85,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!rule) {
       return;
     }
+    if (rule.factoryOnly && shopPending) {
+      return;
+    }
     const allowed = isAppNavAllowed(rule, navCtx);
     if (allowed) {
       return;
@@ -110,6 +117,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     permissions,
     navCtx,
     isFactory,
+    shopPending,
     router,
   ]);
 
@@ -129,6 +137,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     pathname !== ACCESS_DENIED_PATH
   ) {
     const rule = matchAppNavItem(pathname);
+    if (rule?.factoryOnly && shopPending) {
+      return <PageBootstrapLoader label="Loading shop" />;
+    }
     if (rule && !isAppNavAllowed(rule, navCtx)) {
       return <PageBootstrapLoader label="Redirecting" />;
     }

@@ -1,14 +1,17 @@
 "use client";
 
-import { App, Input } from "antd";
+import { paymentLabel } from "@/lib/payments";
+import { App, Button, Input } from "antd";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { orderIdToInvoiceRef } from "@/lib/printInvoice";
+import { billRefOf } from "@/lib/printInvoice";
+import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
-import { Receipt, Search, Trash2 } from "lucide-react";
+import { isAtLeastManager } from "@/lib/rolePermissions";
+import { Download, Globe, Receipt, Search, Store, Trash2 } from "lucide-react";
 import styles from "./OrdersTable.module.css";
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -31,6 +34,7 @@ function formatWhen(iso: string) {
 type OrderRow = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -62,7 +66,12 @@ const baseColumns: AppTableColumn[] = [
       const raw = String(val ?? "POS");
       return (
         <span className={`orders-source-pill orders-source-pill--${raw.toLowerCase()}`}>
-          {raw === "WEBSITE" ? "💻 Website" : "🏪 POS"}
+          {raw === "WEBSITE" ? (
+            <Globe className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Store className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {raw === "WEBSITE" ? "Website" : "POS"}
         </span>
       );
     },
@@ -72,11 +81,19 @@ const baseColumns: AppTableColumn[] = [
     label: "Bill ref",
     field: "id",
     width: 120,
-    render: (val, row: any) => (
-      <span className="orders-bill-ref">
-        {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
-      </span>
-    ),
+    render: (val, row: any) => {
+      const cancelled = row.status === "CANCELLED";
+      return (
+        <span
+          className="orders-bill-ref"
+          style={cancelled ? { textDecoration: "line-through", opacity: 0.6 } : undefined}
+          title={cancelled ? "Cancelled" : undefined}
+        >
+          {val ? billRefOf({ ...row, id: String(val) }) : "-"}
+          {cancelled ? " (cancelled)" : ""}
+        </span>
+      );
+    },
   },
   {
     key: "paymentMethod",
@@ -87,9 +104,13 @@ const baseColumns: AppTableColumn[] = [
       const raw = String(val ?? "");
       if (raw === "CASH")
         return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
-      if (raw === "UPI_CARD")
-        return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
-      return <span className="orders-pay-pill">{raw || "-"}</span>;
+      if (raw)
+        return (
+          <span className="orders-pay-pill orders-pay-pill--upi">
+            {paymentLabel(raw)}
+          </span>
+        );
+      return <span className="orders-pay-pill">-</span>;
     },
   },
   {
@@ -101,7 +122,9 @@ const baseColumns: AppTableColumn[] = [
       const r = row as OrderRow;
       return (
         <div>
-          <div className="orders-cust-name">{r.customerName?.trim() || "Walk-in"}</div>
+          <div className="orders-cust-name" title={r.customerName?.trim() || undefined}>
+            {r.customerName?.trim() || "Walk-in"}
+          </div>
           {r.customerPhone ? (
             <div className="orders-cust-phone">{r.customerPhone}</div>
           ) : null}
@@ -130,18 +153,30 @@ const baseColumns: AppTableColumn[] = [
     field: "status",
     width: 90,
     render: (val) => (
-      <span className="orders-status-pill">{String(val ?? "")}</span>
+      <span
+        className={`orders-status-pill orders-status-pill--${String(val ?? "").toLowerCase()}`}
+      >
+        {String(val ?? "").charAt(0) + String(val ?? "").slice(1).toLowerCase()}
+      </span>
     ),
   },
 ];
 
-export default function OrdersTable() {
+export default function OrdersTable({
+  initialSearch = "",
+}: {
+  /** Pre-filled search, e.g. a customer's phone from the Customers screen. */
+  initialSearch?: string;
+}) {
   const router = useRouter();
   const { modal, message } = App.useApp();
+  const { user } = useAuth();
+  // The API only lets a manager or above cancel a bill.
+  const canCancel = isAtLeastManager(user?.role);
   const { effectiveShopCode } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
@@ -151,18 +186,40 @@ export default function OrdersTable() {
   const shopKey = effectiveShopCode || defaultShop;
   const filterKey = `${shopKey}|${debouncedSearch}|${refreshNonce}`;
 
+  const [exporting, setExporting] = useState(false);
+  /** Exports every order matching the current search (not just the visible page). */
+  const exportOrders = useCallback(async () => {
+    if (!shopKey) return;
+    setExporting(true);
+    try {
+      const { fetchAllPages, downloadOrdersExcel } = await import("@/lib/listExports");
+      const q = searchRef.current.trim();
+      const { rows, capped } = await fetchAllPages<OrderRow>("/orders", { q });
+      if (rows.length === 0) {
+        message.info("No orders to export.");
+        return;
+      }
+      await downloadOrdersExcel(rows, shopKey, q);
+      if (capped) message.warning(`Export limited to the first ${rows.length} orders.`);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Could not export orders.");
+    } finally {
+      setExporting(false);
+    }
+  }, [shopKey, message]);
+
   const confirmDelete = useCallback(
     (row: OrderRow) => {
-      const ref = row.billNo || (row.id ? orderIdToInvoiceRef(row.id) : "this order");
+      const ref = row.id ? billRefOf(row) : "this order";
       modal.confirm({
-        title: "Delete this order?",
-        okText: "Delete order",
+        title: "Cancel this bill?",
+        okText: "Cancel bill",
         okButtonProps: { danger: true },
-        cancelText: "Cancel",
+        cancelText: "Keep bill",
         content: (
           <div>
             <p style={{ margin: 0 }}>
-              You are about to permanently delete bill{" "}
+              You are about to cancel bill{" "}
               <strong>{ref}</strong>
               {row.customerName?.trim() ? (
                 <>
@@ -173,8 +230,9 @@ export default function OrdersTable() {
               .
             </p>
             <p style={{ marginTop: 8, marginBottom: 0 }}>
-              This will remove the order and all of its line items from your
-              sales history. This action <strong>cannot be undone</strong>.
+              The items go back into stock and the bill is excluded from sales
+              reports. The bill number stays in your invoice series, marked as
+              cancelled. This <strong>cannot be undone</strong>.
             </p>
           </div>
         ),
@@ -187,11 +245,13 @@ export default function OrdersTable() {
             const msg =
               typeof payload?.message === "string"
                 ? payload.message
-                : "Could not delete the order. Please try again.";
+                : res.status === 403
+                  ? "Only a manager or admin can cancel bills."
+                  : "Could not cancel the bill. Please try again.";
             message.error(msg);
             throw new Error(msg);
           }
-          message.success("Order deleted");
+          message.success("Bill cancelled");
           setRefreshNonce((n) => n + 1);
         },
       });
@@ -209,12 +269,13 @@ export default function OrdersTable() {
         align: "center",
         render: (_, row) => {
           const r = row as OrderRow;
+          if (r.status === "CANCELLED" || !canCancel) return null;
           return (
             <button
               type="button"
               className={styles.deleteBtn}
-              aria-label="Delete order"
-              title="Delete order"
+              aria-label="Cancel bill"
+              title="Cancel bill"
               onClick={(e) => {
                 e.stopPropagation();
                 confirmDelete(r);
@@ -226,7 +287,7 @@ export default function OrdersTable() {
         },
       },
     ],
-    [confirmDelete],
+    [confirmDelete, canCancel],
   );
 
   const fetchFn = useMemo(() => {
@@ -262,12 +323,20 @@ export default function OrdersTable() {
         <Input
           className={styles.searchInput}
           allowClear
-          placeholder="Search customer name, phone, or order id…"
+          placeholder="Search customer name, phone, or bill no…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           prefix={<Search className="h-4 w-4 text-[var(--bistre-400)]" aria-hidden />}
           aria-label="Search orders"
         />
+        <Button
+          icon={<Download className="h-4 w-4" aria-hidden />}
+          loading={exporting}
+          onClick={() => void exportOrders()}
+          className="shrink-0"
+        >
+          Export
+        </Button>
       </div>
       <div className={styles.tableSlot}>
         <DataTable

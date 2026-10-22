@@ -1,69 +1,104 @@
 @import "tailwindcss";
 
 /* Calcutta Sweets - Brand Color Palette */
+/*
+ * Calcutta Sweets - "Espresso, Gold & Burgundy" palette
+ * Dark espresso chrome carries the gold logo; burgundy is the action colour;
+ * neutrals are a warm ink scale over an ivory canvas so white cards lift off.
+ * Variable names are kept from the earlier bistre/linen/ochre palette so every
+ * module that references them picks up the new look automatically.
+ */
 :root {
-  /* Bistre - Dark brown scale (text, dark backgrounds, UI) */
-  --bistre-950: #1a110c;
-  /* Deepest brown / near-black - headings, primary text */
-  --bistre-900: #231810;
-  /* Near-black warm */
-  --bistre-800: #2c1810;
-  /* Espresso - primary dark */
-  --bistre-700: #3d2818;
-  /* Dark brown */
-  --bistre-600: #4e3420;
-  /* Medium dark */
-  --bistre-500: #6b4a30;
-  /* Muted text */
-  --bistre-400: #8a6b4a;
-  /* Secondary text */
-  --bistre-300: #a88b6a;
-  /* Tertiary / placeholder */
-  --bistre-200: #c5ad94;
-  /* Disabled / borders */
-  --bistre-100: #e2d5c8;
-  /* Light borders */
+  /*
+   * Calcutta Sweets - operations palette.
+   * Clean neutrals for long working sessions, one brand accent (deep copper from the
+   * logo) for actions/selection, and status colours that never compete with it.
+   */
+
+  /* Ink - neutral scale (text, icons, borders) */
+  --bistre-950: #18181b;
+  --bistre-900: #27272a;
+  --bistre-800: #3f3f46;
+  --bistre-700: #52525b;
+  --bistre-600: #52525b;
+  --bistre-500: #5f5f69;
+  --bistre-400: #71717a;
+  --bistre-300: #a1a1aa;
+  --bistre-200: #d4d4d8;
+  --bistre-100: #e4e4e7;
   --bistre: var(--bistre-800);
-  /* Alias */
-  --bistre-80: rgba(44, 24, 16, 0.8);
-  --bistre-60: rgba(44, 24, 16, 0.6);
-  --bistre-50: rgba(44, 24, 16, 0.5);
+  --bistre-80: rgba(24, 24, 27, 0.8);
+  --bistre-60: rgba(24, 24, 27, 0.6);
+  --bistre-50: rgba(24, 24, 27, 0.5);
 
-  /* Linen - Cream/off-white (light backgrounds) */
-  --linen: #faf0e6;
-  --linen-100: #f9f8f7;
-  --linen-95: #f5ebe0;
-  --linen-90: #f0e6db;
-  --linen-80: #ebe0d5;
+  /* Canvas & subtle fills (neutral stone, a touch warm) */
+  --linen: #f7f7f6;
+  --linen-100: #fbfbfa;
+  --linen-95: #f7f7f6;
+  --linen-90: #f0f0ee;
+  --linen-80: #e7e7e4;
 
-  /* Ochre / Terracotta - CTA, accents, highlights */
-  --ochre-600: #a67c23;
-  /* Dark - active state, pressed */
-  --ochre-500: #c9932d;
-  /* Primary CTA */
-  --ochre-400: #d4a84b;
-  /* Hover state */
-  --ochre-300: #e0bc6d;
-  /* Light accent */
-  --ochre-200: #ecd18f;
-  /* Muted / outlined buttons */
-  --ochre-100: #f5e6c4;
-  /* Subtle background */
-  --ochre-50: rgba(201, 147, 45, 0.5);
-  --ochre-20: rgba(201, 147, 45, 0.2);
-  --ochre-10: rgba(201, 147, 45, 0.1);
-  --ochre-2: rgba(201, 147, 45, 0.02);
+  /* Copper - brand accent from the logo: CTA, links, selection (500 on white = 5.5:1) */
+  --ochre-800: #5c2b0c;
+  --ochre-700: #74360f;
+  --ochre-600: #8f4218;
+  --ochre-500: #a84f1c;
+  --ochre-400: #c8773a;
+  --ochre-300: #e0a27a;
+  --ochre-200: #f3d2bc;
+  --ochre-100: #fdf1e8;
+  --ochre-50: #fef8f3;
+  --ochre-20: rgba(168, 79, 28, 0.2);
+  --ochre-10: rgba(168, 79, 28, 0.1);
+  --ochre-2: rgba(168, 79, 28, 0.02);
   --ochre: var(--ochre-500);
   --ochre-light: var(--ochre-400);
   --ochre-dark: var(--ochre-600);
 
-  /* Parchment / Pearl Bush - Subtle backgrounds */
-  --parchment: #f1e9d9;
-  --pearl-bush: #e8e2d9;
+  /* Highlight aliases (previously gold) now follow the brand accent */
+  --gold-300: var(--ochre-300);
+  --gold-400: var(--ochre-400);
+  --gold-500: var(--ochre-500);
+  --gold-700: var(--ochre-600);
+  --gold-100: var(--ochre-100);
+  --gold-50: var(--ochre-50);
+
+  /* Ink aliases (previously the dark espresso chrome) */
+  --espresso-950: var(--bistre-950);
+  --espresso-900: var(--bistre-900);
+  --espresso-800: var(--bistre-800);
+  --espresso-text: var(--bistre-700);
+  --espresso-muted: var(--bistre-400);
+  --espresso-line: var(--border);
+
+  /* Subtle surface / hairline border */
+  --parchment: #fbfbfa;
+  --pearl-bush: #e6e6e3;
+
+  /* Surfaces & elevation */
+  --surface: #ffffff;
+  --surface-subtle: #fbfbfa;
+  --border: #e6e6e3;
+  --border-strong: #d4d4d1;
+  /* Flat by default: borders do the separating, shadow only for overlays */
+  --shadow-xs: 0 1px 0 rgba(24, 24, 27, 0.03);
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-md: 0 1px 2px rgba(24, 24, 27, 0.06), 0 10px 24px -14px rgba(24, 24, 27, 0.2);
+  --ring: 0 0 0 3px rgba(168, 79, 28, 0.18);
+
+  /* Status (paid / in stock, low stock, cancelled / out of stock, informational) */
+  --success: #15803d;
+  --success-bg: #dcfce7;
+  --warning: #a16207;
+  --warning-bg: #fef9c3;
+  --danger: #b91c1c;
+  --danger-bg: #fee2e2;
+  --info: #1d4ed8;
+  --info-bg: #dbeafe;
 
   /* Semantic - Text */
   --text-primary: var(--bistre-950);
-  --text-secondary: var(--bistre-500);
+  --text-secondary: var(--bistre-700);
   --text-muted: var(--bistre-400);
   --text-disabled: var(--bistre-300);
 
@@ -125,6 +160,10 @@
   --color-cta-muted: var(--cta-muted);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -183,7 +222,7 @@ a:where(:any-link):active {
 /* Custom scrollbars - slim, cream/gold aesthetic */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--bistre-200) var(--linen-95);
+  scrollbar-color: var(--bistre-200) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -192,7 +231,7 @@ a:where(:any-link):active {
 }
 
 *::-webkit-scrollbar-track {
-  background: var(--linen-95);
+  background: transparent;
   border-radius: 4px;
 }
 
@@ -209,12 +248,66 @@ a:where(:any-link):active {
   background: var(--ochre-400);
 }
 
-/* Ant Design Table - header column separators (match Tabulator / Orders) */
 .ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell {
   border-inline-end: none;
-  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
+  box-shadow: inset -1px 0 0 var(--border);
 }
 
 .ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell:last-child {
   box-shadow: none;
+}
+
+/* Tabular figures everywhere numbers are compared (amounts, quantities) */
+body {
+  font-feature-settings: "cv11", "ss01";
+}
+
+.tabular-nums,
+.ant-table-cell,
+.ant-statistic-content {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--ochre-200);
+  color: var(--bistre-950);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ochre-400);
+  outline-offset: 2px;
+}
+
+.ant-btn {
+  box-shadow: none !important;
+}
+
+/* Surfaces are separated by hairlines, not floating shadows */
+.ant-card {
+  box-shadow: none !important;
+  border-color: var(--border) !important;
+}
+
+/* Dense tables: tighter rows, sentence-case headers */
+.ant-table-wrapper .ant-table-thead > tr > th.ant-table-cell {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--text-muted) !important;
+}
+
+.ant-dropdown .ant-dropdown-menu,
+.ant-select-dropdown {
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid var(--border);
+}
+
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--surface-subtle) !important;
+}
+
+.ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
 }

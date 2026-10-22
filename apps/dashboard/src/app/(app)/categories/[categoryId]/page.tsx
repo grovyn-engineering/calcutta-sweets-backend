@@ -17,11 +17,13 @@ import { Printer } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { CategoryProductsTabulator } from "@/components/CategoryProductsTabulator/CategoryProductsTabulator";
+import { CategoryProductsTable } from "@/components/CategoryProductsTable/CategoryProductsTable";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import useFetch from "@/hooks/useFetch";
 import { apiFetch, getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 import { useShop } from "@/contexts/ShopContext";
 
 import styles from "./page.module.css";
@@ -45,6 +47,11 @@ function isCategoryDetail(data: unknown): data is CategoryDetail {
 
 export default function CategoryDetailPage() {
   const { message } = App.useApp();
+  const { user } = useAuth();
+  // Categories are shared by every shop; the API lets only a super admin rename or delete one.
+  const canEditCategory = user?.role === "SUPER_ADMIN";
+  // Adding a product sets its price and opening stock: manager or above only (API agrees).
+  const canAddProduct = isAtLeastManager(user?.role);
   const params = useParams();
   const categoryId = typeof params.categoryId === "string" ? params.categoryId : "";
   const router = useRouter();
@@ -332,22 +339,27 @@ export default function CategoryDetailPage() {
           >
             Print barcodes
           </Button>
-          <Button onClick={openEdit}>Rename</Button>
-          <Popconfirm
-            title="Delete this category?"
-            description="Products will be uncategorized; they are not deleted."
-            onConfirm={onDelete}
-            okText="Delete"
-            cancelText="Cancel"
-            okButtonProps={{ loading: deleteSubmitting }}
-          >
-            <Button danger loading={deleteSubmitting}>
-              Delete
-            </Button>
-          </Popconfirm>
+          {canEditCategory && (
+            <>
+              <Button onClick={openEdit}>Rename</Button>
+              <Popconfirm
+                title="Delete this category?"
+                description="Products will be uncategorized; they are not deleted."
+                onConfirm={onDelete}
+                okText="Delete"
+                cancelText="Cancel"
+                okButtonProps={{ loading: deleteSubmitting }}
+              >
+                <Button danger loading={deleteSubmitting}>
+                  Delete
+                </Button>
+              </Popconfirm>
+            </>
+          )}
         </div>
       </header>
 
+      {canAddProduct && (
       <section className={styles.panel} aria-label="Add product">
         <p className={styles.sectionLabel}>Add product</p>
         <Form
@@ -447,13 +459,14 @@ export default function CategoryDetailPage() {
           </Form.Item>
         </Form>
       </section>
+      )}
 
       <section
         className={`${styles.panel} ${styles.panelProducts}`}
         aria-label="Products in category"
       >
         <p className={styles.sectionLabel}>Products in this shop</p>
-        <CategoryProductsTabulator
+        <CategoryProductsTable
           categoryId={categoryId}
           refreshKey={detailVersion}
           onOpenVariant={onOpenVariant}

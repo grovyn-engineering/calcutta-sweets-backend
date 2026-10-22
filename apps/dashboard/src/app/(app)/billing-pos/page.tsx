@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Drawer, Tabs, Tooltip } from "antd";
+import { Button, Drawer, Segmented, Tabs, Tooltip } from "antd";
 import { Bluetooth, Receipt, ScanBarcode } from "lucide-react";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { BarcodeScannerInput } from "@/components/BarcodeScannerInput/BarcodeScannerInput";
@@ -17,7 +17,6 @@ import {
   type BillItem,
   type BillingCustomerBinding,
   type BillingPosCheckoutApi,
-  type ManualSaleCustomer,
 } from "@/components/BillingBillPanel/BillingBillPanel";
 import {
   BillingPosRawSection,
@@ -34,10 +33,16 @@ import {
   billLineSubtotal,
   computeInstantStockDeduction,
   defaultInstantDisplay,
+  sizeLabel,
 } from "@/lib/billingInstantPricing";
 import { isLikelyAndroidForRawBt } from "@/lib/rawBtPrint";
+import { apiFetch } from "@/lib/api";
 import { useShop } from "@/contexts/ShopContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { CUSTOMER_PHONE_EDIT_ROLES } from "@/lib/customerFields";
 import styles from "./page.module.css";
+
+const POS_DRAFT_KEY_PREFIX = "calcutta_pos_draft:";
 
 const inrCompact = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -61,6 +66,7 @@ function variantRowToBillItem(row: BillingVariantRow): BillItem {
     inventoryUnit: inv,
     imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
     isInstant: false,
+    availableStock: row.stock,
   };
 }
 
@@ -87,6 +93,65 @@ export default function BillingPOSPage() {
     null
   );
 
+  // A restored cart's stock figures date from when each line was added; fetch the
+  // current on-hand amount so the low-stock warning reflects stock as it is now.
+  const refreshLineStock = useCallback((lines: BillItem[]) => {
+    const ids = [
+      ...new Set(lines.filter((l) => !l.isRaw && l.availableStock != null).map((l) => l.variantId)),
+    ];
+    if (ids.length === 0) return;
+    void Promise.all(
+      ids.map((id) =>
+        apiFetch(`/inventory/variants/${id}`)
+          .then((r) => (r.ok ? (r.json() as Promise<{ quantity?: number | string }>) : null))
+          .then((v) => (v?.quantity != null ? ([id, Number(v.quantity)] as const) : null))
+          .catch(() => null),
+      ),
+    ).then((rows) => {
+      const fresh = new Map(rows.filter((r) => r != null));
+      if (fresh.size === 0) return;
+      setBillItems((prev) =>
+        prev.map((l) =>
+          fresh.has(l.variantId) ? { ...l, availableStock: fresh.get(l.variantId) } : l,
+        ),
+      );
+    });
+  }, []);
+
+  // Keep the sale in progress if the cashier leaves the POS page or reloads (per tab and
+  // shop; sessionStorage, so a stale cart never shows up in another tab or on another day).
+  const draftKey = `${POS_DRAFT_KEY_PREFIX}${shopCode}`;
+  const [draftShop, setDraftShop] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!shopCode || draftShop === shopCode) return;
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      const draft = raw
+        ? (JSON.parse(raw) as { items?: BillItem[]; customer?: CustomerFormValues | null })
+        : null;
+      if (Array.isArray(draft?.items) && draft.items.length > 0) {
+        setBillItems(draft.items);
+        refreshLineStock(draft.items);
+      }
+      if (draft?.customer) setCustomer(draft.customer);
+    } catch {
+      // Storage blocked or draft unreadable: start with an empty sale.
+    }
+    // Saving starts on the next render, once the restored lines are in state.
+    setDraftShop(shopCode);
+  }, [shopCode, draftKey, draftShop, refreshLineStock]);
+
+  useEffect(() => {
+    if (!shopCode || draftShop !== shopCode) return;
+    try {
+      if (billItems.length === 0 && !customer) sessionStorage.removeItem(draftKey);
+      else sessionStorage.setItem(draftKey, JSON.stringify({ items: billItems, customer }));
+    } catch {
+      // Storage full or blocked: the sale still works, it just won't survive navigation.
+    }
+  }, [shopCode, draftKey, draftShop, billItems, customer]);
+
   useLayoutEffect(() => {
     const el = billingShellRef.current;
     if (!el) return;
@@ -99,6 +164,9 @@ export default function BillingPOSPage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const { user } = useAuth();
+  const canEditCustomerPhone = CUSTOMER_PHONE_EDIT_ROLES.includes(user?.role ?? "");
 
   const customerBinding: BillingCustomerBinding = {
     customer,
@@ -114,6 +182,37 @@ export default function BillingPOSPage() {
   const mergeLine = useCallback((line: BillItem) => {
     setBillItems((prev) => {
       if (line.isRaw) {
+        return [...prev, { ...line }];
+      }
+      if (line.isInstant) {
+        // Repeat Add on an untouched instant line of the same item and unit bumps it;
+        // a line the cashier has edited (custom weight/unit) is kept as its own line.
+        const target = [...prev]
+          .reverse()
+          .find(
+            (i) =>
+              i.isInstant &&
+              !i.instantEdited &&
+              i.variantId === line.variantId &&
+              i.displayUnit === line.displayUnit
+          );
+        if (target) {
+          const q = target.displayQuantity + line.displayQuantity;
+          return prev.map((i) =>
+            i.lineId === target.lineId
+              ? {
+                  ...i,
+                  displayQuantity: q,
+                  stockUnitsToDeduct: computeInstantStockDeduction(
+                    sizeLabel(i.variantLabel, i.name),
+                    i.inventoryUnit,
+                    q,
+                    i.displayUnit
+                  ),
+                }
+              : i
+          );
+        }
         return [...prev, { ...line }];
       }
       if (!line.isInstant) {
@@ -157,9 +256,10 @@ export default function BillingPOSPage() {
           catalogPrice,
           barcode,
           imageUrl,
+          stock: availableStock,
         } = pick.selectedCatalogItem;
         const stock = computeInstantStockDeduction(
-          variantName,
+          sizeLabel(variantName, productName),
           inventoryUnit,
           pick.quantity,
           pick.unit
@@ -170,7 +270,7 @@ export default function BillingPOSPage() {
           productId,
           name: productName,
           variantLabel: variantName,
-          barcode: barcode || "—",
+          barcode: barcode || "-",
           catalogUnitPrice: catalogPrice,
           stockUnitsToDeduct: stock,
           displayQuantity: pick.quantity,
@@ -178,6 +278,7 @@ export default function BillingPOSPage() {
           inventoryUnit,
           imageUrl: imageUrl ?? null,
           isInstant: true,
+          availableStock,
         });
       } else {
         mergeLine({
@@ -186,7 +287,7 @@ export default function BillingPOSPage() {
           productId: "raw-line",
           name: pick.itemName,
           variantLabel: "Regular",
-          barcode: "—",
+          barcode: "-",
           catalogUnitPrice: pick.unitPrice,
           stockUnitsToDeduct: pick.quantity,
           displayQuantity: pick.quantity,
@@ -203,12 +304,13 @@ export default function BillingPOSPage() {
   const addInstantLine = useCallback(
     (row: BillingVariantRow) => {
       const inv = row.unit ?? "PC";
+      const label = sizeLabel(row.variantName, row.productName);
       const { displayQuantity, displayUnit } = defaultInstantDisplay(
-        row.variantName,
+        label,
         inv
       );
       const stock = computeInstantStockDeduction(
-        row.variantName,
+        label,
         inv,
         displayQuantity,
         displayUnit
@@ -227,6 +329,7 @@ export default function BillingPOSPage() {
         inventoryUnit: inv,
         imageUrl: row.imageUrl ?? row.images?.[0]?.url ?? null,
         isInstant: true,
+        availableStock: row.stock,
       });
     },
     [mergeLine]
@@ -248,7 +351,7 @@ export default function BillingPOSPage() {
         prev.map((i) => {
           if (i.lineId !== lineId || !i.isInstant) return i;
           const stock = computeInstantStockDeduction(
-            i.variantLabel,
+            sizeLabel(i.variantLabel, i.name),
             i.inventoryUnit,
             q,
             u
@@ -258,6 +361,7 @@ export default function BillingPOSPage() {
             displayQuantity: q,
             displayUnit: u,
             stockUnitsToDeduct: stock,
+            instantEdited: true,
           };
         })
       );
@@ -314,18 +418,6 @@ export default function BillingPOSPage() {
     [billItems]
   );
 
-  const manualSaleCustomer = useMemo((): ManualSaleCustomer | null => {
-    if (!billItems.some((i) => i.isRaw)) return null;
-    const n = rawBillForm.customerName.trim();
-    if (!n) return null;
-    return {
-      name: n,
-      gstin: rawBillForm.includeCustomerGstin
-        ? rawBillForm.customerGstin.trim() || null
-        : null,
-    };
-  }, [billItems, rawBillForm]);
-
   if (!shopCode) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4">
@@ -348,6 +440,8 @@ export default function BillingPOSPage() {
     onInstantLineUpdate: updateInstantLine,
     onSaleComplete: () => {
       clearSale();
+      // Next bill starts as walk-in so the previous customer is never carried over.
+      setCustomer(null);
       setRawBillForm(RAW_BILL_FORM_INITIAL);
       setBillingStockRefreshKey((k) => k + 1);
       setBillDrawerOpen(false);
@@ -355,8 +449,6 @@ export default function BillingPOSPage() {
     orderId: "draft" as const,
     customerBinding,
     hideAddCustomerInPanel: stackedBillingLayout,
-    manualSaleCustomer,
-    rawBillForm,
     onCheckoutApi: setCheckoutApi,
   };
 
@@ -367,12 +459,23 @@ export default function BillingPOSPage() {
     >
       <div className={`${styles.billingLayout} min-h-0`}>
         <div className={styles.billingMain}>
-          <div className="mb-1 flex items-center gap-3">
-            <h1 className="text-xl font-bold text-[var(--bistre-950)] m-0 leading-none">Billing POS</h1>
+          {/* Title and billing mode on one line; the mode switch replaces the old tab strip */}
+          <div className={styles.posHeader}>
+            <h1 className="m-0 leading-none">Billing POS</h1>
+            <Segmented<"standard" | "instant" | "raw">
+              value={billingTab}
+              onChange={setBillingTab}
+              options={[
+                { label: "Standard", value: "standard" },
+                { label: "Instant", value: "instant" },
+                { label: "Raw", value: "raw" },
+              ]}
+              aria-label="Billing mode"
+            />
           </div>
-          
+
           {billingTab === "standard" ? (
-            <div className="shrink-0 mb-2">
+            <div className="shrink-0">
               <BarcodeScannerInput onAddProduct={addRowManual} />
             </div>
           ) : null}
@@ -381,6 +484,7 @@ export default function BillingPOSPage() {
             className={`${styles.billingModeTabs} min-h-0 flex-1`}
             activeKey={billingTab}
             onChange={(k) => setBillingTab(k as "standard" | "instant" | "raw")}
+            renderTabBar={() => <span hidden />}
             items={[
               {
                 key: "standard",
@@ -424,8 +528,9 @@ export default function BillingPOSPage() {
                     formValues={rawBillForm}
                     onFormChange={setRawBillForm}
                     onAddLine={addRawBillLine}
-                    showToolbarAddCustomer={stackedBillingLayout}
-                    onToolbarAddCustomer={openCustomerDetails}
+                    customer={customer}
+                    onEditCustomer={openCustomerDetails}
+                    onRemoveCustomer={() => setCustomer(null)}
                     showSaleCheckoutHint={stackedBillingLayout}
                     checkoutApi={checkoutApi}
                     showCheckoutButtons={false}
@@ -518,6 +623,8 @@ export default function BillingPOSPage() {
         open={customerDetailsOpen}
         onCancel={() => setCustomerDetailsOpen(false)}
         initialValues={customer ?? undefined}
+        customerId={customer?.id}
+        canEditPhone={canEditCustomerPhone}
         onSave={(values) => setCustomer(values)}
       />
     </div>

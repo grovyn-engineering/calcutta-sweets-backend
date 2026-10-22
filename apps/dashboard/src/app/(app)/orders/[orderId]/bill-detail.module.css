@@ -15,8 +15,7 @@
 .linesSectionTitle {
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--bistre-700);
 }
 
@@ -33,8 +32,8 @@
   border: 1px solid var(--pearl-bush);
   background: rgba(255, 254, 249, 0.55);
   box-shadow:
-    0 1px 2px rgba(44, 24, 16, 0.04),
-    0 1px 3px rgba(44, 24, 16, 0.06);
+    0 1px 2px rgba(24, 24, 27, 0.04),
+    0 1px 3px rgba(24, 24, 27, 0.06);
   overflow: hidden;
 }
 
@@ -45,92 +44,7 @@
   background: transparent;
 }
 
-.lineItemsTableHost :global(.tabulator) {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-primary);
-  background: transparent;
-}
-
 /* Read-only bill: no row selection / gold hover rail (DataTable default "highlight") */
-.lineItemsTableHost :global(.tabulator .tabulator-row) {
-  min-height: 52px !important;
-  border-bottom: none !important;
-  transition: background-color 0.15s ease;
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row.tabulator-selectable:hover) {
-  background: transparent !important;
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row.tabulator-selectable:hover::after) {
-  display: none !important;
-  content: none !important;
-}
-
-.lineItemsTableHost :global(.tableWrapper .tabulator .tabulator-header) {
-  background: #ffffff !important;
-  backdrop-filter: none !important;
-  border-bottom: 1px solid rgba(44, 24, 16, 0.1) !important;
-  border-radius: 12px 12px 0 0;
-  box-shadow: none !important;
-  color: var(--bistre-800) !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  font-size: 11px !important;
-  user-select: none;
-}
-
-.lineItemsTableHost :global(.tableWrapper .tabulator .tabulator-header .tabulator-col) {
-  background: transparent !important;
-  border-right: none !important;
-  box-shadow: none !important;
-  padding: 0.85rem 1rem !important;
-  transition: none;
-}
-
-.lineItemsTableHost
-  :global(.tableWrapper .tabulator .tabulator-header .tabulator-col:hover) {
-  background: transparent !important;
-}
-
-.lineItemsTableHost
-  :global(.tableWrapper .tabulator .tabulator-header .tabulator-col-content) {
-  padding: 0 !important;
-}
-
-@media (max-width: 500px) {
-  .lineItemsTableHost
-    :global(.tableWrapper .tabulator .tabulator-header .tabulator-col) {
-    padding: 0.65rem 0.75rem !important;
-  }
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row .tabulator-cell) {
-  padding: 0.75rem 0.65rem !important;
-  border-right: none !important;
-  border-bottom: 1px solid rgba(232, 226, 217, 0.85) !important;
-  vertical-align: middle;
-  background: transparent !important;
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row:nth-child(odd) .tabulator-cell) {
-  background: var(--linen-100) !important;
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row:nth-child(even) .tabulator-cell) {
-  background: #fffef9 !important;
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row:last-child .tabulator-cell) {
-  border-bottom: none !important;
-}
-
-.lineItemsTableHost :global(.tabulator .tabulator-row:hover .tabulator-cell) {
-  filter: none;
-  background: rgba(255, 250, 235, 0.65) !important;
-}
 
 .lineItemProductCol {
   align-items: flex-start !important;
@@ -247,7 +161,7 @@
   }
 
   .linesFooterMeta,
-  .linesFooterGrand {
+.linesFooterGrand {
     flex: 1 1 auto;
     max-width: none;
     text-align: right;
@@ -255,7 +169,7 @@
 
   .linesFooterGrand {
     font-size: 1.25rem;
-    border-top: 1px dashed rgba(166, 124, 35, 0.25);
+    border-top: 1px dashed rgba(143, 66, 24, 0.25);
     padding-top: 0.5rem;
     margin-top: 0.15rem;
   }

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -49,8 +50,8 @@ export class StockTransfersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.findOne(id, req.effectiveShopCode!);
   }
 
   @Patch(':id/approve')

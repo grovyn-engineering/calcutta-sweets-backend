@@ -1,8 +1,8 @@
 "use client";
 
-import { App, Button, Input, Modal } from "antd";
+import { App, Button, Dropdown, Input, Segmented } from "antd";
 import { Search } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useMemo,
@@ -27,8 +27,12 @@ import {
 import { openPrintableBarcodes } from "@/lib/printBarcodes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShop } from "@/contexts/ShopContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 import {
   Copy,
+  Download,
+  MoreHorizontal,
   Pencil,
   Printer,
   PackagePlus,
@@ -60,9 +64,19 @@ const inr = new Intl.NumberFormat("en-IN", {
 const PAGE_SIZE = 40;
 const PAGE_SIZE_OPTIONS = [10, 25, 40, 50];
 
-export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?: string }) {
-  const { message } = App.useApp();
+type StockFilter = "all" | "low";
+
+export default function InventoryTable({
+  shopCodeOverride,
+  initialLowStock = false,
+}: {
+  shopCodeOverride?: string;
+  /** Start on the low-stock list (e.g. from the dashboard's "Low or out of stock" tile). */
+  initialLowStock?: boolean;
+}) {
+  const { message, modal } = App.useApp();
   const router = useRouter();
+  const pathname = usePathname();
   const { effectiveShopCode, shops, shopsLoading } = useShop();
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
 
@@ -76,6 +90,22 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const debouncedSearch = useDebouncedValue(searchQuery, 500);
   const searchRef = useRef(debouncedSearch);
   searchRef.current = debouncedSearch;
+  const [stockFilter, setStockFilter] = useState<StockFilter>(
+    initialLowStock ? "low" : "all",
+  );
+  const stockFilterRef = useRef(stockFilter);
+  stockFilterRef.current = stockFilter;
+
+  const changeStockFilter = useCallback(
+    (next: StockFilter) => {
+      setStockFilter(next);
+      // Keep the URL shareable / back-button friendly without a full navigation.
+      router.replace(next === "low" ? `${pathname}?filter=low-stock` : pathname, {
+        scroll: false,
+      });
+    },
+    [router, pathname],
+  );
 
   const [printItems, setPrintItems] = useState<BarcodePrintItem[]>([]);
   const [printModalOpen, setPrintModalOpen] = useState(false);
@@ -83,6 +113,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const [refillModalOpen, setRefillModalOpen] = useState(false);
   const [cloneCatalogBusy, setCloneCatalogBusy] = useState(false);
   const [purgeCatalogBusy, setPurgeCatalogBusy] = useState(false);
+  const { user: authUser } = useAuth();
   const [deleteSelectedBusy, setDeleteSelectedBusy] = useState(false);
 
   const selectionRef = useRef<Set<string>>(new Set());
@@ -90,7 +121,33 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
   const pageRowsRef = useRef<InventoryRow[]>([]);
 
   const shopKey = shopCodeOverride || effectiveShopCode || getEffectiveShopCodeForHeader() || defaultShop;
-  const filterKey = `${shopKey}|${debouncedSearch}`;
+  const filterKey = `${shopKey}|${debouncedSearch}|${stockFilter}`;
+
+  const [exporting, setExporting] = useState(false);
+  /** Exports every SKU matching the current search and All / Low stock filter. */
+  const handleExport = useCallback(async () => {
+    if (!shopKey) return;
+    setExporting(true);
+    try {
+      const { fetchAllPages, downloadInventoryExcel } = await import("@/lib/listExports");
+      const lowStock = stockFilterRef.current === "low";
+      const { rows, capped } = await fetchAllPages<InventoryRow>("/inventory/variants", {
+        q: searchRef.current.trim(),
+        lowStock: lowStock ? "1" : undefined,
+        shopCode: shopKey,
+      });
+      if (rows.length === 0) {
+        message.info(lowStock ? "Nothing is low on stock." : "No SKUs to export.");
+        return;
+      }
+      await downloadInventoryExcel(rows, shopKey, lowStock);
+      if (capped) message.warning(`Export limited to the first ${rows.length} SKUs.`);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Could not export inventory.");
+    } finally {
+      setExporting(false);
+    }
+  }, [shopKey, message]);
 
   const handlePrintSingle = useCallback((item: BarcodePrintItem) => {
     setPrintItems([item]);
@@ -308,6 +365,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
       u.searchParams.set("size", String(pageSize));
       const q = searchRef.current.trim();
       if (q) u.searchParams.set("q", q);
+      if (stockFilterRef.current === "low") u.searchParams.set("lowStock", "1");
       if (shopKey) u.searchParams.set("shopCode", shopKey);
       return fetch(u.toString(), {
         headers: { ...getAuthHeaders(), Accept: "application/json" },
@@ -326,11 +384,12 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
 
   const handleCloneCatalogFromFactory = useCallback(() => {
     if (!shopKey || isFactory) return;
-    Modal.confirm({
-      title: "Copy full catalog from Factory?",
+    modal.confirm({
+      title: "Copy the factory catalog?",
       content:
-        "This shop will get the same products, categories, prices, and barcodes (CS…) as the factory. You can run it again safely. Large catalogs may take several minutes — keep this tab open.",
+        "Adds the factory's products, categories, prices and barcodes to this shop. Items that already exist are updated, not duplicated, so it is safe to run again. Large catalogs can take a few minutes, so keep this tab open.",
       okText: "Start copy",
+      cancelText: "Cancel",
       width: 480,
       onOk: async () => {
         setCloneCatalogBusy(true);
@@ -373,22 +432,30 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         }
       },
     });
-  }, [shopKey, isFactory, message]);
+  }, [shopKey, isFactory, message, modal]);
 
   const handlePurgeShopCatalog = useCallback(() => {
     if (!shopKey || isFactory) return;
-    Modal.confirm({
+    modal.confirm({
       title: "Delete all products for this shop?",
       content:
-        "This permanently removes every product, variant, and stock record for the shop you have selected in the header, and deletes all POS orders for that location. Shared categories used by other shops stay; categories that become empty are removed. This cannot be undone.",
+        "This permanently removes every product, variant, and stock record for the shop you have selected in the header. Orders and bills are kept (they are tax records), and shared categories stay. This cannot be undone.",
       okText: "Delete everything",
       okType: "danger",
       cancelText: "Cancel",
       width: 520,
       onOk: async () => {
+        const typed = window.prompt(`Type the shop code "${shopKey}" to confirm`);
+        if (typed?.trim() !== shopKey) {
+          message.warning("Shop code did not match. Nothing was deleted.");
+          return;
+        }
         setPurgeCatalogBusy(true);
         try {
-          const res = await apiFetch("/inventory/purge-shop-catalog", { method: "POST" });
+          const res = await apiFetch("/inventory/purge-shop-catalog", {
+            method: "POST",
+            body: JSON.stringify({ confirmShopCode: shopKey }),
+          });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
             message.error(typeof data?.message === "string" ? data.message : "Could not delete catalog.");
@@ -403,7 +470,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         }
       },
     });
-  }, [shopKey, isFactory, message]);
+  }, [shopKey, isFactory, message, modal]);
 
   const handlePrintAllFiltered = useCallback(async () => {
     if (!shopKey) return;
@@ -445,7 +512,7 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
     if (!shopKey || isFactory) return;
     const ids = [...selectionRef.current];
     if (ids.length === 0) { message.warning("Select at least one row using the checkboxes."); return; }
-    Modal.confirm({
+    modal.confirm({
       title: `Delete ${ids.length} selected variant(s)?`,
       content: "POS order lines for these variants are removed. Products with no variants left are deleted; empty categories may be removed. This cannot be undone.",
       okText: "Delete selected",
@@ -483,80 +550,24 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
         }
       },
     });
-  }, [shopKey, isFactory, message]);
+  }, [shopKey, isFactory, message, modal]);
 
   return (
     <div className={styles.root}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Inventory</h1>
-        </div>
+      {/* Row 1: title + everyday actions; rare/destructive shop actions live under "More". */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="m-0 text-2xl font-bold leading-none text-[var(--bistre-950)]">Inventory</h1>
 
-        <div className="flex flex-1 items-center justify-end gap-2 min-w-[300px] flex-wrap">
-          <Input
-            id="inventory-search"
-            size="large"
-            className="max-w-[260px] rounded-lg"
-            allowClear
-            placeholder="Search…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
-          />
-          {!shopsLoading && !isFactory && (
-            <Button
-              type="primary"
-              size="large"
-              className="rounded-lg font-semibold"
-              style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
-              icon={<PackagePlus size={16} />}
-              onClick={() => setRefillModalOpen(true)}
-            >
-              Request Refill
-            </Button>
-          )}
-          {!shopsLoading && !isFactory && (
-            <Button
-              type="default"
-              size="large"
-              className="rounded-lg"
-              icon={<Copy size={16} />}
-              loading={cloneCatalogBusy}
-              onClick={() => handleCloneCatalogFromFactory()}
-            >
-              Copy Factory
-            </Button>
-          )}
-          {!shopsLoading && !isFactory && (
-            <Button
-              danger
-              type="primary"
-              size="large"
-              className="rounded-lg font-semibold shadow-sm"
-              icon={<Trash2 size={16} />}
-              loading={purgeCatalogBusy}
-              onClick={() => handlePurgeShopCatalog()}
-            >
-              Delete All
-            </Button>
-          )}
-          {!shopsLoading && !isFactory && (
-            <Button
-              danger
-              type="primary"
-              size="large"
-              className="rounded-lg font-semibold shadow-sm"
-              icon={<Trash2 size={16} />}
-              loading={deleteSelectedBusy}
-              disabled={selectionRef.current.size === 0}
-              onClick={() => void handleDeleteSelected()}
-            >
-              Delete {selectionRef.current.size > 0 ? `(${selectionRef.current.size})` : ""}
-            </Button>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
-            type="default"
-            size="large"
+            className="rounded-lg"
+            icon={<Download size={16} />}
+            onClick={() => void handleExport()}
+            loading={exporting}
+          >
+            {stockFilter === "low" ? "Export low stock" : "Export"}
+          </Button>
+          <Button
             className="rounded-lg"
             icon={<Printer size={16} />}
             onClick={handlePrintAllFiltered}
@@ -564,7 +575,92 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           >
             Print Barcodes
           </Button>
+          {!shopsLoading && !isFactory && (
+            <>
+              <Button
+                type="primary"
+                className="font-medium"
+                icon={<PackagePlus size={16} />}
+                onClick={() => setRefillModalOpen(true)}
+              >
+                Request Refill
+              </Button>
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: [
+                    {
+                      key: "copy",
+                      icon: <Copy size={16} />,
+                      label: "Copy factory catalog",
+                      disabled: cloneCatalogBusy,
+                    },
+                    ...(authUser?.role === "SUPER_ADMIN"
+                      ? [
+                          { type: "divider" as const },
+                          {
+                            key: "purge",
+                            icon: <Trash2 size={16} />,
+                            label: "Delete all products",
+                            danger: true,
+                            disabled: purgeCatalogBusy,
+                          },
+                        ]
+                      : []),
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === "copy") handleCloneCatalogFromFactory();
+                    if (key === "purge") handlePurgeShopCatalog();
+                  },
+                }}
+              >
+                <Button
+                  aria-label="More inventory actions"
+                  icon={<MoreHorizontal size={16} />}
+                  loading={cloneCatalogBusy || purgeCatalogBusy}
+                />
+              </Dropdown>
+            </>
+          )}
         </div>
+      </div>
+
+      {/* Row 2: filters on the left; bulk delete appears only once rows are selected. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--pearl-bush)] pb-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <Segmented<StockFilter>
+            aria-label="Stock filter"
+            options={[
+              { label: "All SKUs", value: "all" },
+              { label: "Low stock", value: "low" },
+            ]}
+            value={stockFilter}
+            onChange={changeStockFilter}
+          />
+          <Input
+            id="inventory-search"
+            // Fixed width (inline: antd's wrapper ignored the responsive class and went full width).
+            style={{ width: 320, maxWidth: "100%" }}
+            className="rounded-lg"
+            allowClear
+            placeholder="Search product, variant or barcode"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
+          />
+        </div>
+        {!shopsLoading && !isFactory && isAtLeastManager(authUser?.role) && selectionRef.current.size > 0 && (
+          <Button
+            danger
+            type="primary"
+            className="font-medium"
+            icon={<Trash2 size={16} />}
+            loading={deleteSelectedBusy}
+            onClick={() => void handleDeleteSelected()}
+          >
+            Delete selected ({selectionRef.current.size})
+          </Button>
+        )}
       </div>
 
       <div className={styles.tableSlot}>
@@ -582,8 +678,12 @@ export default function InventoryTable({ shopCodeOverride }: { shopCodeOverride?
           onVisibleRowsChange={(rows) => {
             pageRowsRef.current = rows as InventoryRow[];
           }}
-          emptyTitle="No stock found"
-          emptyDescription="Inventory from the Factory will appear here once products are added or transferred."
+          emptyTitle={stockFilter === "low" ? "Nothing needs restocking" : "No stock found"}
+          emptyDescription={
+            stockFilter === "low"
+              ? "Every SKU is above its minimum stock level."
+              : "Inventory from the Factory will appear here once products are added or transferred."
+          }
           emptyIcon={<PackageSearch size={28} strokeWidth={1.35} aria-hidden />}
         />
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { paymentLabel as sharedPaymentLabel } from "@/lib/payments";
 import {
   App,
   Button,
@@ -47,13 +48,13 @@ import {
   type ReportsExportPayload,
 } from "@/lib/reportsExport";
 import { antTableOverflowComponents } from "@/components/AntTableOverflowCell/AntTableOverflowCell";
-import ReportsOrdersTabulator from "@/components/ReportsOrdersTabulator/ReportsOrdersTabulator";
+import ReportsOrdersTable from "@/components/ReportsOrdersTable/ReportsOrdersTable";
 
 const { Text, Title } = Typography;
 
 type ReportsPayload = {
   days: number;
-  /** New value each successful summary fetch — use to remount charts. */
+  /** New value on each successful summary fetch, used to remount charts. */
   generatedAt: string;
   bucket: "day" | "month";
   range: { start: string; end: string };
@@ -68,12 +69,11 @@ type ReportsPayload = {
 };
 
 function paymentLabel(raw: string) {
-  if (raw === "CASH") return "Cash";
-  if (raw === "UPI_CARD") return "UPI / Card";
-  return raw || "Other";
+  return sharedPaymentLabel(raw, "Other");
 }
 
-const PIE_COLORS = ["#c9932d", "#6b4a30", "#8b7355", "#a67c23", "#4e3420"];
+/* Copper (brand), teal, blue, mustard, slate - distinct hues, readable on white */
+const PIE_COLORS = ["#a84f1c", "#0f766e", "#2563eb", "#ca8a04", "#64748b"];
 
 /** Presets for rolling window reports (API clamps days to 7–180). */
 const REPORT_QUICK_DAY_PRESETS = [7, 30, 90, 180] as const;
@@ -280,7 +280,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
           <Text className="text-[var(--text-secondary)] text-xs sm:text-sm">
             {embedded
               ? "Deep-dive analytics: payment behavior, top products, and searchable order history."
-              : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use UTC dates."}
+              : "Sales trends, payment mix, top products, and searchable order history. Daily buckets use IST dates."}
           </Text>
           <Text
             className="mt-2 block text-xs text-[var(--bistre-600)]"
@@ -557,7 +557,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                         data={barData}
                         margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--pearl-bush)" />
+                        <CartesianGrid vertical={false} stroke="var(--pearl-bush)" />
                         <XAxis
                           dataKey="label"
                           interval="preserveStartEnd"
@@ -578,7 +578,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                           contentStyle={{
                             borderRadius: 10,
                             borderColor: "var(--pearl-bush)",
-                            background: "#fffef9",
+                            background: "#ffffff",
                           }}
                           formatter={(value, name) => {
                             if (name === "revenue")
@@ -653,7 +653,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
                           contentStyle={{
                             borderRadius: 10,
                             borderColor: "var(--pearl-bush)",
-                            background: "#fffef9",
+                            background: "#ffffff",
                           }}
                           formatter={(value, _name, item) => {
                             const o = item?.payload as {
@@ -737,7 +737,7 @@ export default function ReportsHome({ variant = "full" }: ReportsHomeProps) {
               Click a row to open bill details. Same data as the Orders list.
             </Text>
             <div className="max-h-[550px]">
-              <ReportsOrdersTabulator />
+              <ReportsOrdersTable />
             </div>
           </Card>
         </>

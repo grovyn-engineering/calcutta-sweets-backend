@@ -1,16 +1,18 @@
 "use client";
 
+import { paymentLabel } from "@/lib/payments";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { Receipt } from "lucide-react";
 import { DataTable, type AppTableColumn } from "@/components/DataTable/DataTable";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { formatInrFull } from "@/lib/chartFormat";
-import { orderIdToInvoiceRef } from "@/lib/printInvoice";
+import { billRefOf } from "@/lib/printInvoice";
 
 type OrderRow = {
   id: string;
   billNo?: string | null;
+  legacyBillRef?: string | null;
   createdAt: string;
   paymentMethod: string;
   totalAmount: number;
@@ -21,6 +23,8 @@ type OrderRow = {
 };
 
 const PAGE_SIZE = 20;
+
+const CANCELLED_STYLE = { textDecoration: "line-through", opacity: 0.6 } as const;
 
 const columns: AppTableColumn[] = [
   {
@@ -46,11 +50,20 @@ const columns: AppTableColumn[] = [
     label: "Bill ref",
     field: "id",
     width: 108,
-    render: (val, row: any) => (
-      <span className="orders-bill-ref">
-        {row.billNo ? row.billNo : (val ? orderIdToInvoiceRef(String(val)) : "-")}
-      </span>
-    ),
+    render: (val, row: any) => {
+      // Same marking as the Orders list, so a cancelled bill isn't read as a sale.
+      const cancelled = row.status === "CANCELLED";
+      return (
+        <span
+          className="orders-bill-ref"
+          style={cancelled ? CANCELLED_STYLE : undefined}
+          title={cancelled ? "Cancelled" : undefined}
+        >
+          {val ? billRefOf({ ...row, id: String(val) }) : "-"}
+          {cancelled ? " (cancelled)" : ""}
+        </span>
+      );
+    },
   },
   {
     key: "paymentMethod",
@@ -61,9 +74,13 @@ const columns: AppTableColumn[] = [
       const raw = String(val ?? "");
       if (raw === "CASH")
         return <span className="orders-pay-pill orders-pay-pill--cash">Cash</span>;
-      if (raw === "UPI_CARD")
-        return <span className="orders-pay-pill orders-pay-pill--upi">UPI / Card</span>;
-      return <span className="orders-pay-pill">{raw || "-"}</span>;
+      if (raw)
+        return (
+          <span className="orders-pay-pill orders-pay-pill--upi">
+            {paymentLabel(raw)}
+          </span>
+        );
+      return <span className="orders-pay-pill">-</span>;
     },
   },
   {
@@ -75,7 +92,13 @@ const columns: AppTableColumn[] = [
       const r = row as OrderRow;
       return (
         <div>
-          <div className="orders-cust-name">{r.customerName?.trim() || "Walk-in"}</div>
+          {/* `orders-cust-name` is styled only inside OrdersTable, so truncate here too. */}
+          <div
+            className="orders-cust-name max-w-[200px] truncate"
+            title={r.customerName?.trim() || undefined}
+          >
+            {r.customerName?.trim() || "Walk-in"}
+          </div>
           {r.customerPhone ? (
             <div className="orders-cust-phone">{r.customerPhone}</div>
           ) : null}
@@ -96,11 +119,15 @@ const columns: AppTableColumn[] = [
     field: "totalAmount",
     width: 100,
     align: "right",
-    render: (val) => formatInrFull(Number(val) || 0),
+    render: (val, row) => (
+      <span style={(row as OrderRow).status === "CANCELLED" ? CANCELLED_STYLE : undefined}>
+        {formatInrFull(Number(val) || 0)}
+      </span>
+    ),
   },
 ];
 
-export default function ReportsOrdersTabulator() {
+export default function ReportsOrdersTable() {
   const router = useRouter();
 
   const fetchFn = useMemo(() => {

@@ -251,7 +251,9 @@ export function RefillRequestModal({
               Qty
             </label>
             <InputNumber
-              min={1}
+              min={0.001}
+              step={1}
+              precision={3}
               value={qty}
               onChange={(v) => setQty(v ?? 1)}
               className="w-full"
@@ -274,7 +276,7 @@ export function RefillRequestModal({
 
         {lines.length > 0 && (
           <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--linen-95)]">
-            <div className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[var(--bistre-400)] border-b border-[var(--pearl-bush)]">
+            <div className="px-4 py-2 text-xs font-medium text-[var(--bistre-400)] border-b border-[var(--pearl-bush)]">
               Items to request ({lines.length})
             </div>
             <ul className="divide-y divide-[var(--pearl-bush)]">
@@ -292,7 +294,8 @@ export function RefillRequestModal({
                     </p>
                   </div>
                   <InputNumber
-                    min={1}
+                    min={0.001}
+                    precision={3}
                     value={line.quantity}
                     onChange={(v) =>
                       handleUpdateQty(line.barcode, v ?? 1)

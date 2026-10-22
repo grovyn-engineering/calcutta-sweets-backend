@@ -1,11 +1,12 @@
 "use client";
 
-import { App, Button, Card, Col, Row, Spin, Typography } from "antd";
+import { App, Button, Card, Col, Dropdown, Row, Spin, Typography } from "antd";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useShop } from "@/contexts/ShopContext";
-import { apiFetch } from "@/lib/api";
-import { formatInrFull } from "@/lib/chartFormat";
+import { apiFetchLong, isRequestTimeout, REQUEST_TIMEOUT_MESSAGE } from "@/lib/api";
+import { formatInrFull, istDayOffset } from "@/lib/chartFormat";
 
 const { Text, Title } = Typography;
 
@@ -29,11 +30,9 @@ export type GstSummaryPayload = {
   taxInferred: boolean;
 };
 
-function utcMonthNow(): string {
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
+/** Current IST month (`YYYY-MM`); GST months are IST calendar months on the API. */
+function istMonthNow(): string {
+  return istDayOffset(0).slice(0, 7);
 }
 
 function fmt(n: number): string {
@@ -60,34 +59,57 @@ export default function GstSummaryPanel({
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
   const shopKey = effectiveShopCode || defaultShop;
 
-  const [month, setMonth] = useState(utcMonthNow);
+  const [month, setMonth] = useState(istMonthNow);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<GstSummaryPayload | null>(null);
 
   const load = useCallback(async () => {
-    if (!shopKey) return;
+    if (!shopKey || loading) return;
     if (!/^\d{4}-\d{2}$/.test(month)) {
       message.warning("Pick a month (YYYY-MM).");
       return;
     }
     setLoading(true);
     try {
-      const res = await apiFetch(
+      const res = await apiFetchLong(
         `/analytics/gst-summary?month=${encodeURIComponent(month)}`,
       );
       if (!res.ok) {
-        throw new Error((await res.text()) || res.statusText);
+        const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+        throw new Error(
+          typeof body?.message === "string" ? body.message : res.statusText,
+        );
       }
       setData((await res.json()) as GstSummaryPayload);
     } catch (e) {
       setData(null);
       message.error(
-        e instanceof Error ? e.message : "Could not load GST summary.",
+        isRequestTimeout(e)
+          ? `GST report: ${REQUEST_TIMEOUT_MESSAGE}`
+          : e instanceof Error
+            ? e.message
+            : "Could not load GST summary.",
       );
     } finally {
       setLoading(false);
     }
-  }, [shopKey, month, message]);
+  }, [shopKey, month, message, loading]);
+
+  const [exporting, setExporting] = useState(false);
+  const exportReport = async (format: "xlsx" | "pdf") => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      // Loaded on demand so exceljs/jspdf stay out of the page bundle.
+      const { downloadGstExcel, downloadGstPdf } = await import("@/lib/listExports");
+      if (format === "xlsx") await downloadGstExcel(data);
+      else downloadGstPdf(data);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Could not export GST summary.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (shopKey) {
@@ -96,8 +118,8 @@ export default function GstSummaryPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopKey]);
 
-  const sgstMid = data ? `${data.sgstRate.toFixed(1)}%` : "—";
-  const cgstMid = data ? `${data.cgstRate.toFixed(1)}%` : "—";
+  const sgstMid = data ? `${data.sgstRate.toFixed(1)}%` : "-";
+  const cgstMid = data ? `${data.cgstRate.toFixed(1)}%` : "-";
 
   if (!shopKey) {
     return (
@@ -124,7 +146,8 @@ export default function GstSummaryPanel({
             use this shop&apos;s CGST/SGST. Interstate IGST is not modeled.
           </Text>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
+        {/* Month, Get report and Export stay on one row; the block never shrinks to wrap. */}
+        <div className="flex shrink-0 flex-wrap items-end gap-2 sm:flex-nowrap">
           <div>
             <Text className="mb-1 block text-xs text-[var(--text-secondary)]">
               Month
@@ -139,6 +162,20 @@ export default function GstSummaryPanel({
           <Button type="primary" onClick={() => void load()} loading={loading}>
             Get report
           </Button>
+          <Dropdown
+            disabled={!data || loading}
+            menu={{
+              items: [
+                { key: "xlsx", label: "Excel (.xlsx)" },
+                { key: "pdf", label: "PDF" },
+              ],
+              onClick: ({ key }) => void exportReport(key as "xlsx" | "pdf"),
+            }}
+          >
+            <Button icon={<Download size={16} />} loading={exporting}>
+              Export
+            </Button>
+          </Dropdown>
         </div>
       </div>
 

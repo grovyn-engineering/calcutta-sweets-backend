@@ -104,8 +104,8 @@
   border-radius: 999px !important;
   border: 1px solid rgba(60, 42, 33, 0.09) !important;
   box-shadow:
-    0 1px 3px rgba(44, 24, 16, 0.045),
-    0 1px 1px rgba(44, 24, 16, 0.025) !important;
+    0 1px 3px rgba(24, 24, 27, 0.045),
+    0 1px 1px rgba(24, 24, 27, 0.025) !important;
 }
 
 .manualSearch:global(.ant-input-affix-wrapper-focused),
@@ -174,8 +174,8 @@
   color: #3c2a21 !important;
   background: #ffffff !important;
   box-shadow:
-    0 1px 3px rgba(44, 24, 16, 0.04),
-    0 1px 1px rgba(44, 24, 16, 0.02);
+    0 1px 3px rgba(24, 24, 27, 0.04),
+    0 1px 1px rgba(24, 24, 27, 0.02);
 }
 
 .customerIconBtn:global(.ant-btn):hover {
@@ -204,7 +204,7 @@
   display: none !important;
 }
 
-.tabulatorInner {
+.tableSlot {
   flex: 0 0 auto;
   min-width: 0;
   display: flex;
@@ -216,7 +216,7 @@
   -ms-overflow-style: none;
 }
 
-.tabulatorInner::-webkit-scrollbar {
+.tableSlot::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
   display: none !important;
@@ -244,235 +244,6 @@
   width: 0 !important;
   height: 0 !important;
   display: none !important;
-}
-
-.tabulatorInner :global(.tabulator) {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: transparent;
-  border: none;
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header) {
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--pearl-bush);
-  background: linear-gradient(180deg,
-      var(--linen-95) 0%,
-      var(--parchment) 100%);
-  font-weight: 700;
-  color: var(--bistre-600);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-header-contents) {
-  padding: 0.35rem 0;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
-  padding: 0.5rem 0.45rem !important;
-  border-right: none;
-  background: transparent;
-  box-shadow: inset -1px 0 0 rgba(92, 64, 38, 0.14);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child) {
-  box-shadow: none;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:first-child) {
-  padding-left: 0.85rem !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child) {
-  padding-right: 0.85rem !important;
-}
-
-@media (min-width: 640px) {
-  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
-    padding: 0.55rem 0.6rem !important;
-  }
-
-  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:first-child) {
-    padding-left: 0.85rem !important;
-  }
-
-  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col:last-child) {
-    padding-right: 0.85rem !important;
-  }
-}
-
-@media (max-width: 500px) {
-  .tabulatorInner :global(.tabulator .tabulator-header .tabulator-col) {
-    padding: 6px 6px !important;
-  }
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
-  padding: 0.45rem 0.45rem !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell.billing-pos-product-cell) {
-  align-items: flex-start !important;
-  align-self: stretch;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:first-child) {
-  padding-left: 0.85rem !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
-  padding-right: 0.85rem !important;
-}
-
-@media (min-width: 640px) {
-  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
-    padding: 0.5rem 0.6rem !important;
-  }
-
-  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:first-child) {
-    padding-left: 0.85rem !important;
-  }
-
-  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
-    padding-right: 0.85rem !important;
-  }
-}
-
-@media (max-width: 500px) {
-  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
-    padding: 6px 6px !important;
-  }
-}
-
-.tabulatorInner :global(.tabulator .tabulator-col) {
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-col .tabulator-col-sorter) {
-  color: var(--bistre-400);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-footer) {
-  flex-shrink: 0;
-  border-top: 1px solid var(--pearl-bush);
-  background: var(--linen-95);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  padding: 0.45rem 0.6rem !important;
-  justify-content: space-between !important;
-  gap: 0.75rem !important;
-  flex-wrap: wrap !important;
-}
-
-@media (min-width: 640px) {
-  .tabulatorInner :global(.tabulator .tabulator-footer) {
-    padding: 0.5rem 0.75rem !important;
-  }
-}
-
-.tabulatorInner :global(.tabulator .tabulator-footer .tabulator-page) {
-  border-radius: 6px;
-  border: 1px solid var(--bistre-100);
-  background: var(--linen-100);
-  color: var(--bistre-700);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-footer .tabulator-page.active) {
-  background: var(--ochre-100);
-  border-color: var(--ochre-400);
-  color: var(--ochre-700);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-tableholder),
-.tableScrollShell :global(.tabulator .tabulator-tableholder) {
-  flex: 1 1 auto;
-  min-height: 0;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-tableholder .tabulator-table) {
-  font-size: 0.875rem;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-tableholder)::-webkit-scrollbar,
-.tableScrollShell :global(.tabulator .tabulator-tableholder)::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
-}
-
-.tabulatorInner :global(.tableWrapper .tabulator .tabulator-row) {
-  min-height: 44px !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row) {
-  border-bottom: 1px solid var(--pearl-bush);
-  background: transparent;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row.tabulator-row-even),
-.tabulatorInner :global(.tabulator .tabulator-row.tabulator-row-odd) {
-  background: transparent;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row:hover) {
-  background: var(--ochre-2);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
-  padding: 0.45rem 0.45rem;
-  border-right: none;
-  vertical-align: middle;
-}
-
-@media (min-width: 640px) {
-  .tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell) {
-    padding: 0.5rem 0.6rem;
-  }
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell.billing-pos-col-barcode) {
-  overflow: visible;
-  text-overflow: clip;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell.billing-pos-thumb-cell) {
-  justify-content: center !important;
-  align-items: center !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-header .tabulator-col.billing-pos-thumb-cell) {
-  display: inline-flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-row .tabulator-cell:last-child) {
-  border-right: none;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-placeholder) {
-  padding: 2.5rem 1rem;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.tabulatorInner :global(.tabulator .tabulator-alert) {
-  border: none;
-  background: var(--linen-95);
-}
-
-.tabulatorInner :global(.tabulator .tabulator-alert .tabulator-alert-msg),
-.tabulatorInner :global(.tabulator .tabulator-alert .tabulator-alert-msg.tabulator-alert-state-msg) {
-  color: var(--bistre-600);
-  font-size: 0.8125rem;
 }
 
 .wrap :global(.billing-pos-product-stack) {
@@ -525,7 +296,7 @@
 }
 
 .wrap :global(.billing-pos-barcode-wrap .billing-pos-mono) {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -543,23 +314,36 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 1.5rem;
+  height: 1.5rem;
   padding: 0;
-  border-radius: 8px;
-  background: #fffef9;
-  color: var(--bistre-500);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bistre-400);
   cursor: pointer;
+  /* Shown on row hover/focus only, so the list stays calm */
+  opacity: 0;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+    opacity 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.wrap :global(tr:hover .billing-pos-copy-btn),
+.wrap :global(.billing-pos-copy-btn:focus-visible) {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .wrap :global(.billing-pos-copy-btn) {
+    opacity: 1;
+  }
 }
 
 .wrap :global(.billing-pos-copy-btn:hover:not(:disabled)) {
-  border-color: var(--ochre-300);
   color: var(--ochre-600);
-  background: var(--ochre-10);
+  background: var(--ochre-100);
 }
 
 .wrap :global(.billing-pos-copy-btn:disabled) {
@@ -573,13 +357,14 @@
 }
 
 .wrap :global(.billing-pos-add-btn) {
-  padding: 0.25rem 0.55rem;
+  padding: 0.3rem 0.65rem;
+  white-space: nowrap;
   border-radius: 6px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  background: var(--ochre-500);
-  color: #fff;
-  border: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--ochre-600);
+  border: 1px solid var(--ochre-200);
   cursor: pointer;
   transition:
     background 0.15s ease,
@@ -587,7 +372,9 @@
 }
 
 .wrap :global(.billing-pos-add-btn:hover) {
-  background: var(--ochre-600);
+  background: var(--ochre-500);
+  border-color: var(--ochre-500);
+  color: #fff;
 }
 
 .wrap :global(.billing-pos-add-btn:active) {

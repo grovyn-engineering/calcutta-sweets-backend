@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Button, Table, InputNumber, message, Steps, Divider, Space } from 'antd';
 import { Search } from 'lucide-react';
 import { antTableOverflowComponents } from '@/components/AntTableOverflowCell/AntTableOverflowCell';
-import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
+import { apiFetch, getApiBaseUrl, getAuthHeaders } from '@/lib/api';
 
 interface Variant {
   id: string;
@@ -40,16 +40,12 @@ export default function CreateShopWizard({ open, onCancel, onSuccess }: CreateSh
   const fetchFactoryVariants = async (q: string = '') => {
     setTableLoading(true);
     try {
-      const baseUrl = getApiBaseUrl();
-      const url = new URL(`${baseUrl}/inventory/variants`);
-      url.searchParams.set('shopCode', 'FACTORY01'); // Always clone from Factory
-      url.searchParams.set('page', '1');
-      url.searchParams.set('size', '100');
-      if (q) url.searchParams.set('q', q);
+      // Always clone from Factory. The browser base URL is the relative "/api" proxy,
+      // which `new URL()` rejects, so build a relative path instead.
+      const params = new URLSearchParams({ shopCode: 'FACTORY01', page: '1', size: '100' });
+      if (q) params.set('q', q);
 
-      const res = await fetch(url.toString(), {
-          headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`/inventory/variants?${params}`);
       const result = await res.json();
       if (res.ok) {
         setVariants(result.data || []);

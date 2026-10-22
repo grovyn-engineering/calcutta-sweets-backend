@@ -4,6 +4,11 @@ import { App, Button, Drawer, Form, Input, InputNumber, Segmented, Select } from
 import { Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import {
+  priceInputProps,
+  sellingPriceRules,
+  UNIT_OPTIONS,
+} from "@/lib/catalogFields";
 
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -14,6 +19,8 @@ import { PackageSearch, Inbox } from "lucide-react";
 import { ContentSkeleton } from "@/components/ContentSkeleton/ContentSkeleton";
 import { LoadingDots } from "@/components/LoadingDots/LoadingDots";
 import styles from "./ProductsPageContent.module.css";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAtLeastManager } from "@/lib/rolePermissions";
 
 const PAGE_SIZE = 40;
 
@@ -46,6 +53,9 @@ export function ProductsPageContent({
   onRefresh,
 }: Props) {
   const { message } = App.useApp();
+  const { user } = useAuth();
+  // Creating a product sets its price and opening stock: manager or above only (API agrees).
+  const canAddProduct = isAtLeastManager(user?.role);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 500);
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -65,6 +75,7 @@ export function ProductsPageContent({
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+  const createUnit = Form.useWatch("unit", form) as string | undefined;
   const [categoryOptions, setCategoryOptions] = useState<
     { label: string; value: string }[]
   >([]);
@@ -195,7 +206,9 @@ export function ProductsPageContent({
         message.error(
           typeof payload?.message === "string"
             ? payload.message
-            : "Could not create product",
+            : Array.isArray(payload?.message)
+              ? payload.message.join(", ")
+              : "Could not create product",
         );
         return;
       }
@@ -210,30 +223,30 @@ export function ProductsPageContent({
     }
   };
 
-  const showingAll = !hasMore && items.length >= total;
 
   return (
     <div className={styles.root}>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pearl-bush)] pb-4 mb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-[var(--bistre-950)] m-0 leading-none">Products</h1>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--ochre-600)] bg-[var(--ochre-50)] px-2.5 py-1 rounded border border-[var(--ochre-100)] leading-none mt-0.5">
-            {items.length} of {total} {hasMore ? "loaded" : "total"}
-          </span>
+      <header className={styles.header}>
+        <div>
+          <h1>Products</h1>
+          <p className={styles.subtitle}>
+            {hasMore
+              ? `Showing ${items.length} of ${total} products`
+              : `${total} ${total === 1 ? "product" : "products"}`}
+          </p>
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-3 min-w-[300px]">
+        <div className={styles.headerActions}>
           <Input
             allowClear
-            size="large"
-            placeholder="Search products, variants, barcodes…"
+            placeholder="Search products, variants, barcodes"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-[300px] rounded-lg"
-            prefix={<Search size={16} className="text-[var(--text-muted)]" />}
+            className={styles.search}
+            prefix={<Search size={16} className="text-[var(--text-muted)]" aria-hidden />}
+            aria-label="Search products"
           />
           <Segmented<StatusFilter>
-            size="large"
             options={[
               { label: "All", value: "all" },
               { label: "Active", value: "active" },
@@ -241,21 +254,14 @@ export function ProductsPageContent({
             ]}
             value={status}
             onChange={setStatus}
-            className="font-medium p-1 rounded-lg"
-            style={{ backgroundColor: 'rgba(44,24,16,0.03)', border: '1px solid rgba(44,24,16,0.05)' }}
           />
-          <Button
-            type="primary"
-            size="large"
-            icon={<Plus size={16} />}
-            onClick={() => setCreateOpen(true)}
-            style={{ backgroundColor: 'var(--ochre-600)', borderColor: 'var(--ochre-600)' }}
-            className="font-semibold rounded-lg"
-          >
-            New product
-          </Button>
+          {canAddProduct && (
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
+              New product
+            </Button>
+          )}
         </div>
-      </div>
+      </header>
 
       {loadError ? (
         <p className={styles.errorBanner} role="alert">
@@ -330,11 +336,24 @@ export function ProductsPageContent({
             <Input placeholder="e.g., Kaju Katli" />
           </Form.Item>
 
-          <Form.Item name="price" label="Price (₹)" rules={[{ required: true }]}>
+          <Form.Item
+            name="unit"
+            label="Sold by"
+            rules={[{ required: true, message: "Choose how this product is sold" }]}
+            extra="Use KG for sweets sold by weight, PC for pieces or packs. Billing uses this unit."
+          >
+            <Select placeholder="Select unit" options={UNIT_OPTIONS} />
+          </Form.Item>
+
+          <Form.Item
+            name="price"
+            label={`Price (₹)${createUnit ? ` per ${createUnit}` : ""}`}
+            rules={sellingPriceRules}
+          >
             <InputNumber
               className="w-full"
               style={{ width: "100%" }}
-              min={0}
+              {...priceInputProps}
               placeholder="e.g., 200"
             />
           </Form.Item>
@@ -351,13 +370,27 @@ export function ProductsPageContent({
             <Input placeholder="e.g. Regular, 500g (optional)" />
           </Form.Item>
 
-          <Form.Item name="quantity" label="Initial Stock">
+          <Form.Item name="quantity" label={`Initial Stock${createUnit ? ` (${createUnit})` : ""}`}>
             <InputNumber
               className="w-full"
               style={{ width: "100%" }}
               min={0}
+              max={1_000_000}
+              precision={3}
               placeholder="e.g., 100"
             />
+          </Form.Item>
+
+          <Form.Item name="sku" label="SKU" extra="Optional. Must be unique in this shop.">
+            <Input placeholder="e.g. SWT-RAGI-1KG" />
+          </Form.Item>
+
+          <Form.Item
+            name="barcode"
+            label="Barcode"
+            extra="Leave blank to auto-generate. Must be unique in this shop."
+          >
+            <Input placeholder="Auto-generated" />
           </Form.Item>
         </Form>
       </Drawer>

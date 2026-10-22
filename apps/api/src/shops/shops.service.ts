@@ -11,43 +11,47 @@ import { CreateShopDto } from './dto/create-shop.dto';
 import { CreateShopWithInventoryDto } from './dto/create-shop-with-inventory.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
 import { deleteShopAndDependencies } from './shop-delete';
+import { Prisma } from '@calcutta/database';
+import { qty } from '../common/money';
+import { applyStockChange, LONG_TX, nextSequence } from '../common/stock';
+
+/** Matches the dashboard's Tax configuration section (settings/page.tsx `isAtLeastManager`). */
+const TAX_EDITOR_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+];
 
 @Injectable()
 export class ShopsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateBarcode() {
-    const lastShop = await this.prisma.shop.findFirst({
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    let nextNumber = 1;
-
-    if (lastShop?.shopCode) {
-      const lastNumber = parseInt(lastShop.shopCode.replace('SH', ''));
-      nextNumber = lastNumber + 1;
-    }
-
-    return `SH${nextNumber.toString().padStart(6, '0')}`;
+  /** Next `SH000123` code from a counter (existing codes like `calcutta-main` are ignored). */
+  async generateShopCode(tx?: Prisma.TransactionClient) {
+    const n = await nextSequence(tx ?? this.prisma, 'SHOPCODE');
+    return `SH${n.toString().padStart(6, '0')}`;
   }
 
   async create(createShopDto: CreateShopDto) {
-    const shopCode = await this.generateBarcode();
-    createShopDto.shopCode = shopCode;
-    return this.prisma.shop.create({
-      data: {
-        ...createShopDto,
-        shopCode: shopCode,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const shopCode = await this.generateShopCode(tx);
+      return tx.shop.create({
+        data: {
+          ...createShopDto,
+          shopCode,
+        },
+      });
     });
   }
 
   async createWithInitialInventory(dto: CreateShopWithInventoryDto) {
-    const shopCode = dto.shopCode || (await this.generateBarcode());
-
     return this.prisma.$transaction(async (tx) => {
+      const shopCode = dto.shopCode || (await this.generateShopCode(tx));
+      const factory = await tx.shop.findFirst({
+        where: { isFactory: true },
+        orderBy: { createdAt: 'asc' },
+        select: { shopCode: true },
+      });
       // 1. Create the new Shop
       const newShop = await tx.shop.create({
         data: {
@@ -61,15 +65,21 @@ export class ShopsService {
         return newShop;
       }
 
-      // 2. Clone inventory items
+      if (!factory) {
+        throw new BadRequestException('No factory shop is configured');
+      }
+
+      // 2. Clone inventory items: stock physically moves out of the factory.
       for (const item of dto.initialInventory) {
-        // Find source variant and its parent product
-        const sourceVariant = await tx.productVariant.findUnique({
-          where: { id: item.variantId },
+        const sourceVariant = await tx.productVariant.findFirst({
+          where: { id: item.variantId, shopCode: factory.shopCode },
           include: { product: true },
         });
-
-        if (!sourceVariant) continue;
+        if (!sourceVariant) {
+          throw new BadRequestException(
+            `Variant ${item.variantId} is not in the factory inventory`,
+          );
+        }
 
         // Check if the product already exists in the new shop (by name)
         let targetProduct = await tx.product.findFirst({
@@ -92,31 +102,41 @@ export class ShopsService {
           });
         }
 
-        // Create the variant in the new shop
-        await tx.productVariant.create({
+        const created = await tx.productVariant.create({
           data: {
             productId: targetProduct.id,
+            shopCode: newShop.shopCode,
             name: sourceVariant.name,
             price: sourceVariant.price,
             costPrice: sourceVariant.costPrice,
             barcode: sourceVariant.barcode,
             sku: sourceVariant.sku,
+            hsnCode: sourceVariant.hsnCode,
+            taxRate: sourceVariant.taxRate,
             unit: sourceVariant.unit,
-            quantity: item.quantity,
+            quantity: 0,
           },
         });
 
-        // Decrement stock from source shop (Physical transfer)
-        await tx.productVariant.update({
-          where: { id: sourceVariant.id },
-          data: {
-            quantity: { decrement: item.quantity },
-          },
+        await applyStockChange(tx, {
+          variantId: sourceVariant.id,
+          shopCode: factory.shopCode,
+          delta: qty(item.quantity).neg(),
+          reason: 'SHOP_SEED',
+          refId: newShop.shopCode,
+          label: `${sourceVariant.product.name} (${sourceVariant.name})`,
+        });
+        await applyStockChange(tx, {
+          variantId: created.id,
+          shopCode: newShop.shopCode,
+          delta: qty(item.quantity),
+          reason: 'SHOP_SEED',
+          refId: factory.shopCode,
         });
       }
 
       return newShop;
-    });
+    }, LONG_TX);
   }
 
   async findAll() {
@@ -157,6 +177,12 @@ export class ShopsService {
 
     if (actor.role !== UserRole.SUPER_ADMIN && Object.keys(data).length === 0) {
       return this.prisma.shop.findUnique({ where: { id } });
+    }
+    // GST rates change every bill, so they are limited to the roles that see Tax configuration.
+    if (!TAX_EDITOR_ROLES.includes(actor.role)) {
+      throw new ForbiddenException(
+        'Only a manager or admin can change GST rates',
+      );
     }
 
     return this.prisma.shop.update({
@@ -209,7 +235,7 @@ export class ShopsService {
       if (msg === 'Shop not found') {
         throw new NotFoundException(`Shop #${id} not found`);
       }
-      if (msg.includes('factory')) {
+      if (msg.includes('factory') || msg.includes('orders')) {
         throw new BadRequestException(msg);
       }
       throw e;

@@ -2,11 +2,10 @@
 
 import { Button, Card, Empty, Input, Spin, Statistic, Table, Typography } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarRange } from "lucide-react";
 
 import { useShop } from "@/contexts/ShopContext";
 import { apiFetch } from "@/lib/api";
-import { chartDayLabel, formatInrFull } from "@/lib/chartFormat";
+import { chartDayLabel, formatInrFull, istDayOffset } from "@/lib/chartFormat";
 
 const { Text } = Typography;
 
@@ -17,13 +16,6 @@ type RevenuePayload = {
   daily: { date: string; revenue: number; orderCount: number }[];
 };
 
-/** UTC calendar day (YYYY-MM-DD) offset from today — matches backend day math. */
-function utcDayOffset(delta: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
 type Preset = "today" | "yesterday" | "last7" | "custom";
 
 export default function RevenueExplorer() {
@@ -31,7 +23,7 @@ export default function RevenueExplorer() {
   const defaultShop = process.env.NEXT_PUBLIC_API_DEFAULT_SHOP_CODE ?? "";
   const shopKey = effectiveShopCode || defaultShop;
 
-  const today = useMemo(() => utcDayOffset(0), []);
+  const today = useMemo(() => istDayOffset(0), []);
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
   const [preset, setPreset] = useState<Preset>("today");
@@ -42,14 +34,14 @@ export default function RevenueExplorer() {
   const applyPreset = useCallback((p: Exclude<Preset, "custom">) => {
     setPreset(p);
     if (p === "today") {
-      setStart(utcDayOffset(0));
-      setEnd(utcDayOffset(0));
+      setStart(istDayOffset(0));
+      setEnd(istDayOffset(0));
     } else if (p === "yesterday") {
-      setStart(utcDayOffset(-1));
-      setEnd(utcDayOffset(-1));
+      setStart(istDayOffset(-1));
+      setEnd(istDayOffset(-1));
     } else {
-      setStart(utcDayOffset(-6));
-      setEnd(utcDayOffset(0));
+      setStart(istDayOffset(-6));
+      setEnd(istDayOffset(0));
     }
   }, []);
 
@@ -86,13 +78,12 @@ export default function RevenueExplorer() {
       className="rounded-xl border border-[var(--pearl-bush)] shadow-sm"
       title={
         <span className="flex items-center gap-2">
-          <CalendarRange className="h-4 w-4 text-[var(--ochre-600)]" aria-hidden />
           Revenue explorer
         </span>
       }
       extra={
         <Text type="secondary" className="text-xs">
-          UTC calendar days
+          IST calendar days
         </Text>
       }
     >
@@ -163,8 +154,8 @@ export default function RevenueExplorer() {
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No data." />
       ) : (
         <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-lg border border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-[var(--border)]">
+            <div className="sm:px-6 sm:first:pl-0">
               <Statistic
                 title={
                   singleDay
@@ -173,17 +164,17 @@ export default function RevenueExplorer() {
                 }
                 value={data.totals.revenue}
                 formatter={(v) => formatInrFull(Number(v))}
-                styles={{ content: { color: "var(--bistre-800)", fontWeight: 700 } }}
+                styles={{ content: { color: "var(--text-primary)", fontWeight: 600 } }}
               />
             </div>
-            <div className="rounded-lg border border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+            <div className="sm:px-6 sm:first:pl-0">
               <Statistic
                 title="Bills"
                 value={data.totals.orderCount}
-                styles={{ content: { color: "var(--bistre-800)", fontWeight: 700 } }}
+                styles={{ content: { color: "var(--text-primary)", fontWeight: 600 } }}
               />
             </div>
-            <div className="rounded-lg border border-[var(--pearl-bush)] bg-[var(--linen-95)] px-4 py-3">
+            <div className="sm:px-6 sm:first:pl-0">
               <Statistic
                 title={data.days === 1 ? "Day" : "Avg / day"}
                 value={
@@ -194,7 +185,7 @@ export default function RevenueExplorer() {
                 formatter={(v) =>
                   data.days === 1 ? "1 day" : formatInrFull(Number(v))
                 }
-                styles={{ content: { color: "var(--bistre-800)", fontWeight: 700 } }}
+                styles={{ content: { color: "var(--text-primary)", fontWeight: 600 } }}
               />
             </div>
           </div>

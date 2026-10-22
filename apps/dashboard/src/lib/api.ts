@@ -1,5 +1,15 @@
 const AUTH_KEY = "calcutta_auth";
 const API_REQUEST_TIMEOUT_MS = 15000;
+/** Reports and other heavy reads; also covers an API waking from a cold start. */
+const API_LONG_REQUEST_TIMEOUT_MS = 60000;
+
+export const REQUEST_TIMEOUT_MESSAGE =
+  "The server took too long to respond. Please try again.";
+
+/** True when a fetch failed because our client-side timeout fired. */
+export function isRequestTimeout(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "TimeoutError";
+}
 
 export const EFFECTIVE_SHOP_STORAGE_KEY = "calcutta_effective_shop";
 
@@ -58,23 +68,16 @@ export function getApiBaseUrl(): string {
   return internal.endsWith("/api") ? internal : `${internal}/api`;
 }
 
-export function getApiBaseUrlLongRunning(): string {
-  if (typeof window === "undefined") {
-    return getApiBaseUrl();
-  }
-  const raw = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
-  if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    const base = raw.replace(/\/+$/, "");
-    return base.endsWith("/api") ? base : `${base}/api`;
-  }
-  return getApiBaseUrl();
-}
-
+/**
+ * Same routing as `apiFetch` (same-origin `/api` proxy, so no CORS), with a longer
+ * client timeout. Vercel's proxy waits up to 120s for the upstream, above this limit.
+ */
 export async function apiFetchLong(
   path: string,
   init: RequestInit = {},
+  timeoutMs: number = API_LONG_REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
-  const base = getApiBaseUrlLongRunning();
+  const base = getApiBaseUrl();
   const pathPart = path.startsWith("/") ? path : `/${path}`;
   const method = (init.method || "GET").toUpperCase();
   const fullUrl = `${base}${pathPart}`;
@@ -95,7 +98,7 @@ export async function apiFetchLong(
     headers.set("Content-Type", "application/json");
   }
 
-  const { nextInit, cleanup } = withRequestTimeout(init);
+  const { nextInit, cleanup } = withRequestTimeout(init, timeoutMs);
   try {
     return await fetch(fullUrl, { ...nextInit, headers });
   } finally {
@@ -128,13 +131,19 @@ function withRequestTimeout(
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Abort with a named reason: a bare abort() surfaces to users as the cryptic
+  // "signal is aborted without reason".
+  const timeoutId = setTimeout(
+    () =>
+      controller.abort(new DOMException(REQUEST_TIMEOUT_MESSAGE, "TimeoutError")),
+    timeoutMs,
+  );
   const upstreamSignal = init.signal;
 
-  const abortFromUpstream = () => controller.abort();
+  const abortFromUpstream = () => controller.abort(upstreamSignal?.reason);
   if (upstreamSignal) {
     if (upstreamSignal.aborted) {
-      controller.abort();
+      controller.abort(upstreamSignal.reason);
     } else {
       upstreamSignal.addEventListener("abort", abortFromUpstream, {
         once: true,

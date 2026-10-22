@@ -36,8 +36,15 @@ export type NativeAndroidBillPayload = {
   cgstAmount: number;
   sgstAmount: number;
   total: number;
+  /** Display label of the mode ("Cash", "UPI", "Card", "Split"). */
   paymentMode: string;
+  /** Bill total settled (sum of payments; excludes change). */
   amountPaid: number;
+  /** Per-mode legs; `mode` is the display label. Omitted for single-mode bills from older callers. */
+  payments?: { mode: string; amount: number }[];
+  /** Cash handed over, and change returned (only when change > 0). */
+  cashTendered?: number;
+  changeDue?: number;
   footerMessage: string;
   footerNote?: string;
   bankAccountNumber: string;
@@ -77,7 +84,7 @@ function waitForPrintResult(timeoutMs: number): Promise<void> {
     const prev = w.onPrintResult;
     const timer = window.setTimeout(() => {
       w.onPrintResult = prev;
-      reject(new Error('Print timed out — check USB printer and permissions.'));
+      reject(new Error('Print timed out. Check the USB printer and permissions.'));
     }, timeoutMs);
     w.onPrintResult = (success, message) => {
       window.clearTimeout(timer);
