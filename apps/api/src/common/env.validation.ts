@@ -37,6 +37,15 @@ export function validateEnv(config: Record<string, unknown>) {
   if (paytmKey && paytmKey.length !== 16)
     errors.push('PAYTM_MERCHANT_KEY must be exactly 16 characters');
 
+  const keepWarmUrl = str('KEEP_WARM_URL');
+  if (keepWarmUrl && keepWarmUrl !== 'off' && !/^https?:\/\//.test(keepWarmUrl))
+    errors.push('KEEP_WARM_URL must be an http(s) URL or "off"');
+  const keepWarmMs = str('KEEP_WARM_INTERVAL_MS');
+  if (keepWarmMs && !(Number(keepWarmMs) >= 1000))
+    errors.push(
+      'KEEP_WARM_INTERVAL_MS must be a number of milliseconds (at least 1000)',
+    );
+
   if (errors.length) {
     throw new Error(`Invalid environment:\n  - ${errors.join('\n  - ')}`);
   }

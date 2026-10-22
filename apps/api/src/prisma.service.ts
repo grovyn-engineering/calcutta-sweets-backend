@@ -28,7 +28,7 @@ function createPgPool(): Pool {
     process.env.DATABASE_CONNECT_TIMEOUT_MS ?? '10000',
     10,
   );
-  return new Pool({
+  const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max,
     idleTimeoutMillis: Number.isFinite(idleTimeoutMillis)
@@ -37,7 +37,19 @@ function createPgPool(): Pool {
     connectionTimeoutMillis: Number.isFinite(connectionTimeoutMillis)
       ? connectionTimeoutMillis
       : 10000,
+    // Detect connections dropped by a network hop instead of hanging on them.
+    keepAlive: true,
   });
+  // Neon closes connections when its compute auto-suspends. pg reports that on idle
+  // clients as a pool 'error' event, and with no listener Node crashes the whole API
+  // (Render then restarts it: a minute of 502s). The pool already discards the dead
+  // client and opens a fresh one on the next query, so logging is all that is needed.
+  pool.on('error', (err) => {
+    console.warn(
+      `Postgres idle client error (pool will reconnect): ${err.message}`,
+    );
+  });
+  return pool;
 }
 
 @Injectable()

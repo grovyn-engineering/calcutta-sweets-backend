@@ -13,7 +13,6 @@ import {
   Plus,
   X,
   Pencil,
-  UserRound,
   CalendarClock,
   ShoppingBag,
   Info,
@@ -52,7 +51,6 @@ import {
   printBillViaNativeAndroid,
   type NativeAndroidBillPayload,
 } from '@/lib/usbPrinter';
-import type { RawBillFormValues } from '@/components/BillingPosRawSection/BillingPosRawSection';
 import {
   buildPlainTextReceiptForRawBt,
   isLikelyAndroidForRawBt,
@@ -101,11 +99,6 @@ export interface BillItem {
   availableStock?: number;
 }
 
-export type ManualSaleCustomer = {
-  name: string;
-  gstin?: string | null;
-};
-
 export type BillingBillPanelLayout = 'sidebar' | 'drawer';
 
 export type PosPaymentMethod = PosPaymentMode;
@@ -149,9 +142,6 @@ export interface BillingBillPanelProps {
   className?: string;
   customerBinding?: BillingCustomerBinding;
   hideAddCustomerInPanel?: boolean;
-  manualSaleCustomer?: ManualSaleCustomer | null;
-  /** Used for raw-tab GSTIN checkbox when building the native thermal payload */
-  rawBillForm?: RawBillFormValues | null;
   /** Register checkout handlers (e.g. Raw billing tab duplicate buttons). */
   onCheckoutApi?: (api: BillingPosCheckoutApi | null) => void;
 }
@@ -181,8 +171,6 @@ export function BillingBillPanel({
   className = '',
   customerBinding,
   hideAddCustomerInPanel = false,
-  manualSaleCustomer = null,
-  rawBillForm = null,
   onCheckoutApi,
 }: BillingBillPanelProps) {
   const { message } = App.useApp();
@@ -403,9 +391,6 @@ export function BillingBillPanel({
   const receiptIframeRef = useRef<HTMLIFrameElement | null>(null);
   const lineCount = items.length;
 
-  const rawManualNameOnBill =
-    items.some((i) => i.isRaw) && Boolean(manualSaleCustomer?.name?.trim());
-
   const buildNativeAndroidBill = (
     billNo: string,
     saved?: SavedBill,
@@ -418,47 +403,15 @@ export function BillingBillPanel({
     const billSgst = saved?.sgstAmount ?? sgstAmount;
     const billDiscount = saved?.discount ?? discount;
     const billIssuedAt = saved?.createdAt ?? (saleDateTime ?? new Date()).toISOString();
-    const hasRaw = items.some((i) => i.isRaw);
-    const hasCatalog = items.some((i) => !i.isRaw);
-    const isMixed = hasRaw && hasCatalog;
     const fallbackAddress = [currentShop?.city, currentShop?.state]
       .filter(Boolean)
       .join(', ');
     const address = shopAddressPrint?.trim() || fallbackAddress || '';
 
-    let customerName: string;
-    let customerPhone: string;
-    let customerGstinVal: string;
-    let showCustomerGstin: boolean;
-
-    if (isMixed) {
-      customerName =
-        customer?.name?.trim() ||
-        manualSaleCustomer?.name?.trim() ||
-        '';
-      customerPhone = customer?.phone?.trim() ?? '';
-      const gstModal = customer?.gstin?.trim() ?? '';
-      const gstRaw =
-        rawBillForm?.includeCustomerGstin
-          ? (rawBillForm.customerGstin?.trim() ?? '')
-          : '';
-      customerGstinVal = gstModal || gstRaw;
-      showCustomerGstin = customerGstinVal.length > 0;
-    } else if (hasRaw) {
-      customerName = manualSaleCustomer?.name?.trim() ?? '';
-      customerPhone = '';
-      customerGstinVal = rawBillForm?.includeCustomerGstin
-        ? (rawBillForm.customerGstin?.trim() ?? '')
-        : '';
-      showCustomerGstin = Boolean(
-        rawBillForm?.includeCustomerGstin && customerGstinVal.length > 0,
-      );
-    } else {
-      customerName = customer?.name?.trim() ?? '';
-      customerPhone = customer?.phone?.trim() ?? '';
-      customerGstinVal = customer?.gstin?.trim() ?? '';
-      showCustomerGstin = customerGstinVal.length > 0;
-    }
+    const customerName = customer?.name?.trim() ?? '';
+    const customerPhone = customer?.phone?.trim() ?? '';
+    const customerGstinVal = customer?.gstin?.trim() ?? '';
+    const showCustomerGstin = customerGstinVal.length > 0;
 
     const taxableBase = Math.max(0, billTotal - billTax);
 
@@ -542,36 +495,6 @@ export function BillingBillPanel({
     const billSgst = saved?.sgstAmount ?? sgstAmount;
     const billDiscount = saved?.discount ?? discount;
     const billIssuedAt = saved?.createdAt ?? (saleDateTime ?? new Date()).toISOString();
-    const hasRaw = items.some((i) => i.isRaw);
-    const hasCatalog = items.some((i) => !i.isRaw);
-    const isMixed = hasRaw && hasCatalog;
-
-    const printCustomer: CustomerFormValues | null = (() => {
-      if (!hasRaw) return customer;
-      if (isMixed) {
-        if (customer?.name?.trim()) return customer;
-        if (manualSaleCustomer?.name?.trim()) {
-          return {
-            name: manualSaleCustomer.name.trim(),
-            phone: customer?.phone?.trim() ?? '',
-            gstin: rawBillForm?.includeCustomerGstin
-              ? rawBillForm.customerGstin?.trim() || undefined
-              : undefined,
-          };
-        }
-        return customer;
-      }
-      return manualSaleCustomer?.name?.trim()
-        ? {
-            name: manualSaleCustomer.name.trim(),
-            phone: customer?.phone?.trim() ?? '',
-            gstin: rawBillForm?.includeCustomerGstin
-              ? rawBillForm.customerGstin?.trim() || undefined
-              : undefined,
-          }
-        : null;
-    })();
-
     const taxableBase = Math.max(0, billTotal - billTax);
 
     return {
@@ -584,7 +507,7 @@ export function BillingBillPanel({
       showGstinOnBill: showGstinOnBill,
       invoiceNo,
       issuedAt: billIssuedAt,
-      customer: printCustomer,
+      customer,
       lines: items.map((i) => {
         const printed = billPrintQuantity(i.displayQuantity, i.displayUnit);
         return {
@@ -670,12 +593,12 @@ export function BillingBillPanel({
           ...(payment.cashTendered != null ? { cashTendered: payment.cashTendered } : {}),
           discount,
           createdAt: saleDateTime ? saleDateTime.toISOString() : undefined,
-          customerName: customer?.name || manualSaleCustomer?.name || undefined,
+          customerName: customer?.name || undefined,
           customerPhone: customer?.phone,
           customerEmail: customer?.email,
           customerAddress: customer?.address,
           customerNotes: customer?.notes,
-          customerGstin: customer?.gstin || (rawBillForm?.includeCustomerGstin ? rawBillForm.customerGstin : undefined),
+          customerGstin: customer?.gstin,
           items: items.map((i) => ({
             variantId: i.isRaw ? undefined : i.variantId,
             customName: i.isRaw ? i.name : undefined,
@@ -841,44 +764,13 @@ export function BillingBillPanel({
         </div>
       ) : null}
 
-      {rawManualNameOnBill && manualSaleCustomer ? (
-        <div className="mx-4 mt-4 shrink-0">
-          <div className="rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
-            <div className="mb-1 flex items-start gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
-                <UserRound className="h-4 w-4" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-[var(--bistre-400)]">
-                  Customer (raw bill)
-                </p>
-                <p className="truncate font-semibold text-[var(--text-primary)]">
-                  {manualSaleCustomer.name.trim()}
-                </p>
-                {manualSaleCustomer.gstin?.trim() ? (
-                  <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
-                    GSTIN {manualSaleCustomer.gstin.trim()}
-                  </p>
-                ) : null}
-                <p className="mt-2 text-[10px] leading-snug text-[var(--text-muted)]">
-                  Edit name and GSTIN on the Raw billing tab. Add full contact with the toolbar
-                  button to include mobile on the printout.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {!rawManualNameOnBill ? (
-        <div className="mx-4 mt-4 shrink-0">
-          <CustomerSelector
-            customer={customer}
-            setCustomer={setCustomer}
-            onOpenDetails={() => setDetailsOpen(true)}
-          />
-        </div>
-      ) : null}
+      <div className="mx-4 mt-4 shrink-0">
+        <CustomerSelector
+          customer={customer}
+          setCustomer={setCustomer}
+          onOpenDetails={() => setDetailsOpen(true)}
+        />
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:py-4">
         {items.length === 0 ? (

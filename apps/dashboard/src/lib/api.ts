@@ -68,24 +68,16 @@ export function getApiBaseUrl(): string {
   return internal.endsWith("/api") ? internal : `${internal}/api`;
 }
 
-export function getApiBaseUrlLongRunning(): string {
-  if (typeof window === "undefined") {
-    return getApiBaseUrl();
-  }
-  const raw = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
-  if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    const base = raw.replace(/\/+$/, "");
-    return base.endsWith("/api") ? base : `${base}/api`;
-  }
-  return getApiBaseUrl();
-}
-
+/**
+ * Same routing as `apiFetch` (same-origin `/api` proxy, so no CORS), with a longer
+ * client timeout. Vercel's proxy waits up to 120s for the upstream, above this limit.
+ */
 export async function apiFetchLong(
   path: string,
   init: RequestInit = {},
   timeoutMs: number = API_LONG_REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
-  const base = getApiBaseUrlLongRunning();
+  const base = getApiBaseUrl();
   const pathPart = path.startsWith("/") ? path : `/${path}`;
   const method = (init.method || "GET").toUpperCase();
   const fullUrl = `${base}${pathPart}`;

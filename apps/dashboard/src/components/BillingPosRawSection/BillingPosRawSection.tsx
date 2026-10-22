@@ -1,12 +1,12 @@
 'use client';
 
 import { App, AutoComplete, Button, Form, Input, InputNumber, Select, Tooltip } from 'antd';
-import { Bluetooth, FileText, Printer, Receipt, X } from 'lucide-react';
+import { Bluetooth, FileText, Printer, Receipt, UserPlus, UserRound, X } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { BillingPosCheckoutApi } from '@/components/BillingBillPanel/BillingBillPanel';
+import type { CustomerFormValues } from '@/components/CustomerDetails';
 import { getApiBaseUrl, getAuthHeaders } from '@/lib/api';
 import { allowedInstantDisplayUnits, sizeLabel } from '@/lib/billingInstantPricing';
-import { CUSTOMER_NAME_MAX_LENGTH } from '@/lib/customerFields';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import styles from './BillingPosRawSection.module.css';
 
@@ -28,9 +28,6 @@ export type RawBillFormValues = {
   unitPrice: number;
   quantity: number;
   unit: string;
-  customerName: string;
-  includeCustomerGstin: boolean;
-  customerGstin: string;
   /** Set when user picks a product from the catalog search. Null = free-form manual line. */
   selectedCatalogItem: SelectedCatalogItem | null;
 };
@@ -40,9 +37,6 @@ export const RAW_BILL_FORM_INITIAL: RawBillFormValues = {
   unitPrice: 0,
   quantity: 1,
   unit: 'PC',
-  customerName: '',
-  includeCustomerGstin: false,
-  customerGstin: '',
   selectedCatalogItem: null,
 };
 
@@ -59,8 +53,11 @@ export type BillingPosRawSectionProps = {
   formValues: RawBillFormValues;
   onFormChange: (next: RawBillFormValues) => void;
   onAddLine: (values: RawLineAddValues) => void;
-  showToolbarAddCustomer?: boolean;
-  onToolbarAddCustomer?: () => void;
+  /** The sale's customer (shared with the sale panel); optional on a raw bill. */
+  customer: CustomerFormValues | null;
+  /** Opens the customer drawer to add or edit the sale's customer. */
+  onEditCustomer: () => void;
+  onRemoveCustomer: () => void;
   showSaleCheckoutHint?: boolean;
   checkoutApi?: BillingPosCheckoutApi | null;
   showCheckoutButtons?: boolean;
@@ -95,8 +92,9 @@ function BillingPosRawSectionInner({
   formValues,
   onFormChange,
   onAddLine,
-  showToolbarAddCustomer,
-  onToolbarAddCustomer,
+  customer,
+  onEditCustomer,
+  onRemoveCustomer,
   showSaleCheckoutHint,
   checkoutApi,
   showCheckoutButtons,
@@ -264,11 +262,6 @@ function BillingPosRawSectionInner({
             </p>
           </div>
         </div>
-        {showToolbarAddCustomer && onToolbarAddCustomer ? (
-          <Button type="default" size="small" onClick={onToolbarAddCustomer}>
-            Full customer…
-          </Button>
-        ) : null}
       </div>
 
       <Form layout="vertical" requiredMark={false} className={styles.form}>
@@ -367,36 +360,6 @@ function BillingPosRawSectionInner({
           </p>
         )}
 
-        <div className={styles.sectionLabel}>Customer on bill</div>
-        <Form.Item label={<span className={styles.label}>Customer name</span>}>
-          <Input
-            placeholder="Shown on printed bill (optional)"
-            value={formValues.customerName}
-            onChange={(e) => patch({ customerName: e.target.value })}
-            maxLength={CUSTOMER_NAME_MAX_LENGTH}
-            showCount
-          />
-        </Form.Item>
-        {/* Always open and optional: printed on the bill only when something is typed. */}
-        <Form.Item label={<span className={styles.label}>Customer GSTIN</span>}>
-          <Input
-            placeholder="Optional, printed on the bill if entered"
-            value={formValues.customerGstin}
-            onChange={(e) => {
-              const customerGstin = e.target.value
-                .toUpperCase()
-                .replace(/[^A-Z0-9]/g, '')
-                .slice(0, 15);
-              patch({
-                customerGstin,
-                includeCustomerGstin: customerGstin.length > 0,
-              });
-            }}
-            maxLength={15}
-            className="font-mono text-sm"
-          />
-        </Form.Item>
-
         <Button
           type="primary"
           className="w-full sm:w-auto"
@@ -413,6 +376,42 @@ function BillingPosRawSectionInner({
         >
           {isCatalogSelected ? 'Add Catalog Item' : 'Add Item for sale'}
         </Button>
+
+        {/* Same customer as the sale panel, so it is saved with the order and printed on the bill. */}
+        <div className={styles.sectionLabel}>Want to add a customer? (Optional)</div>
+        {customer ? (
+          <div className="flex items-start gap-3 rounded-xl border border-[var(--pearl-bush)] bg-[var(--parchment)] px-3 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ochre-100)] text-[var(--ochre-600)]">
+              <UserRound className="h-4 w-4" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-[var(--text-primary)]">{customer.name}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{customer.phone}</p>
+              {customer.gstin?.trim() ? (
+                <p className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
+                  GSTIN {customer.gstin.trim()}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button size="small" onClick={onEditCustomer}>
+                Edit
+              </Button>
+              <Button size="small" danger onClick={onRemoveCustomer}>
+                Remove
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="mb-3 text-xs text-[var(--text-muted)]">
+              The bill prints without a customer. Add one to show their name and GSTIN on it.
+            </p>
+            <Button icon={<UserPlus className="h-4 w-4" aria-hidden />} onClick={onEditCustomer}>
+              Add customer
+            </Button>
+          </div>
+        )}
       </Form>
 
       {showCheckoutButtons && checkoutApi ? (

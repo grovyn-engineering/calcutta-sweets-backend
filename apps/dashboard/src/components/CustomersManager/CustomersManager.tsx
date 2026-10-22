@@ -341,17 +341,18 @@ export default function CustomersManager() {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
-        <div>
+        {/* Fixed bases so the row wraps the controls below the text instead of overflowing */}
+        <div className="min-w-0 flex-1 basis-[24rem]">
           <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Customers</h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
             Saved customers of this shop. Customers are also saved automatically when a
             bill is generated with a phone number.
           </p>
         </div>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="flex w-full max-w-full items-center gap-2 sm:w-[30rem]">
           <Input
             allowClear
-            className="min-w-0 flex-1 sm:w-[320px] sm:flex-none"
+            className="min-w-0 flex-1"
             placeholder="Search name or phone"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

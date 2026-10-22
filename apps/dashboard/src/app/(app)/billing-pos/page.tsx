@@ -17,7 +17,6 @@ import {
   type BillItem,
   type BillingCustomerBinding,
   type BillingPosCheckoutApi,
-  type ManualSaleCustomer,
 } from "@/components/BillingBillPanel/BillingBillPanel";
 import {
   BillingPosRawSection,
@@ -419,18 +418,6 @@ export default function BillingPOSPage() {
     [billItems]
   );
 
-  const manualSaleCustomer = useMemo((): ManualSaleCustomer | null => {
-    if (!billItems.some((i) => i.isRaw)) return null;
-    const n = rawBillForm.customerName.trim();
-    if (!n) return null;
-    return {
-      name: n,
-      gstin: rawBillForm.includeCustomerGstin
-        ? rawBillForm.customerGstin.trim() || null
-        : null,
-    };
-  }, [billItems, rawBillForm]);
-
   if (!shopCode) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4">
@@ -462,8 +449,6 @@ export default function BillingPOSPage() {
     orderId: "draft" as const,
     customerBinding,
     hideAddCustomerInPanel: stackedBillingLayout,
-    manualSaleCustomer,
-    rawBillForm,
     onCheckoutApi: setCheckoutApi,
   };
 
@@ -543,8 +528,9 @@ export default function BillingPOSPage() {
                     formValues={rawBillForm}
                     onFormChange={setRawBillForm}
                     onAddLine={addRawBillLine}
-                    showToolbarAddCustomer={stackedBillingLayout}
-                    onToolbarAddCustomer={openCustomerDetails}
+                    customer={customer}
+                    onEditCustomer={openCustomerDetails}
+                    onRemoveCustomer={() => setCustomer(null)}
                     showSaleCheckoutHint={stackedBillingLayout}
                     checkoutApi={checkoutApi}
                     showCheckoutButtons={false}

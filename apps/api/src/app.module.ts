@@ -19,6 +19,7 @@ import { PublicModule } from './public/public.module';
 import { PaymentModule } from './payment/payment.module';
 import { StockTransfersModule } from './stock-transfers/stock-transfers.module';
 import { validateEnv } from './common/env.validation';
+import { KeepWarmService } from './keep-warm.service';
 
 @Module({
   imports: [
@@ -45,6 +46,6 @@ import { validateEnv } from './common/env.validation';
     StockTransfersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, KeepWarmService],
 })
 export class AppModule {}
